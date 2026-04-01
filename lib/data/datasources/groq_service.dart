@@ -635,4 +635,49 @@ Texto dictado:
     }
     return null;
   }
+
+  /// PREDICCIÓN EN TIEMPO REAL: Analiza el nombre de un producto y sugiere una categoría rápidamente
+  Future<String?> predictCategoryFast(
+    String product,
+    List<dynamic> categories,
+  ) async {
+    if (product.trim().isEmpty) return null;
+
+    final categoriesListStr = categories.map((c) => c.name).join(', ');
+    final prompt = '''
+Eres un categorizador financiero predictivo ultra-rápido.
+El usuario está escribiendo un gasto y necesitas decirle a qué categoría pertenece de acuerdo a su nombre o entidad.
+
+CATEGORÍAS DISPONIBLES:
+$categoriesListStr
+
+REGLAS ESTRICTAS:
+1. Devuelve SOLAMENTE el nombre EXACTO de UNA de las categorías disponibles.
+2. Si tienes dudas, trata de inferirlo por el contexto comercial (Ej. Netflix -> Entretenimiento, Starbucks -> Alimentación, Chifa -> Alimentación).
+3. Si es absolutamente imposible deducirlo o es ambiguo, devuelve la palabra: OTRO
+4. NUNCA des explicaciones, marcos de código ni comillas. Solo la palabra exacta.
+''';
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_baseUrl/parse-voice'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+           'systemPrompt': prompt,
+           'userMessage': product,
+        }),
+      ).timeout(const Duration(seconds: 4)); // Timeout muy corto por ser predictivo
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final content = data['choices'][0]['message']['content'] as String;
+        return content.trim();
+      }
+    } catch (_) {
+      // Si falla (timeout o red), retorna null silenciosamente para no arruinar la experiencia
+    }
+    return null;
+  }
 }
