@@ -1,0 +1,5 @@
+Analyzing Aplicativo_Gastos...
+
+   info - lib\presentation\screens\debt_payoff\debt_payoff_screen.dart:38:55 - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss. Try replacing the use of the deprecated member with the replacement. - deprecated_member_use
+
+1 issue found.

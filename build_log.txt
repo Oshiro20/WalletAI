@@ -1,0 +1,24 @@
+Running Gradle task 'assembleRelease'...                        
+lib/presentation/screens/receipts/scan_receipt_screen.dart:625:25: Error: The method 'subcategoriesByCategoryStreamProvider' isn't defined for the type '_ScanReceiptScreenState'.
+ - '_ScanReceiptScreenState' is from 'package:wallet_ai/presentation/screens/receipts/scan_receipt_screen.dart' ('lib/presentation/screens/receipts/scan_receipt_screen.dart').
+Try correcting the name to the name of an existing method, or defining a method named 'subcategoriesByCategoryStreamProvider'.
+              ref.watch(subcategoriesByCategoryStreamProvider(_singleCategoryId!)).when(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Target kernel_snapshot_program failed: Exception
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileFlutterBuildRelease'.
+> Process 'command 'D:\Softwares\flutter\bin\flutter.bat'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 22s
+Running Gradle task 'assembleRelease'...                           22.4s
+Gradle task assembleRelease failed with exit code 1

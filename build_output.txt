@@ -1,0 +1,26 @@
+Running Gradle task 'assembleRelease'...                        
+lib/presentation/screens/transactions/create_transaction_screen.dart:112:12: Error: Can't find '}' to match '{'.
+    } else {
+           ^
+lib/presentation/widgets/common/voice_input_button.dart:42:17: Error: A try block must be followed by an 'on', 'catch', or 'finally' clause.
+Try adding either a catch or finally clause, or remove the try statement.
+                try {
+                ^^^
+Target kernel_snapshot_program failed: Exception
+
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileFlutterBuildRelease'.
+> Process 'command 'C:\src\flutter\bin\flutter.bat'' finished with non-zero exit value 1
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 21s
+Running Gradle task 'assembleRelease'...                           21.7s
+Gradle task assembleRelease failed with exit code 1

@@ -1,0 +1,74 @@
+﻿Resolving dependencies...
+Downloading packages...
+  _fe_analyzer_shared 93.0.0 (94.0.0 available)
+  analyzer 10.0.1 (10.0.2 available)
+  archive 3.6.1 (4.0.9 available)
+  build_runner 2.11.0 (2.11.1 available)
+  characters 1.4.0 (1.4.1 available)
+  csv 6.0.0 (7.1.0 available)
+  ffi 2.1.5 (2.2.0 available)
+  fl_chart 0.70.2 (1.1.1 available)
+  flutter_lints 5.0.0 (6.0.0 available)
+  flutter_local_notifications 18.0.1 (20.1.0 available)
+  flutter_local_notifications_linux 5.0.0 (7.0.0 available)
+  flutter_local_notifications_platform_interface 8.0.0 (10.0.0 available)
+  flutter_riverpod 2.6.1 (3.2.1 available)
+  go_router 14.8.1 (17.1.0 available)
+  google_fonts 6.3.3 (8.0.1 available)
+  google_mlkit_commons 0.8.1 (0.11.1 available)
+  google_mlkit_text_recognition 0.13.1 (0.15.1 available)
+  googleapis 13.2.0 (16.0.0 available)
+  googleapis_auth 1.6.0 (2.0.0 available)
+  lints 5.1.1 (6.1.0 available)
+  matcher 0.12.17 (0.12.18 available)
+  material_color_utilities 0.11.1 (0.13.0 available)
+  meta 1.17.0 (1.18.1 available)
+  permission_handler 11.4.0 (12.0.1 available)
+  permission_handler_android 12.1.0 (13.0.1 available)
+  petitparser 7.0.1 (7.0.2 available)
+  pointycastle 3.9.1 (4.0.0 available)
+  riverpod 2.6.1 (3.2.1 available)
+  share_plus 10.1.4 (12.0.1 available)
+  share_plus_platform_interface 5.0.2 (6.1.0 available)
+  sqlite3 2.9.4 (3.1.6 available)
+  sqlite3_flutter_libs 0.5.41 (0.6.0+eol available)
+  test_api 0.7.7 (0.7.9 available)
+  timezone 0.10.1 (0.11.0 available)
+  url_launcher_ios 6.4.0 (6.4.1 available)
+Got dependencies!
+35 packages have newer versions incompatible with dependency constraints.
+Try `flutter pub outdated` for more information.
+Launching lib\main.dart on sdk gphone64 x86 64 in debug mode...
+Running Gradle task 'assembleDebug'...                             11.7s
+ÔêÜ Built build\app\outputs\flutter-apk\app-debug.apk
+Installing build\app\outputs\flutter-apk\app-debug.apk...        1,541ms
+D/FlutterJNI(24487): Beginning load of flutter...
+D/FlutterJNI(24487): flutter (null) was loaded normally!
+I/flutter (24487): [IMPORTANT:flutter/shell/platform/android/android_context_gl_impeller.cc(104)] Using the Impeller rendering backend (OpenGLES).
+I/licativo_gastos(24487): hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityNodeInfo;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported,test-api) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+I/licativo_gastos(24487): hiddenapi: Accessing hidden method Landroid/view/accessibility/AccessibilityRecord;->getSourceNodeId()J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+I/licativo_gastos(24487): hiddenapi: Accessing hidden field Landroid/view/accessibility/AccessibilityNodeInfo;->mChildNodeIds:Landroid/util/LongArray; (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+I/licativo_gastos(24487): hiddenapi: Accessing hidden method Landroid/util/LongArray;->get(I)J (runtime_flags=0, domain=platform, api=unsupported) from Lio/flutter/view/AccessibilityViewEmbedder$ReflectionAccessors; (domain=app) using reflection: allowed
+Syncing files to device sdk gphone64 x86 64...                  
+D/CompatChangeReporter(24487): Compat change id reported: 377864165; UID 10218; state: ENABLED
+W/HWUI    (24487): Unknown dataspace 0
+Syncing files to device sdk gphone64 x86 64...                     225ms
+
+Flutter run key commands.
+r Hot reload. 
+R Hot restart.
+h List all available interactive commands.
+d Detach (terminate "flutter run" but leave application running).
+c Clear the screen
+q Quit (terminate the application on the device).
+
+A Dart VM Service on sdk gphone64 x86 64 is available at: http://127.0.0.1:58767/iWX3txbq_ho=/
+The Flutter DevTools debugger and profiler on sdk gphone64 x86 64 is available at: http://127.0.0.1:58767/iWX3txbq_ho=/devtools/?uri=ws://127.0.0.1:58767/iWX3txbq_ho=/ws
+I/Choreographer(24487): Skipped 253 frames!  The application may be doing too much work on its main thread.
+I/licativo_gastos(24487): Compiler allocated 5042KB to compile void android.view.ViewRootImpl.performTraversals()
+I/WindowExtensionsImpl(24487): Initializing Window Extensions, vendor API level=9, activity embedding enabled=true
+I/Choreographer(24487): Skipped 53 frames!  The application may be doing too much work on its main thread.
+I/HWUI    (24487): Davey! duration=951ms; Flags=1, FrameTimelineVsyncId=486024, IntendedVsync=20082409013312, Vsync=20083292346610, InputEventId=0, HandleInputStart=20083311244500, AnimationStart=20083311265700, PerformTraversalsStart=20083311337300, DrawStart=20083326754200, FrameDeadline=20082425679978, FrameStartTime=20083307981100, FrameInterval=16666666, WorkloadTarget=16666666, SyncQueued=20083327597700, SyncStart=20083339530700, IssueDrawCommandsStart=20083339934400, SwapBuffers=20083355993900, FrameCompleted=20083372410100, DequeueBufferDuration=15367000, QueueBufferDuration=267900, GpuCompleted=20083360603400, SwapBuffersCompleted=20083372410100, DisplayPresentTime=0, CommandSubmissionCompleted=20083355993900, 
+D/WindowLayoutComponentImpl(24487): Register WindowLayoutInfoListener on Context=com.finanzas.aplicativo_gastos.MainActivity@adaa113, of which baseContext=android.app.ContextImpl@5fdf503
+D/InsetsController(24487): hide(ime(), fromIme=false)
+I/ImeTracker(24487): com.finanzas.aplicativo_gastos:13759973: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN

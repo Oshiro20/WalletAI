@@ -1,0 +1,50 @@
+﻿Analyzing Aplicativo_Gastos...
+
+   info - test\debug_import_logic.dart:22:12 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:27:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:30:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:42:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:48:9 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:62:11 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:63:11 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:66:15 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:72:12 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:80:27 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:84:20 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:90:14 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:93:14 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:96:13 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\debug_import_logic.dart:97:13 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\manual_ocr_test.dart:31:21 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\manual_ocr_test.dart:130:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\manual_ocr_test.dart:131:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\manual_ocr_test.dart:133:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\manual_ocr_test.dart:134:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:47:7 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:52:7 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:57:7 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:60:9 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:65:9 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:66:9 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:67:9 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:68:9 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - test\test_regex.dart:73:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:9:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:13:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:21:7 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:25:11 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:30:12 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:31:12 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:33:14 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:36:11 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:39:9 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:46:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:48:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:52:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:54:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:57:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:61:3 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:63:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+   info - tool\inspect_legacy_db.dart:66:5 - Don't invoke 'print' in production code. Try using a logging framework. - avoid_print
+
+46 issues found.

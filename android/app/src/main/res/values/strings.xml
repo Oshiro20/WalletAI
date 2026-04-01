@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">WalletAI</string>
+    <string name="widget_balance_description">Balance y resumen mensual de WalletAI</string>
+    <string name="widget_recurring_description">Próximos pagos recurrentes de WalletAI</string>
+</resources>
