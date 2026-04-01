@@ -568,38 +568,47 @@ class _SwipeableTransactionTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            transaction.type == 'transfer'
-                                ? AppLocalizations.of(context)!.filterTransfer
-                                : transaction.description ??
-                                      AppLocalizations.of(
-                                        context,
-                                      )!.noDescription,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
-                              color: AppColors.onSurface,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (transaction.productName != null &&
-                              transaction.productName!.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              '📦 ${transaction.productName!}',
-                              style: GoogleFonts.manrope(
-                                fontSize: 11,
-                                color: AppColors.onSurfaceVariant,
+                      child: Builder(
+                        builder: (context) {
+                          final hasProduct = transaction.productName != null && transaction.productName!.toString().trim().isNotEmpty;
+                          final hasDescription = transaction.description != null && transaction.description!.toString().trim().isNotEmpty;
+                          
+                          final mainText = transaction.type == 'transfer'
+                              ? AppLocalizations.of(context)!.filterTransfer
+                              : (hasProduct ? transaction.productName! : (hasDescription ? transaction.description! : AppLocalizations.of(context)!.noDescription));
+                              
+                          final subText = transaction.type == 'transfer' 
+                              ? null 
+                              : (hasProduct && hasDescription ? transaction.description! : null);
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                mainText,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppColors.onSurface,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
+                              if (subText != null) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  '🏬 $subText',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 11,
+                                    color: AppColors.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ],
+                          );
+                        }
                       ),
                     ),
                     const SizedBox(width: 8),

@@ -1,4 +1,4 @@
-import 'dart:async' show unawaited;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -64,6 +64,10 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
   String? _selectedCategoryId;
   String? _selectedSubcategoryId;
   bool _isLoading = false;
+  
+  // Variables para prediccion de IA
+  Timer? _predictionTimer;
+  bool _isPredictingCategory = false;
   
   // Variables para GPS
   double? _latitude;
@@ -143,8 +147,83 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
     }
   }
 
+  void _onProductNameChanged(String value) {
+    if (value.trim().isEmpty) {
+      _predictionTimer?.cancel();
+      if (_isPredictingCategory) {
+        setState(() => _isPredictingCategory = false);
+      }
+      return;
+    }
+
+    // Cancelar el timer anterior si el usuario sigue escribiendo
+    _predictionTimer?.cancel();
+
+    // Iniciar un nuevo timer de 800ms para hacer debounce
+    _predictionTimer = Timer(const Duration(milliseconds: 800), () async {
+      final name = value.trim();
+      
+      // 1. Primero intentar autocompletar con reglas locales
+      final db = ref.read(databaseProvider);
+      final rule = await db.learningRulesDao.getRuleForProduct(name);
+      
+      if (rule != null && mounted) {
+        setState(() {
+          _selectedCategoryId = rule.categoryId;
+        });
+        return; // Si encontró regla local, ya no llama a la API
+      }
+
+      // 2. Si no hay regla local, usar IA Predictiva (Fast)
+      if (mounted) {
+        setState(() {
+          _isPredictingCategory = true;
+        });
+      }
+
+      try {
+        final groqService = ref.read(groqServiceProvider);
+        final categoriesList = await db.categoriesDao.getAllCategories();
+        final predictedCategoryName = await groqService.predictCategoryFast(name, categoriesList);
+        
+        if (predictedCategoryName != null && mounted) {
+          final category = await db.categoriesDao.findCategoryByName(predictedCategoryName);
+          if (category != null && mounted) {
+            setState(() {
+              _selectedCategoryId = category.id;
+            });
+            // Mostrar un pequeño feedback visual de éxito
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('IA detectó la categoría: ${category.name}')),
+                  ],
+                ),
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              )
+            );
+          }
+        }
+      } catch (e) {
+        // Ignorar errores de predicción por timeout (es non-blocking)
+      } finally {
+        if (mounted) {
+          setState(() {
+            _isPredictingCategory = false;
+          });
+        }
+      }
+    });
+  }
+
   @override
   void dispose() {
+    _predictionTimer?.cancel();
     _amountController.dispose();
     _descriptionController.dispose();
     _productNameController.dispose();
@@ -914,12 +993,21 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
     return TextFormField(
       controller: _productNameController,
       focusNode: _productNameFocusNode,
+      onChanged: _onProductNameChanged,
       decoration: InputDecoration(
         labelText: 'Producto / Ítem (opcional)',
         border: const OutlineInputBorder(),
         filled: true,
         fillColor: Theme.of(context).colorScheme.surface,
         prefixIcon: const Icon(Icons.inventory_2_outlined),
+        suffixIcon: _isPredictingCategory
+            ? Container(
+                padding: const EdgeInsets.all(12),
+                width: 20,
+                height: 20,
+                child: const CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.auto_awesome, color: Colors.amber),
         hintText: 'Ej. Mandarina, Leche Gloria, NESQUIK',
       ),
       textCapitalization: TextCapitalization.sentences,

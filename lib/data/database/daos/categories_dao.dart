@@ -31,6 +31,29 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
     return (select(categories)..where((c) => c.id.equals(id))).getSingleOrNull();
   }
 
+  /// Buscar categoría por nombre (ignorando mayúsculas/minúsculas de manera básica)
+  Future<Category?> findCategoryByName(String name) async {
+    final allCats = await getAllCategories();
+    final lowerName = name.toLowerCase().trim();
+    
+    // 1. Coincidencia exacta
+    for (var cat in allCats) {
+      if (cat.name.toLowerCase().trim() == lowerName) {
+        return cat;
+      }
+    }
+    
+    // 2. Coincidencia parcial
+    for (var cat in allCats) {
+      final catLower = cat.name.toLowerCase().trim();
+      if (catLower.contains(lowerName) || lowerName.contains(catLower)) {
+        return cat;
+      }
+    }
+    
+    return null;
+  }
+
   /// Crear categoría
   Future<int> createCategory(CategoriesCompanion category) {
     return attachedDatabase.transaction(() async {

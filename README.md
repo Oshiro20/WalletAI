@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 💰 Control Financiero - Aplicativo de Gastos
 
 Aplicativo inteligente de control de gastos e ingresos con IA, desarrollado en Flutter.
@@ -211,3 +212,7 @@ Desarrollado con ❤️ por [Tu Nombre]
 ---
 
 **Estado del Proyecto**: 🚧 En Desarrollo Activo
+=======
+# WalletAI
+Aplicativo para control de finanzas personales
+>>>>>>> db436bba0a1ecfbd21d3412d174739a01fd50e0f
