@@ -7,7 +7,8 @@ import '../tables/accounts_table.dart';
 part 'accounts_dao.g.dart';
 
 @DriftAccessor(tables: [Accounts])
-class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin {
+class AccountsDao extends DatabaseAccessor<AppDatabase>
+    with _$AccountsDaoMixin {
   AccountsDao(super.db);
 
   /// Obtener todas las cuentas activas
@@ -35,9 +36,11 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   Future<int> createAccount(AccountsCompanion account) {
     return attachedDatabase.transaction(() async {
       final id = await into(accounts).insert(account);
-      
+
       // Sync Queue
-      final insertedRow = await (select(accounts)..where((a) => a.id.equals(account.id.value))).getSingle();
+      final insertedRow = await (select(
+        accounts,
+      )..where((a) => a.id.equals(account.id.value))).getSingle();
       await into(attachedDatabase.syncQueue).insert(
         SyncQueueCompanion.insert(
           id: const Uuid().v4(),
@@ -48,7 +51,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
           createdAt: DateTime.now(),
         ),
       );
-      
+
       return id;
     });
   }
@@ -57,7 +60,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   Future<bool> updateAccount(Account account) {
     return attachedDatabase.transaction(() async {
       final result = await update(accounts).replace(account);
-      
+
       if (result) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -77,14 +80,18 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   /// Actualizar saldo de cuenta
   Future<int> updateBalance(String accountId, double newBalance) {
     return attachedDatabase.transaction(() async {
-      final result = await (update(accounts)..where((a) => a.id.equals(accountId)))
-          .write(AccountsCompanion(
-        balance: Value(newBalance),
-        updatedAt: Value(DateTime.now()),
-      ));
+      final result =
+          await (update(accounts)..where((a) => a.id.equals(accountId))).write(
+            AccountsCompanion(
+              balance: Value(newBalance),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
 
       if (result > 0) {
-        final updatedRow = await (select(accounts)..where((a) => a.id.equals(accountId))).getSingle();
+        final updatedRow = await (select(
+          accounts,
+        )..where((a) => a.id.equals(accountId))).getSingle();
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
             id: const Uuid().v4(),
@@ -101,19 +108,24 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   }
 
   // Alias for compatibility with ExcelService
-  Future<int> updateAccountBalance(String accountId, double newBalance) => updateBalance(accountId, newBalance);
+  Future<int> updateAccountBalance(String accountId, double newBalance) =>
+      updateBalance(accountId, newBalance);
 
   /// Soft delete (marcar como inactiva)
   Future<int> deactivateAccount(String accountId) {
     return attachedDatabase.transaction(() async {
-      final result = await (update(accounts)..where((a) => a.id.equals(accountId)))
-          .write(AccountsCompanion(
-        isActive: const Value(false),
-        updatedAt: Value(DateTime.now()),
-      ));
+      final result =
+          await (update(accounts)..where((a) => a.id.equals(accountId))).write(
+            AccountsCompanion(
+              isActive: const Value(false),
+              updatedAt: Value(DateTime.now()),
+            ),
+          );
 
       if (result > 0) {
-        final updatedRow = await (select(accounts)..where((a) => a.id.equals(accountId))).getSingle();
+        final updatedRow = await (select(
+          accounts,
+        )..where((a) => a.id.equals(accountId))).getSingle();
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
             id: const Uuid().v4(),
@@ -133,18 +145,23 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
   Future<int> deleteAccount(String accountId) {
     return attachedDatabase.transaction(() async {
       // 1. Borrar transacciones vinculadas (como origen o destino)
-      await (delete(attachedDatabase.transactions)
-            ..where((t) => t.accountId.equals(accountId) | t.destinationAccountId.equals(accountId)))
-          .go();
-          
-      // 2. Borrar pagos recurrentes vinculados
-      await (delete(attachedDatabase.recurringPayments)
-            ..where((r) => r.accountId.equals(accountId)))
+      await (delete(attachedDatabase.transactions)..where(
+            (t) =>
+                t.accountId.equals(accountId) |
+                t.destinationAccountId.equals(accountId),
+          ))
           .go();
 
+      // 2. Borrar pagos recurrentes vinculados
+      await (delete(
+        attachedDatabase.recurringPayments,
+      )..where((r) => r.accountId.equals(accountId))).go();
+
       // 3. Borrar la cuenta
-      final result = await (delete(accounts)..where((a) => a.id.equals(accountId))).go();
-      
+      final result = await (delete(
+        accounts,
+      )..where((a) => a.id.equals(accountId))).go();
+
       if (result > 0) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -166,7 +183,7 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
     return attachedDatabase.transaction(() async {
       // 1. Borrar todas las transacciones
       await delete(attachedDatabase.transactions).go();
-      
+
       // 2. Borrar todos los pagos recurrentes
       await delete(attachedDatabase.recurringPayments).go();
 
@@ -220,6 +237,8 @@ class AccountsDao extends DatabaseAccessor<AppDatabase> with _$AccountsDaoMixin 
 
   /// Stream de cuenta específica
   Stream<Account?> watchAccount(String accountId) {
-    return (select(accounts)..where((a) => a.id.equals(accountId))).watchSingleOrNull();
+    return (select(
+      accounts,
+    )..where((a) => a.id.equals(accountId))).watchSingleOrNull();
   }
 }

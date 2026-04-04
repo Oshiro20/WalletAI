@@ -11,7 +11,7 @@ class Budgets extends Table {
   DateTimeColumn get endDate => dateTime().nullable()();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

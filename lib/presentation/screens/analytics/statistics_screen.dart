@@ -30,11 +30,14 @@ class StatisticsScreen extends ConsumerWidget {
               final list = transactionsAsync.valueOrNull ?? [];
               final comp = compAsync.valueOrNull;
               // Add categories loading
-              final categoriesList = ref.read(expenseCategoriesStreamProvider).valueOrNull ?? [];
-              
+              final categoriesList =
+                  ref.read(expenseCategoriesStreamProvider).valueOrNull ?? [];
+
               if (list.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('No hay transacciones para exportar.')),
+                  const SnackBar(
+                    content: Text('No hay transacciones para exportar.'),
+                  ),
                 );
                 return;
               }
@@ -42,35 +45,44 @@ class StatisticsScreen extends ConsumerWidget {
               final currentExp = comp?['currentExpense'] ?? 0.0;
               final currentInc = comp?['currentIncome'] ?? 0.0;
               final periodStr = selectedPeriod.format(selectedDate);
-              
-               await ReportGenerationService.generateAndSharePdf(
-                 transactions: list,
-                 categories: categoriesList,
-                 monthYear: periodStr,
-                 totalIncome: currentInc,
-                 totalExpense: currentExp,
-                 baseCurrency: 'S/',
-               );
+
+              await ReportGenerationService.generateAndSharePdf(
+                transactions: list,
+                categories: categoriesList,
+                monthYear: periodStr,
+                totalIncome: currentInc,
+                totalExpense: currentExp,
+                baseCurrency: 'S/',
+              );
             },
           ),
           DropdownButton<TimePeriod>(
             value: selectedPeriod,
-            icon: Icon(Icons.calendar_today,
-                color: Theme.of(context).appBarTheme.foregroundColor ?? Colors.black),
+            icon: Icon(
+              Icons.calendar_today,
+              color:
+                  Theme.of(context).appBarTheme.foregroundColor ?? Colors.black,
+            ),
             underline: Container(),
             onChanged: (v) {
-              if (v != null) ref.read(selectedAnalyticsPeriodProvider.notifier).state = v;
+              if (v != null) {
+                ref.read(selectedAnalyticsPeriodProvider.notifier).state = v;
+              }
             },
             items: TimePeriod.values.map((v) {
               return DropdownMenuItem(
                 value: v,
-                child: Text(v.label,
-                    style: TextStyle(
-                      color: v == selectedPeriod
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.onSurface,
-                      fontWeight: v == selectedPeriod ? FontWeight.bold : FontWeight.normal,
-                    )),
+                child: Text(
+                  v.label,
+                  style: TextStyle(
+                    color: v == selectedPeriod
+                        ? Theme.of(context).colorScheme.primary
+                        : Theme.of(context).colorScheme.onSurface,
+                    fontWeight: v == selectedPeriod
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
               );
             }).toList(),
           ),
@@ -95,25 +107,37 @@ class StatisticsScreen extends ConsumerWidget {
             const SizedBox(height: 20),
 
             // Monthly Trend Chart
-            _SectionTitle(title: '📈 Tendencia (12 meses)', icon: Icons.show_chart),
+            _SectionTitle(
+              title: '📈 Tendencia (12 meses)',
+              icon: Icons.show_chart,
+            ),
             const SizedBox(height: 8),
             _MonthlyTrendChart(),
             const SizedBox(height: 20),
 
             // Top Expenses
-            _SectionTitle(title: '🏆 Top 5 Gastos del Período', icon: Icons.emoji_events),
+            _SectionTitle(
+              title: '🏆 Top 5 Gastos del Período',
+              icon: Icons.emoji_events,
+            ),
             const SizedBox(height: 8),
             _TopExpensesList(),
             const SizedBox(height: 20),
 
             // Spending by day of week
-            _SectionTitle(title: '📅 Gastos por Día de Semana', icon: Icons.calendar_view_week),
+            _SectionTitle(
+              title: '📅 Gastos por Día de Semana',
+              icon: Icons.calendar_view_week,
+            ),
             const SizedBox(height: 8),
             _DayOfWeekChart(),
             const SizedBox(height: 20),
 
             // Expenses by account
-            _SectionTitle(title: '💳 Gastos por Cuenta', icon: Icons.account_balance_wallet),
+            _SectionTitle(
+              title: '💳 Gastos por Cuenta',
+              icon: Icons.account_balance_wallet,
+            ),
             const SizedBox(height: 8),
             _AccountBreakdown(),
             const SizedBox(height: 32),
@@ -191,11 +215,12 @@ class _SectionTitle extends StatelessWidget {
       children: [
         Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 8),
-        Text(title,
-            style: Theme.of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(fontWeight: FontWeight.bold)),
+        Text(
+          title,
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
       ],
     );
   }
@@ -252,7 +277,9 @@ class _ComparisonSection extends ConsumerWidget {
                     label: 'Balance',
                     value: 'S/ ${balance.toStringAsFixed(2)}',
                     subtitle: balance >= 0 ? 'Superávit' : 'Déficit',
-                    color: balance >= 0 ? Colors.blue.shade400 : Colors.orange.shade400,
+                    color: balance >= 0
+                        ? Colors.blue.shade400
+                        : Colors.orange.shade400,
                     icon: balance >= 0 ? Icons.savings : Icons.warning_amber,
                     changePositive: balance >= 0,
                   ),
@@ -322,17 +349,31 @@ class _StatCard extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 18),
               const SizedBox(width: 6),
-              Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(value,
-              style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(subtitle,
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-              overflow: TextOverflow.ellipsis),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -368,35 +409,54 @@ class _InsightsSection extends ConsumerWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionTitle(title: '💡 Insights Financieros', icon: Icons.lightbulb_outline),
+            _SectionTitle(
+              title: '💡 Insights Financieros',
+              icon: Icons.lightbulb_outline,
+            ),
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
-                    Theme.of(context).colorScheme.secondary.withValues(alpha: 0.05),
+                    Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.08),
+                    Theme.of(
+                      context,
+                    ).colorScheme.secondary.withValues(alpha: 0.05),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.2),
+                ),
               ),
               child: Column(
                 children: insights
-                    .map((insight) => Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 10),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Text(insight,
-                                    style: const TextStyle(fontSize: 13, height: 1.4)),
+                    .map(
+                      (insight) => Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                insight,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                ),
                               ),
-                            ],
-                          ),
-                        ))
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                     .toList(),
               ),
             ),
@@ -404,7 +464,9 @@ class _InsightsSection extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox(
-          height: 60, child: Center(child: CircularProgressIndicator())),
+        height: 60,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (_, __) => const SizedBox(),
     );
   }
@@ -423,7 +485,13 @@ class _MonthlyTrendChart extends ConsumerWidget {
           return const Center(child: Text('Sin datos'));
         }
         final maxVal = data.fold<double>(
-            0, (m, e) => [m, e['expense'] as double, e['income'] as double].reduce((a, b) => a > b ? a : b));
+          0,
+          (m, e) => [
+            m,
+            e['expense'] as double,
+            e['income'] as double,
+          ].reduce((a, b) => a > b ? a : b),
+        );
 
         return SizedBox(
           height: 200,
@@ -452,7 +520,9 @@ class _MonthlyTrendChart extends ConsumerWidget {
                     showTitles: true,
                     getTitlesWidget: (value, meta) {
                       final idx = value.toInt();
-                      if (idx < 0 || idx >= data.length) return const SizedBox();
+                      if (idx < 0 || idx >= data.length) {
+                        return const SizedBox();
+                      }
                       final month = data[idx]['month'] as DateTime;
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
@@ -475,8 +545,12 @@ class _MonthlyTrendChart extends ConsumerWidget {
                     ),
                   ),
                 ),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
               ),
               gridData: FlGridData(show: true, drawVerticalLine: false),
               borderData: FlBorderData(show: false),
@@ -487,15 +561,21 @@ class _MonthlyTrendChart extends ConsumerWidget {
                   x: i,
                   barRods: [
                     BarChartRodData(
-                        toY: expense,
-                        color: Colors.red.shade400,
-                        width: 6,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(3))),
+                      toY: expense,
+                      color: Colors.red.shade400,
+                      width: 6,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(3),
+                      ),
+                    ),
                     BarChartRodData(
-                        toY: income,
-                        color: Colors.green.shade400,
-                        width: 6,
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(3))),
+                      toY: income,
+                      color: Colors.green.shade400,
+                      width: 6,
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(3),
+                      ),
+                    ),
                   ],
                 );
               }),
@@ -504,7 +584,9 @@ class _MonthlyTrendChart extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox(
-          height: 200, child: Center(child: CircularProgressIndicator())),
+        height: 200,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (e, _) => Text('Error: $e'),
     );
   }
@@ -522,8 +604,10 @@ class _TopExpensesList extends ConsumerWidget {
         if (expenses.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(16),
-            child: Text('No hay gastos en este período',
-                style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'No hay gastos en este período',
+              style: TextStyle(color: Colors.grey),
+            ),
           );
         }
         return Column(
@@ -539,9 +623,10 @@ class _TopExpensesList extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2))
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
                 ],
               ),
               child: Row(
@@ -556,12 +641,18 @@ class _TopExpensesList extends ConsumerWidget {
                           (t.productName != null && t.productName!.isNotEmpty)
                               ? t.productName!
                               : (t.description ?? 'Sin descripción'),
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           DateFormat('dd/MM/yyyy').format(t.date),
-                          style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey.shade600,
+                          ),
                         ),
                       ],
                     ),
@@ -569,9 +660,10 @@ class _TopExpensesList extends ConsumerWidget {
                   Text(
                     'S/ ${t.amount.toStringAsFixed(2)}',
                     style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                        color: Colors.red.shade400),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.red.shade400,
+                    ),
                   ),
                 ],
               ),
@@ -589,7 +681,13 @@ class _TopExpensesList extends ConsumerWidget {
 
 class _DayOfWeekChart extends ConsumerWidget {
   static const _dayLabels = {
-    1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb', 7: 'Dom'
+    1: 'Lun',
+    2: 'Mar',
+    3: 'Mié',
+    4: 'Jue',
+    5: 'Vie',
+    6: 'Sáb',
+    7: 'Dom',
   };
 
   @override
@@ -602,7 +700,10 @@ class _DayOfWeekChart extends ConsumerWidget {
         if (maxVal == 0) {
           return const Padding(
             padding: EdgeInsets.all(16),
-            child: Text('Sin datos suficientes', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'Sin datos suficientes',
+              style: TextStyle(color: Colors.grey),
+            ),
           );
         }
 
@@ -631,15 +732,24 @@ class _DayOfWeekChart extends ConsumerWidget {
                       final day = value.toInt() + 1;
                       return Padding(
                         padding: const EdgeInsets.only(top: 4),
-                        child: Text(_dayLabels[day] ?? '', style: const TextStyle(fontSize: 10)),
+                        child: Text(
+                          _dayLabels[day] ?? '',
+                          style: const TextStyle(fontSize: 10),
+                        ),
                       );
                     },
                     reservedSize: 20,
                   ),
                 ),
-                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                topTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
+                rightTitles: const AxisTitles(
+                  sideTitles: SideTitles(showTitles: false),
+                ),
               ),
               gridData: FlGridData(show: false),
               borderData: FlBorderData(show: false),
@@ -654,9 +764,13 @@ class _DayOfWeekChart extends ConsumerWidget {
                       toY: val,
                       color: isMax
                           ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+                          : Theme.of(
+                              context,
+                            ).colorScheme.primary.withValues(alpha: 0.4),
                       width: 28,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(4),
+                      ),
                     ),
                   ],
                 );
@@ -666,7 +780,9 @@ class _DayOfWeekChart extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox(
-          height: 150, child: Center(child: CircularProgressIndicator())),
+        height: 150,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (e, _) => Text('Error: $e'),
     );
   }
@@ -685,7 +801,10 @@ class _AccountBreakdown extends ConsumerWidget {
         if (byAccount.isEmpty) {
           return const Padding(
             padding: EdgeInsets.all(16),
-            child: Text('Sin gastos en este período', style: TextStyle(color: Colors.grey)),
+            child: Text(
+              'Sin gastos en este período',
+              style: TextStyle(color: Colors.grey),
+            ),
           );
         }
         return accountsAsync.when(
@@ -696,7 +815,9 @@ class _AccountBreakdown extends ConsumerWidget {
 
             return Column(
               children: sorted.map((entry) {
-                final account = accounts.where((a) => a.id == entry.key).firstOrNull;
+                final account = accounts
+                    .where((a) => a.id == entry.key)
+                    .firstOrNull;
                 final pct = total > 0 ? entry.value / total : 0.0;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -707,19 +828,26 @@ class _AccountBreakdown extends ConsumerWidget {
                         children: [
                           Text(
                             account?.name ?? 'Cuenta desconocida',
-                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
                           ),
                           const Spacer(),
                           Text(
                             'S/ ${entry.value.toStringAsFixed(2)}',
                             style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.red.shade400),
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade400,
+                            ),
                           ),
                           const SizedBox(width: 8),
                           Text(
                             '${(pct * 100).toStringAsFixed(0)}%',
-                            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
                         ],
                       ),
@@ -731,7 +859,8 @@ class _AccountBreakdown extends ConsumerWidget {
                           minHeight: 8,
                           backgroundColor: Colors.grey.shade200,
                           valueColor: AlwaysStoppedAnimation<Color>(
-                              Theme.of(context).colorScheme.primary),
+                            Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
                     ],

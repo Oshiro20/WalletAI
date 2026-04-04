@@ -21,11 +21,15 @@ class _CreditCardMath {
     final safeLimit = limit ?? 0.0;
     if (balance <= 0) {
       final debt = balance.abs();
-      final available = safeLimit > 0 ? (safeLimit - debt > 0 ? safeLimit - debt : 0.0) : 0.0;
+      final available = safeLimit > 0
+          ? (safeLimit - debt > 0 ? safeLimit - debt : 0.0)
+          : 0.0;
       return _CreditCardMath(debt, available);
     } else {
       final available = balance;
-      final debt = safeLimit > 0 ? (safeLimit - available > 0 ? safeLimit - available : 0.0) : 0.0;
+      final debt = safeLimit > 0
+          ? (safeLimit - available > 0 ? safeLimit - available : 0.0)
+          : 0.0;
       return _CreditCardMath(debt, available);
     }
   }
@@ -33,20 +37,28 @@ class _CreditCardMath {
 
 class _StatementInfo {
   final double statementDebt; // Pago del mes (Deuda facturada congelada)
-  final double totalDebt;     // Consumo Total
+  final double totalDebt; // Consumo Total
   final DateTime lastClosingDate;
   final DateTime? paymentDueDate;
-  const _StatementInfo(this.statementDebt, this.totalDebt, this.lastClosingDate, this.paymentDueDate);
+  const _StatementInfo(
+    this.statementDebt,
+    this.totalDebt,
+    this.lastClosingDate,
+    this.paymentDueDate,
+  );
 }
 
-final _statementInfoProvider = FutureProvider.autoDispose.family<_StatementInfo, Account>((ref, account) async {
+final _statementInfoProvider = FutureProvider.autoDispose.family<_StatementInfo, Account>((
+  ref,
+  account,
+) async {
   if (account.type != 'credit_card' || account.closingDay == null) {
     return _StatementInfo(0.0, 0.0, DateTime.now(), null);
   }
-  
+
   final now = DateTime.now();
   final closingDay = account.closingDay!;
-  
+
   // 1. Calculate the last absolute closing timestamp
   DateTime lastClosingDate;
   if (now.day > closingDay) {
@@ -64,7 +76,8 @@ final _statementInfoProvider = FutureProvider.autoDispose.family<_StatementInfo,
     var day = closingDay;
     if (month == 2 && day > 28) {
       day = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
-    } else if ((month == 4 || month == 6 || month == 9 || month == 11) && day > 30) {
+    } else if ((month == 4 || month == 6 || month == 9 || month == 11) &&
+        day > 30) {
       day = 30;
     }
     lastClosingDate = DateTime(year, month, day, 23, 59, 59);
@@ -73,46 +86,71 @@ final _statementInfoProvider = FutureProvider.autoDispose.family<_StatementInfo,
   // 2. Calculate the payment due date for that specific cycle (usually next month)
   DateTime? paymentDueDate;
   if (account.paymentDueDay != null) {
-      var pYear = lastClosingDate.year;
-      var pMonth = lastClosingDate.month + 1;
-      if (pMonth > 12) { pMonth = 1; pYear++; }
-      var pDay = account.paymentDueDay!;
-      
-      // Check boundaries
-      if (pMonth == 2 && pDay > 28) {
-        pDay = (pYear % 4 == 0 && (pYear % 100 != 0 || pYear % 400 == 0)) ? 29 : 28;
-      } else if ((pMonth == 4 || pMonth == 6 || pMonth == 9 || pMonth == 11) && pDay > 30) {
-        pDay = 30;
+    var pYear = lastClosingDate.year;
+    var pMonth = lastClosingDate.month + 1;
+    if (pMonth > 12) {
+      pMonth = 1;
+      pYear++;
+    }
+    var pDay = account.paymentDueDay!;
+
+    // Check boundaries
+    if (pMonth == 2 && pDay > 28) {
+      pDay = (pYear % 4 == 0 && (pYear % 100 != 0 || pYear % 400 == 0))
+          ? 29
+          : 28;
+    } else if ((pMonth == 4 || pMonth == 6 || pMonth == 9 || pMonth == 11) &&
+        pDay > 30) {
+      pDay = 30;
+    }
+    paymentDueDate = DateTime(pYear, pMonth, pDay);
+
+    // Extremely quick cycles where payment happens the exact SAME month
+    var sameMonthPayDay = account.paymentDueDay!;
+    if (sameMonthPayDay > lastClosingDate.day) {
+      var sDay = sameMonthPayDay;
+      if (lastClosingDate.month == 2 && sDay > 28) {
+        sDay =
+            (lastClosingDate.year % 4 == 0 &&
+                (lastClosingDate.year % 100 != 0 ||
+                    lastClosingDate.year % 400 == 0))
+            ? 29
+            : 28;
+      } else if ((lastClosingDate.month == 4 ||
+              lastClosingDate.month == 6 ||
+              lastClosingDate.month == 9 ||
+              lastClosingDate.month == 11) &&
+          sDay > 30) {
+        sDay = 30;
       }
-      paymentDueDate = DateTime(pYear, pMonth, pDay);
-      
-      // Extremely quick cycles where payment happens the exact SAME month 
-      var sameMonthPayDay = account.paymentDueDay!;
-      if (sameMonthPayDay > lastClosingDate.day) {
-          var sDay = sameMonthPayDay;
-          if (lastClosingDate.month == 2 && sDay > 28) {
-              sDay = (lastClosingDate.year % 4 == 0 && (lastClosingDate.year % 100 != 0 || lastClosingDate.year % 400 == 0)) ? 29 : 28;
-          } else if ((lastClosingDate.month == 4 || lastClosingDate.month == 6 || lastClosingDate.month == 9 || lastClosingDate.month == 11) && sDay > 30) {
-              sDay = 30;
-          }
-          var sameMonthPayDate = DateTime(lastClosingDate.year, lastClosingDate.month, sDay);
-          if (sameMonthPayDate.difference(lastClosingDate).inDays >= 10) { 
-              paymentDueDate = sameMonthPayDate;
-          }
+      var sameMonthPayDate = DateTime(
+        lastClosingDate.year,
+        lastClosingDate.month,
+        sDay,
+      );
+      if (sameMonthPayDate.difference(lastClosingDate).inDays >= 10) {
+        paymentDueDate = sameMonthPayDate;
       }
+    }
   }
 
   // 3. Mathematical reverse-logic: Find all expenses AFTER the last closing date
   final dao = ref.read(transactionsDaoProvider);
-  final txs = await dao.getTransactionsByAccount(account.id, limit: 1000); // Need enough history
-  
+  final txs = await dao.getTransactionsByAccount(
+    account.id,
+    limit: 1000,
+  ); // Need enough history
+
   double recentExpensesSum = 0.0;
   for (final tx in txs) {
     if (tx.date.isAfter(lastClosingDate)) {
       // If the CC was the source of funds, it's an expense that INCREASED total debt.
       // (This excludes payments we made TO the CC, those reduced debt and we don't reverse them).
-      if (tx.accountId == account.id && (tx.type == 'expense' || tx.type == 'transfer' || tx.type == 'installment')) {
-          recentExpensesSum += tx.amount;
+      if (tx.accountId == account.id &&
+          (tx.type == 'expense' ||
+              tx.type == 'transfer' ||
+              tx.type == 'installment')) {
+        recentExpensesSum += tx.amount;
       }
     }
   }
@@ -120,12 +158,17 @@ final _statementInfoProvider = FutureProvider.autoDispose.family<_StatementInfo,
   // 4. Calculate Current Total Debt using our dynamic math logic
   final math = _CreditCardMath.calculate(account.balance, account.creditLimit);
   final totalDebt = math.debt;
-  
+
   // 5. The true "Pago del Mes" is the Total Debt MINUS any recent expenses.
   double statementDebt = totalDebt - recentExpensesSum;
   if (statementDebt < 0) statementDebt = 0.0; // Paid off completely
-  
-  return _StatementInfo(statementDebt, totalDebt, lastClosingDate, paymentDueDate);
+
+  return _StatementInfo(
+    statementDebt,
+    totalDebt,
+    lastClosingDate,
+    paymentDueDate,
+  );
 });
 
 /// Provider de account por ID (StreamProvider.family para reactividad)
@@ -135,17 +178,16 @@ final accountByIdProvider = StreamProvider.family<Account?, String>((ref, id) {
 });
 
 /// Provider de transacciones de una cuenta en un período
-final accountTransactionsProvider =
-    StreamProvider.autoDispose.family<List<Transaction>, _AccountPeriodParams>(
-        (ref, params) {
-  final dao = ref.watch(transactionsDaoProvider);
-  final range = params.period.calculateRange(params.anchorDate);
-  return dao.watchFilteredTransactions(
-    startDate: range.start,
-    endDate: range.end,
-    accountId: params.accountId,
-  );
-});
+final accountTransactionsProvider = StreamProvider.autoDispose
+    .family<List<Transaction>, _AccountPeriodParams>((ref, params) {
+      final dao = ref.watch(transactionsDaoProvider);
+      final range = params.period.calculateRange(params.anchorDate);
+      return dao.watchFilteredTransactions(
+        startDate: range.start,
+        endDate: range.end,
+        accountId: params.accountId,
+      );
+    });
 
 class _AccountPeriodParams {
   final String accountId;
@@ -166,7 +208,8 @@ class _AccountPeriodParams {
       other.anchorDate == anchorDate;
 
   @override
-  int get hashCode => accountId.hashCode ^ period.hashCode ^ anchorDate.hashCode;
+  int get hashCode =>
+      accountId.hashCode ^ period.hashCode ^ anchorDate.hashCode;
 }
 
 class AccountDetailScreen extends ConsumerStatefulWidget {
@@ -174,7 +217,8 @@ class AccountDetailScreen extends ConsumerStatefulWidget {
   const AccountDetailScreen({super.key, required this.accountId});
 
   @override
-  ConsumerState<AccountDetailScreen> createState() => _AccountDetailScreenState();
+  ConsumerState<AccountDetailScreen> createState() =>
+      _AccountDetailScreenState();
 }
 
 class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
@@ -194,7 +238,11 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
     }
   }
 
-  DateTime _shiftDate(DateTime date, TimePeriod period, {required bool forward}) {
+  DateTime _shiftDate(
+    DateTime date,
+    TimePeriod period, {
+    required bool forward,
+  }) {
     final sign = forward ? 1 : -1;
     switch (period) {
       case TimePeriod.day:
@@ -234,7 +282,8 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             data: (account) => account != null
                 ? IconButton(
                     icon: const Icon(Icons.edit),
-                    onPressed: () => context.push('/accounts/edit/${account.id}'),
+                    onPressed: () =>
+                        context.push('/accounts/edit/${account.id}'),
                   )
                 : const SizedBox.shrink(),
             loading: () => const SizedBox.shrink(),
@@ -273,7 +322,10 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
 
           // ─── Resumen del período ─────────────────────────────────────────
           transactionsAsync.when(
-            data: (txs) => _PeriodSummaryCard(transactions: txs, accountId: widget.accountId),
+            data: (txs) => _PeriodSummaryCard(
+              transactions: txs,
+              accountId: widget.accountId,
+            ),
             loading: () => const SizedBox(height: 72, child: LoadingWidget()),
             error: (e, _) => const SizedBox.shrink(),
           ),
@@ -283,7 +335,10 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             child: transactionsAsync.when(
               data: (txs) {
                 if (txs.isEmpty) {
-                  return _EmptyPeriod(period: _selectedPeriod, anchor: _anchorDate);
+                  return _EmptyPeriod(
+                    period: _selectedPeriod,
+                    anchor: _anchorDate,
+                  );
                 }
                 // Agrupar por fecha
                 final grouped = <DateTime, List<Transaction>>{};
@@ -300,7 +355,11 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
                   itemBuilder: (context, i) {
                     final day = sortedDays[i];
                     final dayTxs = grouped[day]!;
-                    return _DayGroup(day: day, transactions: dayTxs, accountId: widget.accountId);
+                    return _DayGroup(
+                      day: day,
+                      transactions: dayTxs,
+                      accountId: widget.accountId,
+                    );
                   },
                 );
               },
@@ -318,9 +377,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: _CreditCardPaymentSheet(destAccount: account),
       ),
     );
@@ -337,35 +394,54 @@ class _AccountHeader extends StatelessWidget {
 
   Color _typeColor(String type) {
     switch (type) {
-      case 'cash': return AppColors.income;
-      case 'bank': return AppColors.primary;
-      case 'wallet': return Colors.orange;
-      case 'savings': return AppColors.transfer;
-      case 'credit_card': return Colors.purple;
-      default: return Colors.grey;
+      case 'cash':
+        return AppColors.income;
+      case 'bank':
+        return AppColors.primary;
+      case 'wallet':
+        return Colors.orange;
+      case 'savings':
+        return AppColors.transfer;
+      case 'credit_card':
+        return Colors.purple;
+      default:
+        return Colors.grey;
     }
   }
 
   IconData _typeIcon(String type) {
     switch (type) {
-      case 'cash': return Icons.payments;
-      case 'bank': return Icons.account_balance;
-      case 'wallet': return Icons.smartphone;
-      case 'savings': return Icons.savings;
-      case 'credit_card': return Icons.credit_card;
-      default: return Icons.account_balance_wallet;
+      case 'cash':
+        return Icons.payments;
+      case 'bank':
+        return Icons.account_balance;
+      case 'wallet':
+        return Icons.smartphone;
+      case 'savings':
+        return Icons.savings;
+      case 'credit_card':
+        return Icons.credit_card;
+      default:
+        return Icons.account_balance_wallet;
     }
   }
 
   String _typeLabel(String type) {
     switch (type) {
-      case 'cash': return 'Efectivo';
-      case 'bank': return 'Banco';
-      case 'wallet': return 'Billetera digital';
-      case 'savings': return 'Ahorros';
-      case 'card': return 'Tarjeta';
-      case 'credit_card': return 'Tarjeta de crédito';
-      default: return type;
+      case 'cash':
+        return 'Efectivo';
+      case 'bank':
+        return 'Banco';
+      case 'wallet':
+        return 'Billetera digital';
+      case 'savings':
+        return 'Ahorros';
+      case 'card':
+        return 'Tarjeta';
+      case 'credit_card':
+        return 'Tarjeta de crédito';
+      default:
+        return type;
     }
   }
 
@@ -386,14 +462,21 @@ class _AccountHeader extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: color.withValues(alpha: 0.4), blurRadius: 16, offset: const Offset(0, 8)),
+          BoxShadow(
+            color: color.withValues(alpha: 0.4),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
         ],
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.2), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
             child: Icon(_typeIcon(account.type), color: Colors.white, size: 28),
           ),
           const SizedBox(width: 16),
@@ -407,7 +490,7 @@ class _AccountHeader extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  account.type == 'credit_card' 
+                  account.type == 'credit_card'
                       ? 'Deuda T.: ${fmt.format(_CreditCardMath.calculate(account.balance, account.creditLimit).debt)}'
                       : fmt.format(account.balance),
                   style: const TextStyle(
@@ -416,17 +499,26 @@ class _AccountHeader extends StatelessWidget {
                     fontSize: 24,
                   ),
                 ),
-                if (account.type == 'credit_card' && account.creditLimit != null && account.creditLimit! > 0) ...[
+                if (account.type == 'credit_card' &&
+                    account.creditLimit != null &&
+                    account.creditLimit! > 0) ...[
                   const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
                       'Disponible: ${fmt.format(_CreditCardMath.calculate(account.balance, account.creditLimit).available)}',
-                      style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -529,7 +621,10 @@ class _PeriodSelector extends StatelessWidget {
 class _PeriodSummaryCard extends StatelessWidget {
   final List<Transaction> transactions;
   final String accountId;
-  const _PeriodSummaryCard({required this.transactions, required this.accountId});
+  const _PeriodSummaryCard({
+    required this.transactions,
+    required this.accountId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -561,10 +656,26 @@ class _PeriodSummaryCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _SummaryItem(label: 'Ingresos', value: fmt.format(income), color: AppColors.income),
-          Container(width: 1, height: 36, color: Colors.grey.withValues(alpha: 0.3)),
-          _SummaryItem(label: 'Gastos', value: fmt.format(expense), color: AppColors.expense),
-          Container(width: 1, height: 36, color: Colors.grey.withValues(alpha: 0.3)),
+          _SummaryItem(
+            label: 'Ingresos',
+            value: fmt.format(income),
+            color: AppColors.income,
+          ),
+          Container(
+            width: 1,
+            height: 36,
+            color: Colors.grey.withValues(alpha: 0.3),
+          ),
+          _SummaryItem(
+            label: 'Gastos',
+            value: fmt.format(expense),
+            color: AppColors.expense,
+          ),
+          Container(
+            width: 1,
+            height: 36,
+            color: Colors.grey.withValues(alpha: 0.3),
+          ),
           _SummaryItem(
             label: 'Balance',
             value: fmt.format(balance),
@@ -580,7 +691,11 @@ class _SummaryItem extends StatelessWidget {
   final String label;
   final String value;
   final Color color;
-  const _SummaryItem({required this.label, required this.value, required this.color});
+  const _SummaryItem({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -588,7 +703,14 @@ class _SummaryItem extends StatelessWidget {
       children: [
         Text(label, style: TextStyle(fontSize: 11, color: Colors.grey[600])),
         const SizedBox(height: 4),
-        Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13)),
+        Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: color,
+            fontSize: 13,
+          ),
+        ),
       ],
     );
   }
@@ -598,7 +720,11 @@ class _DayGroup extends StatelessWidget {
   final DateTime day;
   final List<Transaction> transactions;
   final String accountId;
-  const _DayGroup({required this.day, required this.transactions, required this.accountId});
+  const _DayGroup({
+    required this.day,
+    required this.transactions,
+    required this.accountId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -617,7 +743,9 @@ class _DayGroup extends StatelessWidget {
             ),
           ),
         ),
-        ...transactions.map((t) => _TransactionTile(transaction: t, accountId: accountId)),
+        ...transactions.map(
+          (t) => _TransactionTile(transaction: t, accountId: accountId),
+        ),
       ],
     );
   }
@@ -631,20 +759,32 @@ class _TransactionTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isTransfer = transaction.type == 'transfer';
-    final isTransferIn = isTransfer && transaction.destinationAccountId == accountId;
+    final isTransferIn =
+        isTransfer && transaction.destinationAccountId == accountId;
     final isTransferOut = isTransfer && transaction.accountId == accountId;
 
     final isExpense = transaction.type == 'expense' || isTransferOut;
     final isIncome = transaction.type == 'income' || isTransferIn;
-    
-    final color = isExpense ? AppColors.expense : isIncome ? AppColors.income : AppColors.transfer;
-    final sign = isExpense ? '-' : isIncome ? '+' : '';
+
+    final color = isExpense
+        ? AppColors.expense
+        : isIncome
+        ? AppColors.income
+        : AppColors.transfer;
+    final sign = isExpense
+        ? '-'
+        : isIncome
+        ? '+'
+        : '';
     final fmt = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
-    final displayName = (transaction.productName != null && transaction.productName!.isNotEmpty)
+    final displayName =
+        (transaction.productName != null && transaction.productName!.isNotEmpty)
         ? transaction.productName!
-        : (isTransfer 
-            ? (isTransferIn ? 'Transferencia recibida' : 'Transferencia enviada')
-            : (transaction.description ?? 'Sin descripción'));
+        : (isTransfer
+              ? (isTransferIn
+                    ? 'Transferencia recibida'
+                    : 'Transferencia enviada')
+              : (transaction.description ?? 'Sin descripción'));
 
     final card = Card(
       elevation: 0,
@@ -655,7 +795,11 @@ class _TransactionTile extends ConsumerWidget {
         leading: CircleAvatar(
           backgroundColor: color.withValues(alpha: 0.1),
           child: Icon(
-            isExpense ? Icons.arrow_upward : isIncome ? Icons.arrow_downward : Icons.swap_horiz,
+            isExpense
+                ? Icons.arrow_upward
+                : isIncome
+                ? Icons.arrow_downward
+                : Icons.swap_horiz,
             color: color,
             size: 18,
           ),
@@ -666,12 +810,20 @@ class _TransactionTile extends ConsumerWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: transaction.description != null && transaction.productName != null
-            ? Text(transaction.description!, style: const TextStyle(fontSize: 11))
+        subtitle:
+            transaction.description != null && transaction.productName != null
+            ? Text(
+                transaction.description!,
+                style: const TextStyle(fontSize: 11),
+              )
             : null,
         trailing: Text(
           '$sign ${fmt.format(transaction.amount)}',
-          style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: color,
+            fontSize: 14,
+          ),
         ),
       ),
     );
@@ -681,10 +833,12 @@ class _TransactionTile extends ConsumerWidget {
       direction: DismissDirection.endToStart,
       confirmDismiss: (_) async => true,
       onDismissed: (_) {
-        ref.read(transactionRepositoryProvider).deleteTransaction(transaction.id);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Transacción eliminada')),
-        );
+        ref
+            .read(transactionRepositoryProvider)
+            .deleteTransaction(transaction.id);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Transacción eliminada')));
       },
       background: Container(
         margin: const EdgeInsets.only(bottom: 6),
@@ -714,11 +868,17 @@ class _EmptyPeriod extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.receipt_long_outlined, size: 64, color: Colors.grey[400]),
+            Icon(
+              Icons.receipt_long_outlined,
+              size: 64,
+              color: Colors.grey[400],
+            ),
             const SizedBox(height: 16),
             Text(
               'Sin movimientos',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             Text(
@@ -739,10 +899,12 @@ class _CreditCardPaymentSheet extends ConsumerStatefulWidget {
   const _CreditCardPaymentSheet({required this.destAccount});
 
   @override
-  ConsumerState<_CreditCardPaymentSheet> createState() => _CreditCardPaymentSheetState();
+  ConsumerState<_CreditCardPaymentSheet> createState() =>
+      _CreditCardPaymentSheetState();
 }
 
-class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet> {
+class _CreditCardPaymentSheetState
+    extends ConsumerState<_CreditCardPaymentSheet> {
   final _amountController = TextEditingController();
   String? _selectedSourceAccountId;
   bool _isLoading = false;
@@ -773,7 +935,9 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty || _selectedSourceAccountId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor ingresa monto y selecciona cuenta origen')),
+        const SnackBar(
+          content: Text('Por favor ingresa monto y selecciona cuenta origen'),
+        ),
       );
       return;
     }
@@ -822,9 +986,9 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al procesar pago: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al procesar pago: $e')));
       }
     } finally {
       if (mounted) {
@@ -837,14 +1001,19 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsStreamProvider);
     final fmt = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
-    
-    // Async load del Statement Math 
-    final statementAsync = ref.watch(_statementInfoProvider(widget.destAccount));
-    
+
+    // Async load del Statement Math
+    final statementAsync = ref.watch(
+      _statementInfoProvider(widget.destAccount),
+    );
+
     // Matemática general unificada para Disponibles siempre estables
-    final math = _CreditCardMath.calculate(widget.destAccount.balance, widget.destAccount.creditLimit);
+    final math = _CreditCardMath.calculate(
+      widget.destAccount.balance,
+      widget.destAccount.creditLimit,
+    );
     final availableCredit = math.available;
-    
+
     // Input actual (para feedback UI)
     final currentInputAmount = double.tryParse(_amountController.text) ?? 0.0;
 
@@ -856,27 +1025,44 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
         children: [
           Text(
             'Pagar ${widget.destAccount.name}',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          
+
           // --- Resumen Inteligente de la Tarjeta ---
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+              color: Theme.of(
+                context,
+              ).colorScheme.primaryContainer.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)),
+              border: Border.all(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.2),
+              ),
             ),
             child: statementAsync.when(
-              loading: () => const Center(child: Padding(padding: EdgeInsets.all(16.0), child: CircularProgressIndicator())),
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
               error: (err, _) => Text('Error cargando ciclo: $err'),
               data: (info) {
                 // Cálculo Mínimo: 5% del PAGO DEL MES (Statement Debt), no del Consumo Total
                 double minPayment = info.statementDebt * 0.05;
-                if (minPayment < 30.0 && info.statementDebt > 0) minPayment = info.statementDebt < 30.0 ? info.statementDebt : 30.0;
-                
+                if (minPayment < 30.0 && info.statementDebt > 0) {
+                  minPayment = info.statementDebt < 30.0
+                      ? info.statementDebt
+                      : 30.0;
+                }
+
                 return Column(
                   children: [
                     Row(
@@ -885,34 +1071,65 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                         // Columna Pago Del Mes (Destacado)
                         Column(
                           children: [
-                            const Text('Pago del mes', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
-                            Text(
-                              info.statementDebt > 0 ? fmt.format(info.statementDebt) : 'S/ 0.00',
+                            const Text(
+                              'Pago del mes',
                               style: TextStyle(
-                                fontSize: 24, 
+                                fontSize: 12,
+                                color: Colors.grey,
                                 fontWeight: FontWeight.bold,
-                                color: info.statementDebt > 0 ? Theme.of(context).colorScheme.error : Colors.green,
+                              ),
+                            ),
+                            Text(
+                              info.statementDebt > 0
+                                  ? fmt.format(info.statementDebt)
+                                  : 'S/ 0.00',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: info.statementDebt > 0
+                                    ? Theme.of(context).colorScheme.error
+                                    : Colors.green,
                               ),
                             ),
                             if (info.paymentDueDate != null)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4.0),
-                                child: Text('Vence ${DateFormat('dd MMM').format(info.paymentDueDate!)}', 
-                                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 11, fontWeight: FontWeight.bold)),
+                                child: Text(
+                                  'Vence ${DateFormat('dd MMM').format(info.paymentDueDate!)}',
+                                  style: TextStyle(
+                                    color: Theme.of(context).colorScheme.error,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                           ],
                         ),
-                        Container(width: 1, height: 40, color: Colors.grey.withValues(alpha: 0.3)),
+                        Container(
+                          width: 1,
+                          height: 40,
+                          color: Colors.grey.withValues(alpha: 0.3),
+                        ),
                         // Columna Deuda Total (Secundario)
                         Column(
                           children: [
-                            const Text('Consumo Total', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                            Text(
-                              info.totalDebt > 0 ? fmt.format(info.totalDebt) : 'S/ 0.00',
+                            const Text(
+                              'Consumo Total',
                               style: TextStyle(
-                                fontSize: 16, 
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            Text(
+                              info.totalDebt > 0
+                                  ? fmt.format(info.totalDebt)
+                                  : 'S/ 0.00',
+                              style: TextStyle(
+                                fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: info.totalDebt > 0 ? Colors.orange : Colors.green,
+                                color: info.totalDebt > 0
+                                    ? Colors.orange
+                                    : Colors.green,
                               ),
                             ),
                           ],
@@ -920,7 +1137,7 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                       ],
                     ),
                     const SizedBox(height: 12),
-                    
+
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: 8.0),
                       child: Divider(height: 1),
@@ -928,28 +1145,43 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Línea Total:', style: TextStyle(fontSize: 12, color: Colors.grey)),
-                        Text(fmt.format(widget.destAccount.creditLimit ?? 0.0), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        const Text(
+                          'Línea Total:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        Text(
+                          fmt.format(widget.destAccount.creditLimit ?? 0.0),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 4),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Disponible:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const Text(
+                          'Disponible:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
                         Text(
-                          fmt.format(availableCredit), 
+                          fmt.format(availableCredit),
                           style: TextStyle(
-                            fontSize: 12, 
+                            fontSize: 12,
                             fontWeight: FontWeight.bold,
-                            color: widget.destAccount.creditLimit != null && availableCredit < (widget.destAccount.creditLimit! * 0.15) 
-                                ? Theme.of(context).colorScheme.error 
-                                : Colors.green
+                            color:
+                                widget.destAccount.creditLimit != null &&
+                                    availableCredit <
+                                        (widget.destAccount.creditLimit! * 0.15)
+                                ? Theme.of(context).colorScheme.error
+                                : Colors.green,
                           ),
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 16),
                     // Quick Action Chips Dinámicos basados en la info del Statement
                     SingleChildScrollView(
@@ -961,8 +1193,17 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                             Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: ActionChip(
-                                label: Text('Pagar Mes', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                backgroundColor: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                label: Text(
+                                  'Pagar Mes',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                backgroundColor: Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
+                                    .withValues(alpha: 0.5),
                                 onPressed: () => _setAmount(info.statementDebt),
                               ),
                             ),
@@ -970,13 +1211,19 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                             Padding(
                               padding: const EdgeInsets.only(right: 8.0),
                               child: ActionChip(
-                                label: Text('Mínimo', style: const TextStyle(fontSize: 12)),
+                                label: Text(
+                                  'Mínimo',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
                                 onPressed: () => _setAmount(minPayment),
                               ),
                             ),
                           if (info.totalDebt > info.statementDebt)
                             ActionChip(
-                              label: Text('Pagar Total', style: const TextStyle(fontSize: 12)),
+                              label: Text(
+                                'Pagar Total',
+                                style: const TextStyle(fontSize: 12),
+                              ),
                               onPressed: () => _setAmount(info.totalDebt),
                             ),
                         ],
@@ -984,11 +1231,11 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                     ),
                   ],
                 );
-              }
+              },
             ),
           ),
           const SizedBox(height: 24),
-          
+
           // --- Input de Monto ---
           TextField(
             controller: _amountController,
@@ -1014,26 +1261,43 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                       if (currentInputAmount > info.totalDebt) {
                         return Text(
                           'El monto supera la deuda total.',
-                          style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.center,
                         );
                       } else if (currentInputAmount >= info.totalDebt) {
                         return const Text(
                           'Deuda total liquidada 🎉',
-                          style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.center,
                         );
-                      } else if (info.statementDebt > 0 && currentInputAmount >= info.statementDebt) {
-                         return const Text(
+                      } else if (info.statementDebt > 0 &&
+                          currentInputAmount >= info.statementDebt) {
+                        return const Text(
                           'Pago del mes cubierto ✅',
-                          style: TextStyle(color: Colors.green, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                           textAlign: TextAlign.center,
                         );
                       } else {
-                        final remaining = info.statementDebt - currentInputAmount;
+                        final remaining =
+                            info.statementDebt - currentInputAmount;
                         return Text(
                           'Faltan ${fmt.format(remaining < 0 ? 0 : remaining)} para cubrir el mes.',
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
                           textAlign: TextAlign.center,
                         );
                       }
@@ -1042,16 +1306,18 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                 );
               }
               return const SizedBox.shrink();
-            }
+            },
           ),
-            
+
           const SizedBox(height: 16),
-          
+
           // --- Selector de Cuenta Origen ---
           accountsAsync.when(
             data: (accounts) {
-              final sourceAccounts = accounts.where((a) => a.id != widget.destAccount.id).toList();
-              
+              final sourceAccounts = accounts
+                  .where((a) => a.id != widget.destAccount.id)
+                  .toList();
+
               return DropdownButtonFormField<String>(
                 initialValue: _selectedSourceAccountId,
                 decoration: const InputDecoration(
@@ -1062,7 +1328,9 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                 items: sourceAccounts.map((a) {
                   return DropdownMenuItem(
                     value: a.id,
-                    child: Text('${a.name} (S/ ${a.balance.toStringAsFixed(2)})'),
+                    child: Text(
+                      '${a.name} (S/ ${a.balance.toStringAsFixed(2)})',
+                    ),
                   );
                 }).toList(),
                 onChanged: (val) {
@@ -1074,14 +1342,21 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
             error: (e, _) => Text('Error al cargar cuentas: $e'),
           ),
           const SizedBox(height: 24),
-          
+
           // --- Botón Confirmar ---
           statementAsync.when(
             loading: () => const SizedBox.shrink(),
             error: (_, __) => const SizedBox.shrink(),
             data: (info) => ElevatedButton(
-              onPressed: (_isLoading || _selectedSourceAccountId == null || currentInputAmount <= 0 || currentInputAmount > (info.totalDebt > 0 ? info.totalDebt : double.infinity)) 
-                  ? null 
+              onPressed:
+                  (_isLoading ||
+                      _selectedSourceAccountId == null ||
+                      currentInputAmount <= 0 ||
+                      currentInputAmount >
+                          (info.totalDebt > 0
+                              ? info.totalDebt
+                              : double.infinity))
+                  ? null
                   : _submitPayment,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
@@ -1089,8 +1364,18 @@ class _CreditCardPaymentSheetState extends ConsumerState<_CreditCardPaymentSheet
                 foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
               child: _isLoading
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : const Text('Confirmar Pago', style: TextStyle(fontSize: 16)),
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text(
+                      'Confirmar Pago',
+                      style: TextStyle(fontSize: 16),
+                    ),
             ),
           ),
         ],

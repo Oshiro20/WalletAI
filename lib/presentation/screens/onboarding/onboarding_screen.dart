@@ -114,9 +114,10 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
-    _pulseAnim = Tween<double>(begin: 0.92, end: 1.08).animate(
-      CurvedAnimation(parent: _iconPulse, curve: Curves.easeInOut),
-    );
+    _pulseAnim = Tween<double>(
+      begin: 0.92,
+      end: 1.08,
+    ).animate(CurvedAnimation(parent: _iconPulse, curve: Curves.easeInOut));
   }
 
   @override
@@ -257,11 +258,7 @@ class _OnboardingSlide extends StatelessWidget {
                   width: 1.5,
                 ),
               ),
-              child: Icon(
-                page.icon,
-                size: 52,
-                color: page.iconColor,
-              ),
+              child: Icon(page.icon, size: 52, color: page.iconColor),
             ),
           ),
           const SizedBox(height: 40),
@@ -411,10 +408,7 @@ class _ActionButton extends StatelessWidget {
         duration: const Duration(milliseconds: 300),
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [
-              color,
-              color.withValues(alpha: 0.75),
-            ],
+            colors: [color, color.withValues(alpha: 0.75)],
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
           ),
@@ -447,7 +441,9 @@ class _ActionButton extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Icon(
-                isLast ? Icons.rocket_launch_rounded : Icons.arrow_forward_rounded,
+                isLast
+                    ? Icons.rocket_launch_rounded
+                    : Icons.arrow_forward_rounded,
                 color: Colors.white,
                 size: 20,
               ),
@@ -476,10 +472,7 @@ class _AnimatedBackground extends StatelessWidget {
         gradient: RadialGradient(
           center: const Alignment(0.0, -0.4),
           radius: 1.0,
-          colors: [
-            color.withValues(alpha: 0.08),
-            AppColors.surface,
-          ],
+          colors: [color.withValues(alpha: 0.08), AppColors.surface],
         ),
       ),
     );

@@ -7,10 +7,7 @@ import '../../../core/theme/app_colors.dart';
 class UpdateDialog extends ConsumerStatefulWidget {
   final GithubRelease release;
 
-  const UpdateDialog({
-    super.key,
-    required this.release,
-  });
+  const UpdateDialog({super.key, required this.release});
 
   @override
   ConsumerState<UpdateDialog> createState() => _UpdateDialogState();
@@ -41,7 +38,8 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
     } catch (e) {
       setState(() {
         _isDownloading = false;
-        _errorMessage = 'Error al descargar la actualización. Reintenta más tarde.';
+        _errorMessage =
+            'Error al descargar la actualización. Reintenta más tarde.';
       });
     }
   }
@@ -135,7 +133,9 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
                     child: LinearProgressIndicator(
                       value: _progress,
                       backgroundColor: AppColors.surfaceContainerHigh,
-                      valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                      valueColor: const AlwaysStoppedAnimation(
+                        AppColors.primary,
+                      ),
                       minHeight: 8,
                     ),
                   ),

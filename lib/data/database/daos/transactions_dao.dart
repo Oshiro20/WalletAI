@@ -7,54 +7,83 @@ import '../tables/transactions_table.dart';
 part 'transactions_dao.g.dart';
 
 @DriftAccessor(tables: [Transactions])
-class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsDaoMixin {
+class TransactionsDao extends DatabaseAccessor<AppDatabase>
+    with _$TransactionsDaoMixin {
   TransactionsDao(super.db);
 
   /// Obtener todas las transacciones
   Future<List<Transaction>> getAllTransactions({int limit = 100}) {
     return (select(transactions)
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)])
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ])
           ..limit(limit))
         .get();
   }
 
   /// Obtener transacción por ID
   Future<Transaction?> getTransactionById(String id) {
-    return (select(transactions)..where((t) => t.id.equals(id))).getSingleOrNull();
+    return (select(
+      transactions,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
   }
 
   /// Obtener transacciones por cuenta
-  Future<List<Transaction>> getTransactionsByAccount(String accountId, {int limit = 100}) {
+  Future<List<Transaction>> getTransactionsByAccount(
+    String accountId, {
+    int limit = 100,
+  }) {
     return (select(transactions)
           ..where((t) => t.accountId.equals(accountId))
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)])
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ])
           ..limit(limit))
         .get();
   }
 
   /// Obtener transacciones por tipo (income, expense, transfer)
-  Future<List<Transaction>> getTransactionsByType(String type, {int limit = 100}) {
+  Future<List<Transaction>> getTransactionsByType(
+    String type, {
+    int limit = 100,
+  }) {
     return (select(transactions)
           ..where((t) => t.type.equals(type))
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)])
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ])
           ..limit(limit))
         .get();
   }
 
   /// Obtener transacciones por categoría
-  Future<List<Transaction>> getTransactionsByCategory(String categoryId, {int limit = 100}) {
+  Future<List<Transaction>> getTransactionsByCategory(
+    String categoryId, {
+    int limit = 100,
+  }) {
     return (select(transactions)
           ..where((t) => t.categoryId.equals(categoryId))
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)])
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ])
           ..limit(limit))
         .get();
   }
 
   /// Obtener transacciones por rango de fechas
-  Future<List<Transaction>> getTransactionsByDateRange(DateTime start, DateTime end) {
+  Future<List<Transaction>> getTransactionsByDateRange(
+    DateTime start,
+    DateTime end,
+  ) {
     return (select(transactions)
-          ..where((t) => t.date.isBiggerOrEqualValue(start) & t.date.isSmallerOrEqualValue(end))
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]))
+          ..where(
+            (t) =>
+                t.date.isBiggerOrEqualValue(start) &
+                t.date.isSmallerOrEqualValue(end),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ]))
         .get();
   }
 
@@ -62,9 +91,11 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   Future<int> createTransaction(TransactionsCompanion entry) {
     return attachedDatabase.transaction(() async {
       final id = await into(transactions).insert(entry);
-      
+
       // Sync Queue
-      final insertedRow = await (select(transactions)..where((t) => t.id.equals(entry.id.value))).getSingle();
+      final insertedRow = await (select(
+        transactions,
+      )..where((t) => t.id.equals(entry.id.value))).getSingle();
       await into(attachedDatabase.syncQueue).insert(
         SyncQueueCompanion.insert(
           id: const Uuid().v4(),
@@ -75,7 +106,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
           createdAt: DateTime.now(),
         ),
       );
-      
+
       return id;
     });
   }
@@ -84,7 +115,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   Future<bool> updateTransaction(Transaction entry) {
     return attachedDatabase.transaction(() async {
       final result = await update(transactions).replace(entry);
-      
+
       if (result) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -104,8 +135,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   /// Eliminar transacción
   Future<int> deleteTransaction(String transactionId) {
     return attachedDatabase.transaction(() async {
-      final result = await (delete(transactions)..where((t) => t.id.equals(transactionId))).go();
-      
+      final result = await (delete(
+        transactions,
+      )..where((t) => t.id.equals(transactionId))).go();
+
       if (result > 0) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -180,7 +213,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   }
 
   /// Obtener gastos por categoría en un período
-  Future<Map<String, double>> getExpensesByCategory(DateTime start, DateTime end) async {
+  Future<Map<String, double>> getExpensesByCategory(
+    DateTime start,
+    DateTime end,
+  ) async {
     final query = selectOnly(transactions)
       ..addColumns([transactions.categoryId, transactions.amount.sum()])
       ..where(
@@ -208,7 +244,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   /// Stream de transacciones (para UI reactiva)
   Stream<List<Transaction>> watchAllTransactions({int limit = 100}) {
     return (select(transactions)
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)])
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ])
           ..limit(limit))
         .watch();
   }
@@ -216,8 +254,14 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   /// Stream de transacciones por cuenta
   Stream<List<Transaction>> watchTransactionsByAccount(String accountId) {
     return (select(transactions)
-          ..where((t) => t.accountId.equals(accountId) | t.destinationAccountId.equals(accountId))
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]))
+          ..where(
+            (t) =>
+                t.accountId.equals(accountId) |
+                t.destinationAccountId.equals(accountId),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ]))
         .watch();
   }
 
@@ -228,8 +272,14 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
     final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
     return (select(transactions)
-          ..where((t) => t.date.isBiggerOrEqualValue(startOfMonth) & t.date.isSmallerOrEqualValue(endOfMonth))
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]))
+          ..where(
+            (t) =>
+                t.date.isBiggerOrEqualValue(startOfMonth) &
+                t.date.isSmallerOrEqualValue(endOfMonth),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ]))
         .watch();
   }
 
@@ -255,18 +305,27 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
             }
             if (accountId != null) {
               // Si es transferencia, la cuenta puede ser origen o destino
-              predicate = predicate & (t.accountId.equals(accountId) | t.destinationAccountId.equals(accountId));
+              predicate =
+                  predicate &
+                  (t.accountId.equals(accountId) |
+                      t.destinationAccountId.equals(accountId));
             }
             if (categoryId != null) {
               predicate = predicate & t.categoryId.equals(categoryId);
             }
             return predicate;
           })
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc)]))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+          ]))
         .watch();
   }
+
   /// Stream de gastos por categoría en un período
-  Stream<Map<String, double>> watchExpensesByCategory(DateTime start, DateTime end) {
+  Stream<Map<String, double>> watchExpensesByCategory(
+    DateTime start,
+    DateTime end,
+  ) {
     final query = selectOnly(transactions)
       ..addColumns([transactions.categoryId, transactions.amount.sum()])
       ..where(
@@ -291,7 +350,10 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   }
 
   /// Stream de ingresos por categoría en un período
-  Stream<Map<String, double>> watchIncomeByCategory(DateTime start, DateTime end) {
+  Stream<Map<String, double>> watchIncomeByCategory(
+    DateTime start,
+    DateTime end,
+  ) {
     final query = selectOnly(transactions)
       ..addColumns([transactions.categoryId, transactions.amount.sum()])
       ..where(
@@ -316,45 +378,61 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase> with _$TransactionsD
   }
 
   /// Stream de actividad diaria (ingresos y gastos)
-  Stream<Map<DateTime, Map<String, double>>> watchDailyTotals(DateTime start, DateTime end) {
+  Stream<Map<DateTime, Map<String, double>>> watchDailyTotals(
+    DateTime start,
+    DateTime end,
+  ) {
     // Agrupar por día requiere una expresión custom en SQLite, pero drift lo facilita en Dart
     // Consultamos todas las transacciones del rango y las agrupamos en memoria para simplificar
     // compatibilidad entre plataformas (SQLite vs Postgres etc)
-    
+
     return (select(transactions)
-          ..where((t) => t.date.isBiggerOrEqualValue(start) & t.date.isSmallerOrEqualValue(end))
-          ..orderBy([(t) => OrderingTerm(expression: t.date, mode: OrderingMode.asc)]))
+          ..where(
+            (t) =>
+                t.date.isBiggerOrEqualValue(start) &
+                t.date.isSmallerOrEqualValue(end),
+          )
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.asc),
+          ]))
         .watch()
         .map((transactionList) {
-      final Map<DateTime, Map<String, double>> dailyTotals = {};
+          final Map<DateTime, Map<String, double>> dailyTotals = {};
 
-      for (var t in transactionList) {
-        // Normalizar fecha (solo año, mes, día)
-        final date = DateTime(t.date.year, t.date.month, t.date.day);
-        
-        if (!dailyTotals.containsKey(date)) {
-          dailyTotals[date] = {'income': 0.0, 'expense': 0.0};
-        }
+          for (var t in transactionList) {
+            // Normalizar fecha (solo año, mes, día)
+            final date = DateTime(t.date.year, t.date.month, t.date.day);
 
-        if (t.type == 'income') {
-          dailyTotals[date]!['income'] = (dailyTotals[date]!['income'] ?? 0) + t.amount;
-        } else if (t.type == 'expense') {
-          dailyTotals[date]!['expense'] = (dailyTotals[date]!['expense'] ?? 0) + t.amount;
-        }
-      }
-      return dailyTotals;
-    });
+            if (!dailyTotals.containsKey(date)) {
+              dailyTotals[date] = {'income': 0.0, 'expense': 0.0};
+            }
+
+            if (t.type == 'income') {
+              dailyTotals[date]!['income'] =
+                  (dailyTotals[date]!['income'] ?? 0) + t.amount;
+            } else if (t.type == 'expense') {
+              dailyTotals[date]!['expense'] =
+                  (dailyTotals[date]!['expense'] ?? 0) + t.amount;
+            }
+          }
+          return dailyTotals;
+        });
   }
+
   /// Stream de gastos por subcategoría en un período para una categoría específica
-  Stream<Map<String, double>> watchExpensesBySubcategory(String categoryId, DateTime start, DateTime end) {
+  Stream<Map<String, double>> watchExpensesBySubcategory(
+    String categoryId,
+    DateTime start,
+    DateTime end,
+  ) {
     final query = selectOnly(transactions)
       ..addColumns([transactions.subcategoryId, transactions.amount.sum()])
       ..where(
         transactions.type.equals('expense') &
-        transactions.categoryId.equals(categoryId) &
-        transactions.date.isBiggerOrEqualValue(start) &
-        transactions.date.isSmallerOrEqualValue(end) &
-        transactions.subcategoryId.isNotNull(),
+            transactions.categoryId.equals(categoryId) &
+            transactions.date.isBiggerOrEqualValue(start) &
+            transactions.date.isSmallerOrEqualValue(end) &
+            transactions.subcategoryId.isNotNull(),
       )
       ..groupBy([transactions.subcategoryId]);
 

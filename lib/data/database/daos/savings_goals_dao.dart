@@ -5,7 +5,8 @@ import '../tables/savings_goals_table.dart';
 part 'savings_goals_dao.g.dart';
 
 @DriftAccessor(tables: [SavingsGoals])
-class SavingsGoalsDao extends DatabaseAccessor<AppDatabase> with _$SavingsGoalsDaoMixin {
+class SavingsGoalsDao extends DatabaseAccessor<AppDatabase>
+    with _$SavingsGoalsDaoMixin {
   SavingsGoalsDao(super.db);
 
   /// Obtener todas las metas de ahorro
@@ -15,12 +16,16 @@ class SavingsGoalsDao extends DatabaseAccessor<AppDatabase> with _$SavingsGoalsD
 
   /// Obtener metas activas (no completadas)
   Future<List<SavingsGoal>> getActiveGoals() {
-    return (select(savingsGoals)..where((g) => g.isCompleted.equals(false))).get();
+    return (select(
+      savingsGoals,
+    )..where((g) => g.isCompleted.equals(false))).get();
   }
 
   /// Obtener meta por ID
   Future<SavingsGoal?> getGoalById(String id) {
-    return (select(savingsGoals)..where((g) => g.id.equals(id))).getSingleOrNull();
+    return (select(
+      savingsGoals,
+    )..where((g) => g.id.equals(id))).getSingleOrNull();
   }
 
   /// Crear meta
@@ -35,20 +40,22 @@ class SavingsGoalsDao extends DatabaseAccessor<AppDatabase> with _$SavingsGoalsD
 
   /// Actualizar progreso de meta
   Future<int> updateGoalProgress(String goalId, double newAmount) {
-    return (update(savingsGoals)..where((g) => g.id.equals(goalId)))
-        .write(SavingsGoalsCompanion(
-      currentAmount: Value(newAmount),
-      updatedAt: Value(DateTime.now()),
-    ));
+    return (update(savingsGoals)..where((g) => g.id.equals(goalId))).write(
+      SavingsGoalsCompanion(
+        currentAmount: Value(newAmount),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Marcar meta como completada
   Future<int> completeGoal(String goalId) {
-    return (update(savingsGoals)..where((g) => g.id.equals(goalId)))
-        .write(SavingsGoalsCompanion(
-      isCompleted: const Value(true),
-      updatedAt: Value(DateTime.now()),
-    ));
+    return (update(savingsGoals)..where((g) => g.id.equals(goalId))).write(
+      SavingsGoalsCompanion(
+        isCompleted: const Value(true),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Eliminar meta
@@ -58,6 +65,8 @@ class SavingsGoalsDao extends DatabaseAccessor<AppDatabase> with _$SavingsGoalsD
 
   /// Stream de metas activas
   Stream<List<SavingsGoal>> watchActiveGoals() {
-    return (select(savingsGoals)..where((g) => g.isCompleted.equals(false))).watch();
+    return (select(
+      savingsGoals,
+    )..where((g) => g.isCompleted.equals(false))).watch();
   }
 }

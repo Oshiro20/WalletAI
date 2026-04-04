@@ -13,9 +13,7 @@ class TravelsScreen extends ConsumerWidget {
     final travelsAsync = ref.watch(allTravelsStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Gestor de Viajes'),
-      ),
+      appBar: AppBar(title: const Text('Gestor de Viajes')),
       body: travelsAsync.when(
         data: (travels) {
           if (travels.isEmpty) {
@@ -32,13 +30,18 @@ class TravelsScreen extends ConsumerWidget {
                 margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 shape: RoundedRectangleBorder(
                   side: BorderSide(
-                    color: travel.isActive ? Theme.of(context).primaryColor : Colors.transparent,
+                    color: travel.isActive
+                        ? Theme.of(context).primaryColor
+                        : Colors.transparent,
                     width: 2,
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ListTile(
-                  title: Text(travel.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                  title: Text(
+                    travel.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   subtitle: Text(
                     '${dateFormat.format(travel.startDate)} - ${dateFormat.format(travel.endDate)}\nPresupuesto: ${travel.budget.toStringAsFixed(2)} ${travel.baseCurrency}',
                   ),
@@ -47,10 +50,22 @@ class TravelsScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (travel.isActive)
-                        const Chip(label: Text('Activo', style: TextStyle(color: Colors.white, fontSize: 10)), backgroundColor: Colors.green)
+                        const Chip(
+                          label: Text(
+                            'Activo',
+                            style: TextStyle(color: Colors.white, fontSize: 10),
+                          ),
+                          backgroundColor: Colors.green,
+                        )
                       else if (isPast)
-                        const Chip(label: Text('Finalizado', style: TextStyle(color: Colors.white, fontSize: 10)), backgroundColor: Colors.grey),
-                      
+                        const Chip(
+                          label: Text(
+                            'Finalizado',
+                            style: TextStyle(color: Colors.white, fontSize: 10),
+                          ),
+                          backgroundColor: Colors.grey,
+                        ),
+
                       PopupMenuButton<String>(
                         onSelected: (val) {
                           if (val == 'activate') {
@@ -63,10 +78,22 @@ class TravelsScreen extends ConsumerWidget {
                         },
                         itemBuilder: (ctx) => [
                           if (!travel.isActive && !isPast)
-                            const PopupMenuItem(value: 'activate', child: Text('Activar Viaje')),
+                            const PopupMenuItem(
+                              value: 'activate',
+                              child: Text('Activar Viaje'),
+                            ),
                           if (travel.isActive)
-                            const PopupMenuItem(value: 'finish', child: Text('Finalizar Viaje')),
-                          const PopupMenuItem(value: 'delete', child: Text('Eliminar', style: TextStyle(color: Colors.red))),
+                            const PopupMenuItem(
+                              value: 'finish',
+                              child: Text('Finalizar Viaje'),
+                            ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Text(
+                              'Eliminar',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -88,14 +115,23 @@ class TravelsScreen extends ConsumerWidget {
     );
   }
 
-  void _showActivationDialog(BuildContext context, WidgetRef ref, Travel travel) {
+  void _showActivationDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Travel travel,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Activar Viaje?'),
-        content: Text('Si activas "${travel.name}", todos los gastos nuevos que registres se asignarán automáticamente a este viaje.'),
+        content: Text(
+          'Si activas "${travel.name}", todos los gastos nuevos que registres se asignarán automáticamente a este viaje.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () {
               ref.read(travelsDaoProvider).setActiveTravel(travel.id);
@@ -108,14 +144,23 @@ class TravelsScreen extends ConsumerWidget {
     );
   }
 
-  void _showDeactivationDialog(BuildContext context, WidgetRef ref, Travel travel) {
+  void _showDeactivationDialog(
+    BuildContext context,
+    WidgetRef ref,
+    Travel travel,
+  ) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Finalizar Viaje?'),
-        content: Text('Estás a punto de desactivar "${travel.name}". Los gastos futuros volverán a registrarse de forma normal.'),
+        content: Text(
+          'Estás a punto de desactivar "${travel.name}". Los gastos futuros volverán a registrarse de forma normal.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('No')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('No'),
+          ),
           FilledButton(
             onPressed: () {
               ref.read(travelsDaoProvider).deactivateAllTravels();
@@ -134,9 +179,14 @@ class TravelsScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('¿Eliminar Viaje?'),
-        content: Text('Estás a punto de eliminar "${travel.name}". Esto NO borrará las transacciones asociadas, pero perderás la información del viaje. ¿Estás seguro?'),
+        content: Text(
+          'Estás a punto de eliminar "${travel.name}". Esto NO borrará las transacciones asociadas, pero perderás la información del viaje. ¿Estás seguro?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
           FilledButton(
             onPressed: () {
               ref.read(travelsDaoProvider).deleteTravel(travel.id);

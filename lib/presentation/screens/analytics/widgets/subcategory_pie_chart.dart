@@ -15,7 +15,8 @@ class SubcategoryPieChart extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<SubcategoryPieChart> createState() => _SubcategoryPieChartState();
+  ConsumerState<SubcategoryPieChart> createState() =>
+      _SubcategoryPieChartState();
 }
 
 class _SubcategoryPieChartState extends ConsumerState<SubcategoryPieChart> {
@@ -27,7 +28,10 @@ class _SubcategoryPieChartState extends ConsumerState<SubcategoryPieChart> {
       return const SizedBox(
         height: 250,
         child: Center(
-            child: Text('No hay datos para mostrar', style: TextStyle(color: Colors.grey))
+          child: Text(
+            'No hay datos para mostrar',
+            style: TextStyle(color: Colors.grey),
+          ),
         ),
       );
     }
@@ -37,49 +41,58 @@ class _SubcategoryPieChartState extends ConsumerState<SubcategoryPieChart> {
     return subcategoriesAsync.when(
       data: (subcategories) {
         final total = widget.dataMap.values.fold(0.0, (sum, val) => sum + val);
-        
+
         return SizedBox(
-            height: 250,
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: PieChart(
-                    PieChartData(
-                      pieTouchData: PieTouchData(
-                        touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                          setState(() {
-                            if (!event.isInterestedForInteractions ||
-                                pieTouchResponse == null ||
-                                pieTouchResponse.touchedSection == null) {
-                              touchedIndex = -1;
-                              return;
-                            }
-                            touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                          });
-                        },
-                      ),
-                      borderData: FlBorderData(show: false),
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 40,
-                      sections: _showingSections(widget.dataMap, subcategories, total),
+          height: 250,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: PieChart(
+                  PieChartData(
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                        setState(() {
+                          if (!event.isInterestedForInteractions ||
+                              pieTouchResponse == null ||
+                              pieTouchResponse.touchedSection == null) {
+                            touchedIndex = -1;
+                            return;
+                          }
+                          touchedIndex = pieTouchResponse
+                              .touchedSection!
+                              .touchedSectionIndex;
+                        });
+                      },
+                    ),
+                    borderData: FlBorderData(show: false),
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: _showingSections(
+                      widget.dataMap,
+                      subcategories,
+                      total,
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: _Indicators(
-                      dataMap: widget.dataMap,
-                      subcategories: subcategories,
-                      baseColor: widget.baseColor,
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: _Indicators(
+                  dataMap: widget.dataMap,
+                  subcategories: subcategories,
+                  baseColor: widget.baseColor,
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         );
       },
-      loading: () => const SizedBox(height: 250, child: Center(child: CircularProgressIndicator())),
+      loading: () => const SizedBox(
+        height: 250,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (_, __) => const SizedBox(height: 250),
     );
   }
@@ -103,13 +116,14 @@ class _SubcategoryPieChartState extends ConsumerState<SubcategoryPieChart> {
       final subcategory = subcategories.firstWhere(
         (c) => c.id == subId,
         orElse: () => Subcategory(
-            id: 'unknown',
-            name: 'Desconocido',
-            categoryId: 'unknown',
-            icon: '?',
-            sortOrder: 0,
-            // color field does not exist, using baseColor logic
-            createdAt: DateTime.now()),
+          id: 'unknown',
+          name: 'Desconocido',
+          categoryId: 'unknown',
+          icon: '?',
+          sortOrder: 0,
+          // color field does not exist, using baseColor logic
+          createdAt: DateTime.now(),
+        ),
       );
 
       // Generate color shade based on index
@@ -142,11 +156,7 @@ class _SubcategoryPieChartState extends ConsumerState<SubcategoryPieChart> {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(
-    this.text, {
-    required this.size,
-    required this.borderColor,
-  });
+  const _Badge(this.text, {required this.size, required this.borderColor});
   final String text;
   final double size;
   final Color borderColor;
@@ -160,10 +170,7 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: borderColor,
-          width: 2,
-        ),
+        border: Border.all(color: borderColor, width: 2),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withValues(alpha: .5),
@@ -174,10 +181,7 @@ class _Badge extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(2),
       child: Center(
-        child: Text(
-          text,
-          style: TextStyle(fontSize: size * 0.5),
-        ),
+        child: Text(text, style: TextStyle(fontSize: size * 0.5)),
       ),
     );
   }
@@ -207,15 +211,17 @@ class _Indicators extends StatelessWidget {
       children: List.generate(topKeys.length, (i) {
         final subId = topKeys[i];
         final subcategory = subcategories.firstWhere(
-            (c) => c.id == subId,
-            orElse: () => Subcategory(
+          (c) => c.id == subId,
+          orElse: () => Subcategory(
             id: 'unknown',
             name: 'Desconocido',
             categoryId: 'unknown',
             icon: '?',
             sortOrder: 0,
-            createdAt: DateTime.now()));
-        
+            createdAt: DateTime.now(),
+          ),
+        );
+
         final hsl = HSLColor.fromColor(baseColor);
         final lightness = (0.4 + (i * 0.4 / dataMap.length)).clamp(0.4, 0.9);
         final color = hsl.withLightness(lightness).toColor();
@@ -227,10 +233,7 @@ class _Indicators extends StatelessWidget {
               Container(
                 width: 12,
                 height: 12,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -242,7 +245,10 @@ class _Indicators extends StatelessWidget {
               ),
               Text(
                 'S/ ${dataMap[subId]!.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),

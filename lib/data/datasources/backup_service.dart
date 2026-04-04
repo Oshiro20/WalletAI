@@ -11,7 +11,6 @@ import 'package:http/http.dart' as http;
 /// Nombre del archivo de base de datos SQLite de Drift
 const _dbFileName = 'finanzas.db';
 
-
 /// Folder de Drive donde se guardan los backups
 const _driveFolderName = 'Control Financiero Backups';
 
@@ -54,14 +53,20 @@ class BackupService {
       final dbFile = await _getDbFile();
       if (!await dbFile.exists()) {
         return const BackupResult(
-            success: false, message: 'No se encontró la base de datos');
+          success: false,
+          message: 'No se encontró la base de datos',
+        );
       }
 
       final docsDir = await getApplicationDocumentsDirectory();
-      final timestamp =
-          DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19);
-      final backupPath =
-          p.join(docsDir.path, 'backup_financiero_$timestamp.db');
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .substring(0, 19);
+      final backupPath = p.join(
+        docsDir.path,
+        'backup_financiero_$timestamp.db',
+      );
 
       await dbFile.copy(backupPath);
 
@@ -81,14 +86,20 @@ class BackupService {
       final dbFile = await _getDbFile();
       if (!await dbFile.exists()) {
         return const BackupResult(
-            success: false, message: 'No se encontró la base de datos');
+          success: false,
+          message: 'No se encontró la base de datos',
+        );
       }
 
       // Copiar a un nombre legible antes de compartir
       final tempDir = await getTemporaryDirectory();
-      final timestamp =
-          DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 10);
-      final shareFile = File(p.join(tempDir.path, 'backup_financiero_$timestamp.db'));
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .substring(0, 10);
+      final shareFile = File(
+        p.join(tempDir.path, 'backup_financiero_$timestamp.db'),
+      );
       await dbFile.copy(shareFile.path);
 
       await Share.shareXFiles(
@@ -99,7 +110,9 @@ class BackupService {
       );
 
       return const BackupResult(
-          success: true, message: 'Backup compartido exitosamente');
+        success: true,
+        message: 'Backup compartido exitosamente',
+      );
     } catch (e) {
       return BackupResult(success: false, message: 'Error al compartir: $e');
     }
@@ -114,16 +127,22 @@ class BackupService {
       );
 
       if (result == null || result.files.single.path == null) {
-        return const BackupResult(success: false, message: 'Sin archivo seleccionado');
+        return const BackupResult(
+          success: false,
+          message: 'Sin archivo seleccionado',
+        );
       }
 
       final selectedFile = File(result.files.single.path!);
 
       // Validar que sea un archivo SQLite
       final bytes = await selectedFile.readAsBytes();
-      if (bytes.length < 16 || String.fromCharCodes(bytes.sublist(0, 6)) != 'SQLite') {
+      if (bytes.length < 16 ||
+          String.fromCharCodes(bytes.sublist(0, 6)) != 'SQLite') {
         return const BackupResult(
-            success: false, message: 'Archivo inválido. No es un backup compatible.');
+          success: false,
+          message: 'Archivo inválido. No es un backup compatible.',
+        );
       }
 
       final dbFile = await _getDbFile();
@@ -186,7 +205,9 @@ class BackupService {
   }
 
   /// Obtener o crear carpeta de backups en Drive
-  static Future<String?> _getOrCreateDriveFolder(drive.DriveApi driveApi) async {
+  static Future<String?> _getOrCreateDriveFolder(
+    drive.DriveApi driveApi,
+  ) async {
     // Buscar carpeta existente
     final query =
         "name='$_driveFolderName' and mimeType='application/vnd.google-apps.folder' and trashed=false";
@@ -211,20 +232,25 @@ class BackupService {
       final driveApi = await _getDriveApi();
       if (driveApi == null) {
         return const BackupResult(
-            success: false,
-            message: 'Debes iniciar sesión con Google primero');
+          success: false,
+          message: 'Debes iniciar sesión con Google primero',
+        );
       }
 
       final dbFile = await _getDbFile();
       if (!await dbFile.exists()) {
         return const BackupResult(
-            success: false, message: 'No se encontró la base de datos');
+          success: false,
+          message: 'No se encontró la base de datos',
+        );
       }
 
       final folderId = await _getOrCreateDriveFolder(driveApi);
       final fileBytes = await dbFile.readAsBytes();
-      final timestamp =
-          DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19);
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .substring(0, 19);
       final fileName = 'backup_financiero_$timestamp.db';
 
       final driveFile = drive.File()
@@ -245,7 +271,10 @@ class BackupService {
             '☁️ Backup subido a Google Drive\nCarpeta: $_driveFolderName\nArchivo: $fileName',
       );
     } catch (e) {
-      return BackupResult(success: false, message: 'Error al subir a Drive: $e');
+      return BackupResult(
+        success: false,
+        message: 'Error al subir a Drive: $e',
+      );
     }
   }
 
@@ -280,13 +309,17 @@ class BackupService {
       final driveApi = await _getDriveApi();
       if (driveApi == null) {
         return const BackupResult(
-            success: false, message: 'Debes iniciar sesión con Google');
+          success: false,
+          message: 'Debes iniciar sesión con Google',
+        );
       }
 
-      final response = await driveApi.files.get(
-        fileId,
-        downloadOptions: drive.DownloadOptions.fullMedia,
-      ) as drive.Media;
+      final response =
+          await driveApi.files.get(
+                fileId,
+                downloadOptions: drive.DownloadOptions.fullMedia,
+              )
+              as drive.Media;
 
       final bytes = <int>[];
       await for (final chunk in response.stream) {
@@ -319,7 +352,9 @@ class BackupService {
       final driveApi = await _getDriveApi();
       if (driveApi == null) {
         return const BackupResult(
-            success: false, message: 'Debes iniciar sesión');
+          success: false,
+          message: 'Debes iniciar sesión',
+        );
       }
       await driveApi.files.delete(fileId);
       return const BackupResult(success: true, message: 'Backup eliminado');

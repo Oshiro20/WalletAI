@@ -44,10 +44,12 @@ class CreateTransactionScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CreateTransactionScreen> createState() => _CreateTransactionScreenState();
+  ConsumerState<CreateTransactionScreen> createState() =>
+      _CreateTransactionScreenState();
 }
 
-class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScreen> {
+class _CreateTransactionScreenState
+    extends ConsumerState<CreateTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -55,7 +57,7 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
   final _quantityController = TextEditingController();
   final _unitController = TextEditingController();
   final _productNameFocusNode = FocusNode();
-  
+
   DateTime _selectedDate = DateTime.now();
   String _transactionType = 'expense'; // expense, income, transfer
   String _currency = 'PEN';
@@ -64,17 +66,17 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
   String? _selectedCategoryId;
   String? _selectedSubcategoryId;
   bool _isLoading = false;
-  
+
   // Variables para prediccion de IA
   Timer? _predictionTimer;
   bool _isPredictingCategory = false;
-  
+
   // Variables para GPS
   double? _latitude;
   double? _longitude;
   String? _locationName;
   bool _isCapturingLocation = false;
-  
+
   // Variables para pagos recurrentes
   bool _isRecurring = false;
   String _frequency = 'monthly'; // monthly, weekly, yearly
@@ -128,20 +130,20 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       if (name.isNotEmpty) {
         final db = ref.read(databaseProvider);
         final rule = await db.learningRulesDao.getRuleForProduct(name);
-        
+
         if (rule != null && mounted) {
-           setState(() {
-             _selectedCategoryId = rule.categoryId;
-           });
-           
-           // Mostrar un pequeño feedback visual
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(
-               content: Text('Categoría auto-asignada por aprendizaje: \$name'),
-               duration: const Duration(seconds: 2),
-               behavior: SnackBarBehavior.floating,
-             )
-           );
+          setState(() {
+            _selectedCategoryId = rule.categoryId;
+          });
+
+          // Mostrar un pequeño feedback visual
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Categoría auto-asignada por aprendizaje: \$name'),
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
         }
       }
     }
@@ -162,11 +164,11 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
     // Iniciar un nuevo timer de 800ms para hacer debounce
     _predictionTimer = Timer(const Duration(milliseconds: 800), () async {
       final name = value.trim();
-      
+
       // 1. Primero intentar autocompletar con reglas locales
       final db = ref.read(databaseProvider);
       final rule = await db.learningRulesDao.getRuleForProduct(name);
-      
+
       if (rule != null && mounted) {
         setState(() {
           _selectedCategoryId = rule.categoryId;
@@ -184,10 +186,15 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       try {
         final groqService = ref.read(groqServiceProvider);
         final categoriesList = await db.categoriesDao.getAllCategories();
-        final predictedCategoryName = await groqService.predictCategoryFast(name, categoriesList);
-        
+        final predictedCategoryName = await groqService.predictCategoryFast(
+          name,
+          categoriesList,
+        );
+
         if (predictedCategoryName != null && mounted) {
-          final category = await db.categoriesDao.findCategoryByName(predictedCategoryName);
+          final category = await db.categoriesDao.findCategoryByName(
+            predictedCategoryName,
+          );
           if (category != null && mounted) {
             setState(() {
               _selectedCategoryId = category.id;
@@ -197,15 +204,23 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
               SnackBar(
                 content: Row(
                   children: [
-                    const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    const Icon(
+                      Icons.auto_awesome,
+                      color: Colors.amber,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
-                    Expanded(child: Text('IA detectó la categoría: ${category.name}')),
+                    Expanded(
+                      child: Text('IA detectó la categoría: ${category.name}'),
+                    ),
                   ],
                 ),
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              )
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
             );
           }
         }
@@ -266,7 +281,9 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
             ListTile(
               leading: const Icon(Icons.receipt_long),
               title: const Text('Boleta Múltiple (Supermercado)'),
-              subtitle: const Text('Extrae todos los productos como transacciones separadas'),
+              subtitle: const Text(
+                'Extrae todos los productos como transacciones separadas',
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 _showCameraOrGallery(context, isMultiple: true);
@@ -307,7 +324,10 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
     );
   }
 
-  Future<void> _scanReceipt(ImageSource source, {bool isMultiple = false}) async {
+  Future<void> _scanReceipt(
+    ImageSource source, {
+    bool isMultiple = false,
+  }) async {
     setState(() => _isLoading = true);
     try {
       final scanner = ref.read(receiptScannerServiceProvider);
@@ -327,19 +347,23 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
             if (receipt.merchant != null) {
               _descriptionController.text = receipt.merchant!;
             }
-            if (receipt.productName != null && receipt.productName!.isNotEmpty) {
+            if (receipt.productName != null &&
+                receipt.productName!.isNotEmpty) {
               _productNameController.text = receipt.productName!;
             }
           });
 
-          if (receipt.category != null && receipt.category!.isNotEmpty && _transactionType == 'expense') {
+          if (receipt.category != null &&
+              receipt.category!.isNotEmpty &&
+              _transactionType == 'expense') {
             try {
               final categoriesDao = ref.read(categoriesDaoProvider);
               final categories = await categoriesDao.getAllCategories();
-              
+
               Category? matchedCategory;
               for (final c in categories) {
-                if (c.type == 'expense' && c.name.toLowerCase() == receipt.category!.toLowerCase()) {
+                if (c.type == 'expense' &&
+                    c.name.toLowerCase() == receipt.category!.toLowerCase()) {
                   matchedCategory = c;
                   break;
                 }
@@ -347,40 +371,45 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
 
               if (matchedCategory != null) {
                 final categoryId = matchedCategory.id;
-                
+
                 if (mounted) {
                   setState(() {
-                     _selectedCategoryId = categoryId;
-                     _selectedSubcategoryId = null; // reset subcategory first
+                    _selectedCategoryId = categoryId;
+                    _selectedSubcategoryId = null; // reset subcategory first
                   });
                 }
 
-                if (receipt.subcategory != null && receipt.subcategory!.isNotEmpty) {
-                   final subcategoriesDao = ref.read(subcategoriesDaoProvider);
-                   final subcats = await subcategoriesDao.getSubcategoriesByCategoryId(categoryId);
-                   for (final sc in subcats) {
-                      if (sc.name.toLowerCase() == receipt.subcategory!.toLowerCase()) {
-                         if (mounted) {
-                            setState(() { _selectedSubcategoryId = sc.id; });
-                         }
-                         break;
+                if (receipt.subcategory != null &&
+                    receipt.subcategory!.isNotEmpty) {
+                  final subcategoriesDao = ref.read(subcategoriesDaoProvider);
+                  final subcats = await subcategoriesDao
+                      .getSubcategoriesByCategoryId(categoryId);
+                  for (final sc in subcats) {
+                    if (sc.name.toLowerCase() ==
+                        receipt.subcategory!.toLowerCase()) {
+                      if (mounted) {
+                        setState(() {
+                          _selectedSubcategoryId = sc.id;
+                        });
                       }
-                   }
+                      break;
+                    }
+                  }
                 }
               }
             } catch (_) {}
           }
 
           if (receipt.items != null && receipt.items!.isNotEmpty) {
-             if (mounted) {
-                Navigator.pushReplacement(
-                   context,
-                   MaterialPageRoute(
-                      builder: (ctx) => AddReceiptItemsScreen(receipt: receipt),
-                   ),
-                );
-             }
-             return;
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (ctx) => AddReceiptItemsScreen(receipt: receipt),
+                ),
+              );
+            }
+            return;
           }
 
           if (mounted) {
@@ -398,9 +427,9 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al escanear: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al escanear: $e')));
       }
     } finally {
       if (mounted) {
@@ -408,7 +437,6 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       }
     }
   }
-
 
   Future<void> _captureLocation() async {
     setState(() => _isCapturingLocation = true);
@@ -421,11 +449,20 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
           _locationName = result.name;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('📍 Ubicación capturada: ${result.name ?? "lat ${result.latitude.toStringAsFixed(4)}"}'), duration: const Duration(seconds: 2)),
+          SnackBar(
+            content: Text(
+              '📍 Ubicación capturada: ${result.name ?? "lat ${result.latitude.toStringAsFixed(4)}"}',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('No se pudo obtener la ubicación. Verifica los permisos.')),
+          const SnackBar(
+            content: Text(
+              'No se pudo obtener la ubicación. Verifica los permisos.',
+            ),
+          ),
         );
       }
     } finally {
@@ -452,21 +489,21 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       return;
     }
 
-      // Validar transferencia
-      if (_transactionType == 'transfer') {
-        if (_destinationAccountId == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Selecciona cuenta destino')),
-          );
-          return;
-        }
-        if (_selectedAccountId == _destinationAccountId) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Las cuentas deben ser diferentes')),
-          );
-          return;
-        }
+    // Validar transferencia
+    if (_transactionType == 'transfer') {
+      if (_destinationAccountId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Selecciona cuenta destino')),
+        );
+        return;
       }
+      if (_selectedAccountId == _destinationAccountId) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Las cuentas deben ser diferentes')),
+        );
+        return;
+      }
+    }
 
     setState(() {
       _isLoading = true;
@@ -476,7 +513,7 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       final repository = ref.read(transactionRepositoryProvider);
       final dao = ref.read(databaseProvider).learningRulesDao;
       final activeTravel = ref.read(activeTravelProvider).valueOrNull;
-      
+
       final amount = double.parse(_amountController.text);
       const uuid = Uuid();
       final transactionId = uuid.v4();
@@ -486,7 +523,7 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       // Si es recurrente, crear objeto RecurringPaymentsCompanion
       if (_isRecurring && _transactionType != 'transfer') {
         recurringId = uuid.v4();
-        
+
         // Calcular próxima fecha (la actual cuenta como la primera)
         DateTime nextDate = _selectedDate;
         if (_frequency == 'weekly') {
@@ -499,9 +536,11 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
 
         recurringPayment = RecurringPaymentsCompanion.insert(
           id: recurringId,
-          name: _descriptionController.text.isNotEmpty 
-              ? _descriptionController.text 
-              : (_transactionType == 'expense' ? 'Gasto recurrente' : 'Ingreso recurrente'),
+          name: _descriptionController.text.isNotEmpty
+              ? _descriptionController.text
+              : (_transactionType == 'expense'
+                    ? 'Gasto recurrente'
+                    : 'Ingreso recurrente'),
           amount: amount,
           accountId: _selectedAccountId!,
           categoryId: drift.Value(_selectedCategoryId),
@@ -522,14 +561,22 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
         destinationAccountId: drift.Value(_destinationAccountId),
         categoryId: drift.Value(_selectedCategoryId),
         subcategoryId: drift.Value(_selectedSubcategoryId),
-        productName: drift.Value(_productNameController.text.isEmpty
-            ? null
-            : _productNameController.text),
+        productName: drift.Value(
+          _productNameController.text.isEmpty
+              ? null
+              : _productNameController.text,
+        ),
         quantity: drift.Value(double.tryParse(_quantityController.text) ?? 1.0),
-        unit: drift.Value(_unitController.text.trim().isEmpty ? 'UND' : _unitController.text.trim().toUpperCase()),
-        description: drift.Value(_descriptionController.text.isEmpty
-            ? null
-            : _descriptionController.text),
+        unit: drift.Value(
+          _unitController.text.trim().isEmpty
+              ? 'UND'
+              : _unitController.text.trim().toUpperCase(),
+        ),
+        description: drift.Value(
+          _descriptionController.text.isEmpty
+              ? null
+              : _descriptionController.text,
+        ),
         date: _selectedDate,
         isRecurring: drift.Value(_isRecurring),
         recurringPaymentId: drift.Value(recurringId),
@@ -553,9 +600,13 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isRecurring 
-              ? 'Transacción y suscripción guardadas' 
-              : 'Transacción guardada exitosamente')),
+          SnackBar(
+            content: Text(
+              _isRecurring
+                  ? 'Transacción y suscripción guardadas'
+                  : 'Transacción guardada exitosamente',
+            ),
+          ),
         );
 
         // Cerrar pantalla INMEDIATAMENTE — las verificaciones corren en background
@@ -565,16 +616,22 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
         if (_transactionType == 'expense') {
           unawaited(_checkBudgetAlerts());
           unawaited(_checkHighExpense(amount, _descriptionController.text));
-          if (_productNameController.text.trim().isNotEmpty && _selectedCategoryId != null) {
-            unawaited(dao.saveRule(_productNameController.text.trim(), _selectedCategoryId!));
+          if (_productNameController.text.trim().isNotEmpty &&
+              _selectedCategoryId != null) {
+            unawaited(
+              dao.saveRule(
+                _productNameController.text.trim(),
+                _selectedCategoryId!,
+              ),
+            );
           }
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al guardar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       }
     } finally {
       if (mounted) {
@@ -615,10 +672,11 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
       final startOfMonth = DateTime(now.year, now.month, 1);
       final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
-      final monthlyExpenses = await transactionsDao
-          .getExpensesByCategory(startOfMonth, endOfMonth);
-      final totalMonthly =
-          monthlyExpenses.values.fold(0.0, (a, b) => a + b);
+      final monthlyExpenses = await transactionsDao.getExpensesByCategory(
+        startOfMonth,
+        endOfMonth,
+      );
+      final totalMonthly = monthlyExpenses.values.fold(0.0, (a, b) => a + b);
 
       final daysElapsed = now.day.toDouble().clamp(1, 31);
       final dailyAverage = totalMonthly / daysElapsed;
@@ -663,10 +721,10 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
               tooltip: 'Escanear Boleta',
               onPressed: () => _showScanOptions(context),
             ),
-            IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: _saveTransaction,
-            ),
+          IconButton(
+            icon: const Icon(Icons.check),
+            onPressed: _saveTransaction,
+          ),
         ],
       ),
 
@@ -677,17 +735,17 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
           children: [
             // Selector de tipo
             _buildTypeSelector(),
-            
+
             const SizedBox(height: 24),
-            
+
             // Campo de monto
             _buildAmountField(),
-            
+
             const SizedBox(height: 16),
-            
+
             // Selector de cuenta
             _buildAccountSelector(accountsAsync),
-            
+
             const SizedBox(height: 16),
 
             // Selector de cuenta destino (solo para transferencias)
@@ -695,55 +753,58 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
               _buildDestinationAccountSelector(accountsAsync),
               const SizedBox(height: 16),
             ],
-            
+
             // Selector de categoría (solo para income/expense)
             if (_transactionType != 'transfer') ...[
               _buildCategorySelector(categoriesAsync),
               const SizedBox(height: 16),
-              
+
               // Selector de subcategoría (si hay categoría seleccionada)
               if (_selectedCategoryId != null)
                 _buildSubcategorySelector(_selectedCategoryId!),
             ],
-            
-            if (_transactionType != 'transfer')
-              const SizedBox(height: 16),
-            
+
+            if (_transactionType != 'transfer') const SizedBox(height: 16),
+
             // Campo de producto (nuevo)
             _buildProductNameField(),
 
             const SizedBox(height: 16),
-            
+
             // Cantidad y Unidad (opcional, solo gastos o compras)
             if (_transactionType != 'transfer') ...[
-               _buildQuantityAndUnitFields(),
-               const SizedBox(height: 16),
+              _buildQuantityAndUnitFields(),
+              const SizedBox(height: 16),
             ],
 
             // Campo de comercio/descripción
             _buildDescriptionField(),
-            
+
             const SizedBox(height: 16),
-            
+
             // Selector de fecha
             _buildDateSelector(),
-            
+
             const SizedBox(height: 16),
 
             // Botón de ubicación GPS
             _buildLocationButton(),
 
             const SizedBox(height: 16),
-            
+
             // Opción de pago recurrente (solo para gastos/ingresos)
             if (_transactionType != 'transfer') ...[
               SwitchListTile(
-                title: Text(_transactionType == 'expense' 
-                    ? '¿Es un gasto frecuente?' 
-                    : '¿Es un ingreso frecuente?'),
-                subtitle: Text(_transactionType == 'expense' 
-                    ? 'Ej. Suscripciones, Alquiler' 
-                    : 'Ej. Sueldo, Renta'),
+                title: Text(
+                  _transactionType == 'expense'
+                      ? '¿Es un gasto frecuente?'
+                      : '¿Es un ingreso frecuente?',
+                ),
+                subtitle: Text(
+                  _transactionType == 'expense'
+                      ? 'Ej. Suscripciones, Alquiler'
+                      : 'Ej. Sueldo, Renta',
+                ),
                 value: _isRecurring,
                 onChanged: (value) {
                   setState(() {
@@ -753,7 +814,7 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
                 secondary: const Icon(Icons.loop),
                 contentPadding: EdgeInsets.zero,
               ),
-              
+
               if (_isRecurring) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
@@ -776,9 +837,9 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
                 ),
               ],
             ],
-            
+
             const SizedBox(height: 32),
-            
+
             // Botón guardar
             _buildSaveButton(),
           ],
@@ -854,7 +915,10 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
             decoration: const InputDecoration(
               labelText: 'Moneda',
               border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 16,
+              ),
             ),
             items: const [
               DropdownMenuItem(value: 'PEN', child: Text('PEN')),
@@ -914,7 +978,9 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
     );
   }
 
-  Widget _buildDestinationAccountSelector(AsyncValue<List<Account>> accountsAsync) {
+  Widget _buildDestinationAccountSelector(
+    AsyncValue<List<Account>> accountsAsync,
+  ) {
     return AccountSelector(
       selectedAccountId: _destinationAccountId,
       accountIdToExclude: _selectedAccountId,
@@ -941,7 +1007,9 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
 
   Widget _buildSubcategorySelector(String categoryId) {
     // Usar ref.watch para observar el stream de subcategorías
-    final subcategoriesAsync = ref.watch(subcategoriesStreamProvider(categoryId));
+    final subcategoriesAsync = ref.watch(
+      subcategoriesStreamProvider(categoryId),
+    );
 
     return subcategoriesAsync.when(
       data: (subcategories) {
@@ -966,9 +1034,11 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
                   child: Row(
                     children: [
                       if (subcategory.icon != null)
-                        Text(subcategory.icon!, style: const TextStyle(fontSize: 20)),
-                      if (subcategory.icon != null)
-                        const SizedBox(width: 8),
+                        Text(
+                          subcategory.icon!,
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                      if (subcategory.icon != null) const SizedBox(width: 8),
                       Text(subcategory.name),
                     ],
                   ),
@@ -985,7 +1055,8 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
         );
       },
       loading: () => const LinearProgressIndicator(),
-      error: (error, stack) => const SizedBox.shrink(), // Ocultar errores silenciosamente en UI
+      error: (error, stack) =>
+          const SizedBox.shrink(), // Ocultar errores silenciosamente en UI
     );
   }
 
@@ -1039,8 +1110,16 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
         Expanded(
           flex: 3,
           child: DropdownButtonFormField<String>(
-            initialValue: ['UND', 'KG', 'GRS', 'LTR', 'MLS', 'CAJA', 'MTS']
-                    .contains(_unitController.text)
+            initialValue:
+                [
+                  'UND',
+                  'KG',
+                  'GRS',
+                  'LTR',
+                  'MLS',
+                  'CAJA',
+                  'MTS',
+                ].contains(_unitController.text)
                 ? _unitController.text
                 : 'UND',
             decoration: InputDecoration(
@@ -1089,7 +1168,7 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
 
   Widget _buildDateSelector() {
     final dateFormat = DateFormat('EEEE, d MMMM yyyy', 'es');
-    
+
     return InkWell(
       onTap: () => _selectDate(context),
       child: InputDecorator(
@@ -1124,7 +1203,12 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
           prefixIcon: _isCapturingLocation
               ? const Padding(
                   padding: EdgeInsets.all(12),
-                  child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)))
+                  child: SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
               : Icon(
                   hasLocation ? Icons.location_on : Icons.location_off,
                   color: hasLocation ? colorScheme.primary : null,
@@ -1143,12 +1227,15 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
         ),
         child: Text(
           hasLocation
-              ? (_locationName ?? 'lat ${_latitude!.toStringAsFixed(4)}, lon ${_longitude!.toStringAsFixed(4)}')
+              ? (_locationName ??
+                    'lat ${_latitude!.toStringAsFixed(4)}, lon ${_longitude!.toStringAsFixed(4)}')
               : _isCapturingLocation
-                  ? 'Obteniendo ubicación...'
-                  : 'Toca para capturar ubicación',
+              ? 'Obteniendo ubicación...'
+              : 'Toca para capturar ubicación',
           style: TextStyle(
-            color: hasLocation ? colorScheme.onSurface : colorScheme.onSurfaceVariant,
+            color: hasLocation
+                ? colorScheme.onSurface
+                : colorScheme.onSurfaceVariant,
             fontStyle: hasLocation ? FontStyle.normal : FontStyle.italic,
           ),
         ),
@@ -1167,9 +1254,7 @@ class _CreateTransactionScreenState extends ConsumerState<CreateTransactionScree
             )
           : const Icon(Icons.save),
       label: Text(_isLoading ? 'Guardando...' : 'Guardar Transacción'),
-      style: FilledButton.styleFrom(
-        padding: const EdgeInsets.all(16),
-      ),
+      style: FilledButton.styleFrom(padding: const EdgeInsets.all(16)),
     );
   }
 }
@@ -1197,7 +1282,9 @@ class _TypeButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected
+              ? color.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? color : Colors.grey.withValues(alpha: 0.3),
@@ -1206,11 +1293,7 @@ class _TypeButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: isSelected ? color : Colors.grey,
-              size: 28,
-            ),
+            Icon(icon, color: isSelected ? color : Colors.grey, size: 28),
             const SizedBox(height: 4),
             Text(
               label,

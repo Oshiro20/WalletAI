@@ -32,7 +32,9 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
   }
 
   void _saveTravel() async {
-    if (_formKey.currentState!.validate() && _startDate != null && _endDate != null) {
+    if (_formKey.currentState!.validate() &&
+        _startDate != null &&
+        _endDate != null) {
       final travelId = const Uuid().v4();
       final travel = TravelsCompanion.insert(
         id: travelId,
@@ -40,7 +42,9 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
         budget: drift.Value(double.tryParse(_budgetController.text) ?? 0.0),
         startDate: _startDate!,
         endDate: _endDate!,
-        isActive: const drift.Value(false), // Lo manejamos después si _activateNow es true
+        isActive: const drift.Value(
+          false,
+        ), // Lo manejamos después si _activateNow es true
       );
 
       final dao = ref.read(travelsDaoProvider);
@@ -60,7 +64,9 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
       }
     } else if (_startDate == null || _endDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Por favor, selecciona las fechas del viaje.')),
+        const SnackBar(
+          content: Text('Por favor, selecciona las fechas del viaje.'),
+        ),
       );
     }
   }
@@ -88,9 +94,7 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
     final dateFormat = DateFormat('dd MMM yyyy');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Registrar Viaje'),
-      ),
+      appBar: AppBar(title: const Text('Registrar Viaje')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -106,15 +110,18 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
                   prefixIcon: Icon(Icons.flight),
                   border: OutlineInputBorder(),
                 ),
-                validator: (val) =>
-                    val == null || val.trim().isEmpty ? 'Ingresa un nombre' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Ingresa un nombre'
+                    : null,
               ),
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 icon: const Icon(Icons.calendar_month),
-                label: Text(_startDate != null && _endDate != null
-                    ? '${dateFormat.format(_startDate!)} - ${dateFormat.format(_endDate!)}'
-                    : 'Seleccionar Fechas'),
+                label: Text(
+                  _startDate != null && _endDate != null
+                      ? '${dateFormat.format(_startDate!)} - ${dateFormat.format(_endDate!)}'
+                      : 'Seleccionar Fechas',
+                ),
                 onPressed: _pickDateRange,
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
@@ -124,7 +131,9 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _budgetController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: const InputDecoration(
                   labelText: 'Presupuesto Inicial (Opcional)',
                   prefixIcon: Icon(Icons.attach_money),
@@ -134,15 +143,22 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
               const SizedBox(height: 16),
               SwitchListTile(
                 title: const Text('Activar ahora'),
-                subtitle: const Text('Los gastos futuros se asignarán a este viaje'),
+                subtitle: const Text(
+                  'Los gastos futuros se asignarán a este viaje',
+                ),
                 value: _activateNow,
                 onChanged: (val) => setState(() => _activateNow = val),
               ),
               const SizedBox(height: 32),
               FilledButton(
                 onPressed: _saveTravel,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                child: const Text('Guardar Viaje', style: TextStyle(fontSize: 16)),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                child: const Text(
+                  'Guardar Viaje',
+                  style: TextStyle(fontSize: 16),
+                ),
               ),
             ],
           ),

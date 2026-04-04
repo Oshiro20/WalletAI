@@ -13,7 +13,7 @@ class RecurringPayments extends Table {
   IntColumn get reminderDays => integer().withDefault(const Constant(3))();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

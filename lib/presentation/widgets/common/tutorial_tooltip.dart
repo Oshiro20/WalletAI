@@ -21,7 +21,7 @@ class TutorialTooltip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -49,14 +49,11 @@ class TutorialTooltip extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          
+
           // Description
-          Text(
-            description,
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(description, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 16),
-          
+
           // Buttons
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -86,7 +83,10 @@ class TutorialTooltip extends StatelessWidget {
                 ElevatedButton(
                   onPressed: onNext,
                   style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     backgroundColor: theme.primaryColor,

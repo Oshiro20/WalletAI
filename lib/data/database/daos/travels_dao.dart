@@ -13,12 +13,17 @@ class TravelsDao extends DatabaseAccessor<AppDatabase> with _$TravelsDaoMixin {
 
   /// Observar todos los viajes (Stream)
   Stream<List<Travel>> watchAllTravels() {
-    return (select(travels)..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
+    return (select(
+      travels,
+    )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).watch();
   }
 
   /// Observar el viaje activo actualmente (si lo hay)
   Stream<Travel?> watchActiveTravel() {
-    return (select(travels)..where((t) => t.isActive.equals(true))..limit(1)).watchSingleOrNull();
+    return (select(travels)
+          ..where((t) => t.isActive.equals(true))
+          ..limit(1))
+        .watchSingleOrNull();
   }
 
   /// Obtener un viaje específico
@@ -27,10 +32,12 @@ class TravelsDao extends DatabaseAccessor<AppDatabase> with _$TravelsDaoMixin {
   }
 
   /// Insertar un nuevo viaje
-  Future<int> insertTravel(TravelsCompanion travel) => into(travels).insert(travel);
+  Future<int> insertTravel(TravelsCompanion travel) =>
+      into(travels).insert(travel);
 
   /// Actualizar un viaje
-  Future<bool> updateTravel(TravelsCompanion travel) => update(travels).replace(travel);
+  Future<bool> updateTravel(TravelsCompanion travel) =>
+      update(travels).replace(travel);
 
   /// Eliminar un viaje
   Future<int> deleteTravel(String id) {
@@ -41,10 +48,13 @@ class TravelsDao extends DatabaseAccessor<AppDatabase> with _$TravelsDaoMixin {
   Future<void> setActiveTravel(String id) async {
     return transaction(() async {
       // 1. Desactivar todos
-      await update(travels).write(const TravelsCompanion(isActive: Value(false)));
+      await update(
+        travels,
+      ).write(const TravelsCompanion(isActive: Value(false)));
       // 2. Activar el seleccionado
-      await (update(travels)..where((t) => t.id.equals(id)))
-          .write(const TravelsCompanion(isActive: Value(true)));
+      await (update(travels)..where((t) => t.id.equals(id))).write(
+        const TravelsCompanion(isActive: Value(true)),
+      );
     });
   }
 

@@ -66,4 +66,3 @@ final monthProjectionProvider = FutureProvider<MonthProjection>((ref) async {
     daysInMonth: daysInMonth,
   );
 });
-

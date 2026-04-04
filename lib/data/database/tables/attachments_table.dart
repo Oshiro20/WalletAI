@@ -9,7 +9,7 @@ class Attachments extends Table {
   TextColumn get fileType => text()(); // image/jpeg, application/pdf
   IntColumn get fileSize => integer()(); // bytes
   DateTimeColumn get createdAt => dateTime()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

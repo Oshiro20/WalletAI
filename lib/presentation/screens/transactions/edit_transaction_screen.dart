@@ -19,8 +19,7 @@ class EditTransactionScreen extends ConsumerStatefulWidget {
       _EditTransactionScreenState();
 }
 
-class _EditTransactionScreenState
-    extends ConsumerState<EditTransactionScreen> {
+class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
   final _formKey = GlobalKey<FormState>();
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -87,9 +86,9 @@ class _EditTransactionScreenState
   Future<void> _saveChanges() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una cuenta')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecciona una cuenta')));
       return;
     }
     if (_transactionType == 'transfer' && _destinationAccountId == null) {
@@ -108,24 +107,28 @@ class _EditTransactionScreenState
         type: _transactionType,
         amount: amount,
         accountId: _selectedAccountId!,
-        destinationAccountId: drift.Value(_transactionType == 'transfer' ? _destinationAccountId : null),
+        destinationAccountId: drift.Value(
+          _transactionType == 'transfer' ? _destinationAccountId : null,
+        ),
         categoryId: drift.Value(_selectedCategoryId),
         subcategoryId: drift.Value(_selectedSubcategoryId),
         productName: drift.Value(
-            _productNameController.text.isEmpty
-                ? null
-                : _productNameController.text),
+          _productNameController.text.isEmpty
+              ? null
+              : _productNameController.text,
+        ),
         description: drift.Value(
-            _descriptionController.text.isEmpty
-                ? null
-                : _descriptionController.text),
+          _descriptionController.text.isEmpty
+              ? null
+              : _descriptionController.text,
+        ),
         date: _selectedDate,
         currency: _currency,
         updatedAt: DateTime.now(),
       );
 
       final repository = ref.read(transactionRepositoryProvider);
-      
+
       await repository.updateTransaction(updated);
 
       if (mounted) {
@@ -142,9 +145,9 @@ class _EditTransactionScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -170,16 +173,14 @@ class _EditTransactionScreenState
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     final typeColor = _transactionType == 'expense'
         ? Colors.red.shade400
         : _transactionType == 'income'
-            ? Colors.green.shade400
-            : Colors.blue.shade400;
+        ? Colors.green.shade400
+        : Colors.blue.shade400;
 
     return Scaffold(
       appBar: AppBar(
@@ -189,15 +190,18 @@ class _EditTransactionScreenState
             const Padding(
               padding: EdgeInsets.all(16),
               child: SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
             )
           else
             TextButton(
               onPressed: _saveChanges,
-              child: const Text('Guardar',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              child: const Text(
+                'Guardar',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
             ),
         ],
       ),
@@ -211,7 +215,8 @@ class _EditTransactionScreenState
               // Type selector
               Card(
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Padding(
                   padding: const EdgeInsets.all(4),
                   child: Row(
@@ -219,7 +224,7 @@ class _EditTransactionScreenState
                       final labels = {
                         'expense': 'Gasto',
                         'income': 'Ingreso',
-                        'transfer': 'Transferencia'
+                        'transfer': 'Transferencia',
                       };
                       final colors = {
                         'expense': Colors.red.shade400,
@@ -272,7 +277,10 @@ class _EditTransactionScreenState
                       decoration: const InputDecoration(
                         labelText: 'Moneda',
                         border: OutlineInputBorder(),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 16),
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 16,
+                        ),
                       ),
                       items: const [
                         DropdownMenuItem(value: 'PEN', child: Text('PEN')),
@@ -288,12 +296,14 @@ class _EditTransactionScreenState
                   Expanded(
                     child: TextFormField(
                       controller: _amountController,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: typeColor),
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                        color: typeColor,
+                      ),
                       decoration: InputDecoration(
                         labelText: 'Monto',
                         prefixText: '$_currency ',
@@ -344,8 +354,9 @@ class _EditTransactionScreenState
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.calendar_today),
-                title: Text(DateFormat('EEEE, dd MMMM yyyy', 'es')
-                    .format(_selectedDate)),
+                title: Text(
+                  DateFormat('EEEE, dd MMMM yyyy', 'es').format(_selectedDate),
+                ),
                 trailing: const Icon(Icons.chevron_right),
                 onTap: _selectDate,
                 shape: RoundedRectangleBorder(
@@ -357,7 +368,9 @@ class _EditTransactionScreenState
 
               // Account (Origen)
               AccountSelector(
-                labelText: _transactionType == 'transfer' ? 'Cuenta de Origen' : 'Cuenta',
+                labelText: _transactionType == 'transfer'
+                    ? 'Cuenta de Origen'
+                    : 'Cuenta',
                 selectedAccountId: _selectedAccountId,
                 onAccountSelected: (id) =>
                     setState(() => _selectedAccountId = id),
@@ -405,9 +418,14 @@ class _EditTransactionScreenState
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Text('Guardar Cambios',
-                          style: TextStyle(fontSize: 16)),
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Guardar Cambios',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
             ],

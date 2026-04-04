@@ -1,12 +1,11 @@
-<<<<<<< HEAD
-# 💰 Control Financiero - Aplicativo de Gastos
+# 💰 Control Financiero - Aplicativo de Gastos (WalletAI)
 
 Aplicativo inteligente de control de gastos e ingresos con IA, desarrollado en Flutter.
 
 ## ✨ Características Principales
 
 - 📱 **Multiplataforma**: Android y Web
-- 🤖 **IA Integrada**: 
+- 🤖 **IA Integrada**:
   - Reconocimiento de voz para registro rápido
   - OCR para escaneo de boletas
   - Categorización inteligente con Gemini AI
@@ -28,15 +27,14 @@ lib/
 ├── core/           # Constantes, tema, utilidades
 ├── data/           # Base de datos, modelos, repositorios
 ├── domain/         # Entidades, casos de uso
-├── services/       # IA, sincronización, permisos
 ├── presentation/   # UI, pantallas, widgets
-└── features/       # Funcionalidades específicas
+└── l10n/           # Internacionalización
 ```
 
 ## 🛠️ Stack Tecnológico
 
-- **Framework**: Flutter 3.38.9
-- **Lenguaje**: Dart 3.10.8
+- **Framework**: Flutter 3.x
+- **Lenguaje**: Dart 3.x
 - **Base de Datos**: Drift (SQLite)
 - **Estado**: Riverpod
 - **IA**:
@@ -72,14 +70,19 @@ lib/
    dart run build_runner build --delete-conflicting-outputs
    ```
 
-4. **Ejecutar la aplicación**
+4. **Generar localización**
+   ```bash
+   flutter gen-l10n
+   ```
+
+5. **Ejecutar la aplicación**
    ```bash
    flutter run
    ```
 
 ## 🗄️ Base de Datos
 
-El aplicativo utiliza **Drift** (wrapper type-safe de SQLite) con 13 tablas:
+El aplicativo utiliza **Drift** (wrapper type-safe de SQLite) con múltiples tablas:
 
 - `accounts` - Cuentas financieras
 - `transactions` - Transacciones (ingresos/gastos/transferencias)
@@ -94,6 +97,7 @@ El aplicativo utiliza **Drift** (wrapper type-safe de SQLite) con 13 tablas:
 - `contexts` - Contextos temporales (viajes, eventos)
 - `sync_queue` - Cola de sincronización
 - `settings` - Configuración de la app
+- `travels` - Registro de viajes
 
 ## 🎨 Tema
 
@@ -112,6 +116,9 @@ flutter pub get
 
 # Generar código (Drift)
 dart run build_runner build --delete-conflicting-outputs
+
+# Generar localización
+flutter gen-l10n
 
 # Ejecutar en modo debug
 flutter run
@@ -182,16 +189,16 @@ Este proyecto es privado y de uso personal.
 
 ## 👨‍💻 Autor
 
-Desarrollado con ❤️ por [Tu Nombre]
+Desarrollado con ❤️
 
 ## 🗺️ Roadmap
 
 ### Versión 1.0 (MVP)
 - [x] Configuración inicial del proyecto
 - [x] Base de datos completa
-- [ ] Pantallas principales (Home, Transacciones, Cuentas)
-- [ ] Registro manual de transacciones
-- [ ] Análisis básico
+- [x] Pantallas principales (Home, Transacciones, Cuentas)
+- [x] Registro manual de transacciones
+- [x] Análisis básico
 
 ### Versión 1.1
 - [ ] Registro por voz
@@ -212,7 +219,3 @@ Desarrollado con ❤️ por [Tu Nombre]
 ---
 
 **Estado del Proyecto**: 🚧 En Desarrollo Activo
-=======
-# WalletAI
-Aplicativo para control de finanzas personales
->>>>>>> db436bba0a1ecfbd21d3412d174739a01fd50e0f

@@ -17,7 +17,7 @@ class AppIcons {
     'show_chart': Icons.show_chart,
     'calculate': Icons.calculate,
     'currency_exchange': Icons.currency_exchange,
-    
+
     // Transporte
     'directions_car': Icons.directions_car,
     'directions_bus': Icons.directions_bus,
@@ -28,7 +28,7 @@ class AppIcons {
     'local_parking': Icons.local_parking,
     'train': Icons.train,
     'flight': Icons.flight,
-    
+
     // Hogar
     'home': Icons.home,
     'apartment': Icons.apartment,
@@ -40,7 +40,7 @@ class AppIcons {
     'electrical_services': Icons.electrical_services,
     'router': Icons.router, // Wifi/Internet
     'cleaning_services': Icons.cleaning_services,
-    
+
     // Comida
     'restaurant': Icons.restaurant,
     'restaurant_menu': Icons.restaurant_menu,
@@ -51,7 +51,7 @@ class AppIcons {
     'bakery_dining': Icons.bakery_dining,
     'icecream': Icons.icecream,
     'kitchen': Icons.kitchen,
-    
+
     // Salud
     'medical_services': Icons.medical_services,
     'local_hospital': Icons.local_hospital,
@@ -61,7 +61,7 @@ class AppIcons {
     'monitor_heart': Icons.monitor_heart,
     'fitness_center': Icons.fitness_center,
     'spa': Icons.spa,
-    
+
     // Entretenimiento
     'movie': Icons.movie,
     'theaters': Icons.theaters,
@@ -73,7 +73,7 @@ class AppIcons {
     'beach_access': Icons.beach_access,
     'book': Icons.book,
     'palette': Icons.palette,
-    
+
     // Compras
     'shopping_cart': Icons.shopping_cart,
     'shopping_bag': Icons.shopping_bag,
@@ -81,20 +81,19 @@ class AppIcons {
     'store': Icons.store,
     'card_giftcard': Icons.card_giftcard,
     'checkroom': Icons.checkroom, // Ropa
-    
     // Educación
     'school': Icons.school,
     'menu_book': Icons.menu_book,
     'auto_stories': Icons.auto_stories,
     'science': Icons.science,
-    
+
     // Tecnología
     'computer': Icons.computer,
     'smartphone': Icons.smartphone,
     'laptop': Icons.laptop,
     'devices': Icons.devices,
     'print': Icons.print,
-    
+
     // Otros
     'pets': Icons.pets,
     'child_care': Icons.child_care,
@@ -117,17 +116,17 @@ class AppIcons {
     if (materialIcons.containsKey(name)) {
       return Icon(materialIcons[name], size: size, color: color);
     }
-    
+
     // 2. Check if it looks like a Material Icon name but not in our map (fallback to generic)
     // Or if it's a default drift value like 'account_balance_wallet' that matches
     // NOTE: The map above covers most used ones.
-    
+
     // 3. Assume it's an Emoji or unknown string -> Render as Text
     return Text(
       name,
       style: TextStyle(
-        fontSize: size, 
-        color: color, 
+        fontSize: size,
+        color: color,
         // Ensure emojis render correctly without forced color if not needed
       ),
       textAlign: TextAlign.center,

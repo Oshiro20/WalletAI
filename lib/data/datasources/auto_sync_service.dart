@@ -35,25 +35,27 @@ void callbackDispatcher() {
 
 class AutoSyncService {
   Future<void> initialize() async {
-    await Workmanager().initialize(
-      callbackDispatcher,
-    );
+    await Workmanager().initialize(callbackDispatcher);
   }
 
-  Future<void> registerPeriodicTask({Duration frequency = const Duration(hours: 24)}) async {
+  Future<void> registerPeriodicTask({
+    Duration frequency = const Duration(hours: 24),
+  }) async {
     // Cancelar tarea previa para asegurar nueva frecuencia
     await cancelTask();
-    
+
     await Workmanager().registerPeriodicTask(
       syncTaskKey,
       syncTaskKey,
-      frequency: frequency, 
+      frequency: frequency,
       constraints: Constraints(
         networkType: NetworkType.connected,
         requiresBatteryNotLow: true,
       ),
     );
-    debugPrint("AutoSync: Tarea registrada con frecuencia ${frequency.inHours} horas");
+    debugPrint(
+      "AutoSync: Tarea registrada con frecuencia ${frequency.inHours} horas",
+    );
   }
 
   Future<void> cancelTask() async {

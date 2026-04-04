@@ -10,11 +10,12 @@ class Categories extends Table {
   TextColumn get color => text().nullable()();
   BoolColumn get isSystem => boolean().withDefault(const Constant(false))();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
   /// Alias separados por coma para reconocimiento de voz (ej: "angie,novia,pareja")
   /// Opcional, no se muestra en la UI principal
   TextColumn get aliases => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

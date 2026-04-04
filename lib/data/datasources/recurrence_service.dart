@@ -18,12 +18,13 @@ class RecurrenceService {
     final now = DateTime.now();
 
     // Obtener pagos activos que vencen hoy o antes
-    final duePayments = await (dao.select(dao.recurringPayments)
-      ..where((t) => 
-        t.isActive.equals(true) & 
-        t.nextDueDate.isSmallerOrEqualValue(now)
-      ))
-      .get();
+    final duePayments =
+        await (dao.select(dao.recurringPayments)..where(
+              (t) =>
+                  t.isActive.equals(true) &
+                  t.nextDueDate.isSmallerOrEqualValue(now),
+            ))
+            .get();
 
     for (final payment in duePayments) {
       await _processPayment(payment, transactionsDao, dao);
@@ -32,7 +33,7 @@ class RecurrenceService {
 
   /// Procesar un pago individual
   Future<void> _processPayment(
-    RecurringPayment payment, 
+    RecurringPayment payment,
     TransactionsDao transactionsDao,
     RecurringPaymentsDao recurringDao,
   ) async {
@@ -41,7 +42,8 @@ class RecurrenceService {
       TransactionsCompanion.insert(
         id: const Uuid().v4(),
         amount: payment.amount,
-        type: 'expense', // Asumimos gasto por ahora, idealmente agregar campo 'type' a RecurringPayments
+        type:
+            'expense', // Asumimos gasto por ahora, idealmente agregar campo 'type' a RecurringPayments
         categoryId: Value(payment.categoryId),
         accountId: payment.accountId,
 

@@ -12,27 +12,29 @@ class AppColors {
   static const Color primarySoft = Color(0xFFA3A6FF);
 
   // ─── Semantic: Estado financiero ───────────────────────────────────────
-  static const Color income = Color(0xFF10B981);       // Esmeralda
+  static const Color income = Color(0xFF10B981); // Esmeralda
   static const Color incomeDim = Color(0xFF58E7AB);
-  static const Color expense = Color(0xFFEF4444);       // Rojo
+  static const Color expense = Color(0xFFEF4444); // Rojo
   static const Color expenseDim = Color(0xFFFF716A);
-  static const Color transfer = Color(0xFF3B82F6);       // Azul
+  static const Color transfer = Color(0xFF3B82F6); // Azul
   static const Color warning = Color(0xFFF59E0B);
   static const Color info = Color(0xFF3B82F6);
 
   // ─── Indigo Vault Surfaces (Dark mode first) ──────────────────────────
-  static const Color surface = Color(0xFF060E20);                 // Base
-  static const Color surfaceContainerLowest = Color(0xFF000000);  // Etched inputs
-  static const Color surfaceContainerLow = Color(0xFF091328);     // Section layer
-  static const Color surfaceContainer = Color(0xFF0F1930);        // Content areas
-  static const Color surfaceContainerHigh = Color(0xFF141F38);    // Elevated
+  static const Color surface = Color(0xFF060E20); // Base
+  static const Color surfaceContainerLowest = Color(
+    0xFF000000,
+  ); // Etched inputs
+  static const Color surfaceContainerLow = Color(0xFF091328); // Section layer
+  static const Color surfaceContainer = Color(0xFF0F1930); // Content areas
+  static const Color surfaceContainerHigh = Color(0xFF141F38); // Elevated
   static const Color surfaceContainerHighest = Color(0xFF192540); // Cards
-  static const Color surfaceBright = Color(0xFF1F2B49);           // Glass layer base
+  static const Color surfaceBright = Color(0xFF1F2B49); // Glass layer base
   static const Color surfaceVariant = Color(0xFF192540);
 
   // ─── Text / On-Surface ────────────────────────────────────────────────
-  static const Color onSurface = Color(0xFFDEE5FF);           // Primary text
-  static const Color onSurfaceVariant = Color(0xFFA3AAC4);    // Secondary text
+  static const Color onSurface = Color(0xFFDEE5FF); // Primary text
+  static const Color onSurfaceVariant = Color(0xFFA3AAC4); // Secondary text
   static const Color outline = Color(0xFF6D758C);
   static const Color outlineVariant = Color(0xFF40485D);
 
@@ -88,19 +90,13 @@ class AppColors {
           blurRadius: 20,
           offset: const Offset(0, 8),
         ),
-        BoxShadow(
-          color: primary.withValues(alpha: 0.05),
-          blurRadius: 20,
-        ),
+        BoxShadow(color: primary.withValues(alpha: 0.05), blurRadius: 20),
       ],
     );
   }
 
   /// Tonal card decoration (sin glass, con separación tonal)
-  static BoxDecoration tonalCard({
-    Color? color,
-    double borderRadius = 16,
-  }) {
+  static BoxDecoration tonalCard({Color? color, double borderRadius = 16}) {
     return BoxDecoration(
       color: color ?? surfaceContainerHigh,
       borderRadius: BorderRadius.circular(borderRadius),

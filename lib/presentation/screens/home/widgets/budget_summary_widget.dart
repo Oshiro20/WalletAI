@@ -28,8 +28,8 @@ class BudgetSummaryWidget extends ConsumerWidget {
                     Text(
                       'Presupuestos',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     TextButton(
                       onPressed: () => context.push('/budgets'),
@@ -55,8 +55,9 @@ class BudgetSummaryWidget extends ConsumerWidget {
                     child: TextButton(
                       onPressed: () => context.push('/budgets'),
                       child: Text(
-                          '+ ${budgets.length - 3} presupuestos más',
-                          style: const TextStyle(fontSize: 12)),
+                        '+ ${budgets.length - 3} presupuestos más',
+                        style: const TextStyle(fontSize: 12),
+                      ),
                     ),
                   ),
               ],
@@ -105,8 +106,8 @@ class _BudgetMiniCard extends ConsumerWidget {
           final barColor = isOver
               ? Colors.red
               : pct >= 0.8
-                  ? Colors.orange
-                  : catColor;
+              ? Colors.orange
+              : catColor;
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -119,7 +120,9 @@ class _BudgetMiniCard extends ConsumerWidget {
                     child: Text(
                       categoryName,
                       style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w500),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -130,17 +133,17 @@ class _BudgetMiniCard extends ConsumerWidget {
                       color: isOver
                           ? Colors.red
                           : Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontWeight:
-                          isOver ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isOver ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
                   const SizedBox(width: 6),
                   Text(
                     '${(pct * 100).toStringAsFixed(0)}%',
                     style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: barColor),
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: barColor,
+                    ),
                   ),
                 ],
               ),
@@ -150,8 +153,9 @@ class _BudgetMiniCard extends ConsumerWidget {
                 child: LinearProgressIndicator(
                   value: pct,
                   minHeight: 6,
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerHighest,
+                  backgroundColor: Theme.of(
+                    context,
+                  ).colorScheme.surfaceContainerHighest,
                   valueColor: AlwaysStoppedAnimation<Color>(barColor),
                 ),
               ),
@@ -171,8 +175,10 @@ final budgetsStreamProvider = StreamProvider<List<Budget>>((ref) {
   return dao.watchActiveBudgets();
 });
 
-final budgetSpentProvider =
-    FutureProvider.autoDispose.family<double, String>((ref, categoryId) async {
+final budgetSpentProvider = FutureProvider.autoDispose.family<double, String>((
+  ref,
+  categoryId,
+) async {
   final dao = ref.watch(transactionsDaoProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, 1);

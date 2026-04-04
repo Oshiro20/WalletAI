@@ -30,10 +30,10 @@ class AssistantService {
     required AccountsDao accountsDao,
     required CategoriesDao categoriesDao,
     required BudgetsDao budgetsDao,
-  })  : _transactionsDao = transactionsDao,
-        _accountsDao = accountsDao,
-        _categoriesDao = categoriesDao,
-        _budgetsDao = budgetsDao;
+  }) : _transactionsDao = transactionsDao,
+       _accountsDao = accountsDao,
+       _categoriesDao = categoriesDao,
+       _budgetsDao = budgetsDao;
 
   /// Procesa la pregunta del usuario y devuelve una respuesta
   Future<String> processQuestion(String question) async {
@@ -41,66 +41,135 @@ class AssistantService {
 
     try {
       // ── Saldo / disponible ─────────────────────────────────────────────
-      if (_matches(q, ['cuánto tengo', 'saldo', 'disponible', 'cuanto tengo', 'balance'])) {
+      if (_matches(q, [
+        'cuánto tengo',
+        'saldo',
+        'disponible',
+        'cuanto tengo',
+        'balance',
+      ])) {
         return await _getSaldoResponse();
       }
 
       // ── Gastos del mes ─────────────────────────────────────────────────
-      if (_matches(q, ['gasté este mes', 'gaste este mes', 'gastos del mes', 'gasté en el mes'])) {
+      if (_matches(q, [
+        'gasté este mes',
+        'gaste este mes',
+        'gastos del mes',
+        'gasté en el mes',
+      ])) {
         return await _getGastosMesResponse();
       }
 
       // ── Gastos de esta semana ──────────────────────────────────────────
-      if (_matches(q, ['gasté esta semana', 'gaste esta semana', 'gastos de la semana', 'esta semana'])) {
+      if (_matches(q, [
+        'gasté esta semana',
+        'gaste esta semana',
+        'gastos de la semana',
+        'esta semana',
+      ])) {
         return await _getGastosSemanResponse();
       }
 
       // ── Ingresos del mes ───────────────────────────────────────────────
-      if (_matches(q, ['ingresé', 'ingresos', 'gané', 'gane', 'cuánto ingresé'])) {
+      if (_matches(q, [
+        'ingresé',
+        'ingresos',
+        'gané',
+        'gane',
+        'cuánto ingresé',
+      ])) {
         return await _getIngresosMesResponse();
       }
 
       // ── Categoría donde más gasto ──────────────────────────────────────
-      if (_matches(q, ['categoría', 'categoria', 'más gasto', 'mas gasto', 'dónde gasto', 'donde gasto'])) {
+      if (_matches(q, [
+        'categoría',
+        'categoria',
+        'más gasto',
+        'mas gasto',
+        'dónde gasto',
+        'donde gasto',
+      ])) {
         return await _getTopCategoriaResponse();
       }
 
       // ── Últimos gastos / transacciones recientes ───────────────────────
-      if (_matches(q, ['últimos gastos', 'ultimos gastos', 'últimas transacciones', 'recientes', 'últimos movimientos'])) {
+      if (_matches(q, [
+        'últimos gastos',
+        'ultimos gastos',
+        'últimas transacciones',
+        'recientes',
+        'últimos movimientos',
+      ])) {
         return await _getUltimosGastosResponse();
       }
 
       // ── Presupuestos ───────────────────────────────────────────────────
-      if (_matches(q, ['presupuesto', 'presupuestos', 'límite', 'limite', 'cómo van', 'como van'])) {
+      if (_matches(q, [
+        'presupuesto',
+        'presupuestos',
+        'límite',
+        'limite',
+        'cómo van',
+        'como van',
+      ])) {
         return await _getPresupuestosResponse();
       }
 
       // ── Ahorros / cuánto puedo ahorrar ────────────────────────────────
-      if (_matches(q, ['ahorrar', 'ahorro', 'puedo ahorrar', 'tasa de ahorro'])) {
+      if (_matches(q, [
+        'ahorrar',
+        'ahorro',
+        'puedo ahorrar',
+        'tasa de ahorro',
+      ])) {
         return await _getAhorroResponse();
       }
 
       // ── Gastos por categoría específica ────────────────────────────────
-      if (_matches(q, ['comida', 'alimentación', 'alimentacion', 'restaurante'])) {
+      if (_matches(q, [
+        'comida',
+        'alimentación',
+        'alimentacion',
+        'restaurante',
+      ])) {
         return await _getGastosPorCategoria('cat_alimentacion', 'Alimentación');
       }
       if (_matches(q, ['transporte', 'taxi', 'uber', 'bus'])) {
         return await _getGastosPorCategoria('cat_transporte', 'Transporte');
       }
       if (_matches(q, ['entretenimiento', 'ocio', 'diversión', 'diversion'])) {
-        return await _getGastosPorCategoria('cat_entretenimiento', 'Entretenimiento');
+        return await _getGastosPorCategoria(
+          'cat_entretenimiento',
+          'Entretenimiento',
+        );
       }
       if (_matches(q, ['salud', 'medicina', 'médico', 'medico', 'farmacia'])) {
         return await _getGastosPorCategoria('cat_salud', 'Salud');
       }
 
       // ── Ayuda ──────────────────────────────────────────────────────────
-      if (_matches(q, ['ayuda', 'help', 'qué puedes', 'que puedes', 'qué haces', 'que haces'])) {
+      if (_matches(q, [
+        'ayuda',
+        'help',
+        'qué puedes',
+        'que puedes',
+        'qué haces',
+        'que haces',
+      ])) {
         return _getAyudaResponse();
       }
 
       // ── Saludo ─────────────────────────────────────────────────────────
-      if (_matches(q, ['hola', 'buenos días', 'buenas tardes', 'buenas noches', 'hi', 'hey'])) {
+      if (_matches(q, [
+        'hola',
+        'buenos días',
+        'buenas tardes',
+        'buenas noches',
+        'hi',
+        'hey',
+      ])) {
         return '¡Hola! 👋 Soy tu asistente financiero. Puedo ayudarte con información sobre tus gastos, ingresos, saldo y presupuestos.\n\nPrueba preguntarme:\n• *"¿Cuánto gasté este mes?"*\n• *"¿Cuánto tengo disponible?"*\n• *"¿En qué categoría gasto más?"*';
       }
 
@@ -127,7 +196,11 @@ class AssistantService {
     }
     final buffer = StringBuffer('💰 **Saldo actual:**\n\n');
     for (final acc in accounts) {
-      final icon = acc.type == 'bank' ? '🏦' : acc.type == 'credit' ? '💳' : '💵';
+      final icon = acc.type == 'bank'
+          ? '🏦'
+          : acc.type == 'credit'
+          ? '💳'
+          : '💵';
       buffer.writeln('$icon ${acc.name}: S/ ${acc.balance.toStringAsFixed(2)}');
     }
     buffer.writeln('\n**Total disponible: S/ ${total.toStringAsFixed(2)}**');
@@ -151,7 +224,11 @@ class AssistantService {
   Future<String> _getGastosSemanResponse() async {
     final now = DateTime.now();
     final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-    final start = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
+    final start = DateTime(
+      startOfWeek.year,
+      startOfWeek.month,
+      startOfWeek.day,
+    );
     final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
     final total = await _transactionsDao.getTotalExpenses(start, end);
 
@@ -191,16 +268,23 @@ class AssistantService {
       final cat = catMap[entry.key];
       final icon = cat?.icon ?? '📦';
       final name = cat?.name ?? entry.key;
-      buffer.writeln('${i + 1}. $icon $name: S/ ${entry.value.toStringAsFixed(2)}');
+      buffer.writeln(
+        '${i + 1}. $icon $name: S/ ${entry.value.toStringAsFixed(2)}',
+      );
     }
 
     final top = catMap[sorted.first.key];
-    buffer.writeln('\n🏆 **Mayor gasto: ${top?.icon ?? "📦"} ${top?.name ?? sorted.first.key}**');
+    buffer.writeln(
+      '\n🏆 **Mayor gasto: ${top?.icon ?? "📦"} ${top?.name ?? sorted.first.key}**',
+    );
     return buffer.toString();
   }
 
   Future<String> _getUltimosGastosResponse() async {
-    final txns = await _transactionsDao.getTransactionsByType('expense', limit: 5);
+    final txns = await _transactionsDao.getTransactionsByType(
+      'expense',
+      limit: 5,
+    );
     if (txns.isEmpty) {
       return '📋 No tienes gastos registrados aún.';
     }
@@ -228,14 +312,22 @@ class AssistantService {
     final catMap = {for (var c in categories) c.id: c};
     final byCategory = await _transactionsDao.getExpensesByCategory(start, end);
 
-    final buffer = StringBuffer('📊 **Estado de presupuestos (${_monthName(now.month)}):**\n\n');
+    final buffer = StringBuffer(
+      '📊 **Estado de presupuestos (${_monthName(now.month)}):**\n\n',
+    );
     for (final b in budgets) {
       final cat = catMap[b.categoryId];
       final spent = byCategory[b.categoryId] ?? 0;
       final pct = b.amount > 0 ? (spent / b.amount * 100).round() : 0;
-      final emoji = pct >= 100 ? '🔴' : pct >= 80 ? '🟡' : '🟢';
+      final emoji = pct >= 100
+          ? '🔴'
+          : pct >= 80
+          ? '🟡'
+          : '🟢';
       final name = cat?.name ?? b.categoryId;
-      buffer.writeln('$emoji $name: S/ ${spent.toStringAsFixed(2)} / S/ ${b.amount.toStringAsFixed(2)} ($pct%)');
+      buffer.writeln(
+        '$emoji $name: S/ ${spent.toStringAsFixed(2)} / S/ ${b.amount.toStringAsFixed(2)} ($pct%)',
+      );
     }
     return buffer.toString();
   }
@@ -253,12 +345,16 @@ class AssistantService {
       return '💡 No tienes ingresos registrados aún este mes.';
     }
 
-    String emoji = pct >= 20 ? '🎯' : pct > 0 ? '💡' : '⚠️';
+    String emoji = pct >= 20
+        ? '🎯'
+        : pct > 0
+        ? '💡'
+        : '⚠️';
     String mensaje = pct >= 20
         ? '¡Excelente! Estás ahorrando bien este mes.'
         : pct > 0
-            ? 'Puedes mejorar tu tasa de ahorro reduciendo gastos.'
-            : 'Tus gastos superan tus ingresos este mes. ¡Atención!';
+        ? 'Puedes mejorar tu tasa de ahorro reduciendo gastos.'
+        : 'Tus gastos superan tus ingresos este mes. ¡Atención!';
 
     return '$emoji **Análisis de ahorro (${_monthName(now.month)}):**\n\n'
         '🟢 Ingresos: S/ ${income.toStringAsFixed(2)}\n'
@@ -267,7 +363,10 @@ class AssistantService {
         '$mensaje';
   }
 
-  Future<String> _getGastosPorCategoria(String categoryId, String categoryName) async {
+  Future<String> _getGastosPorCategoria(
+    String categoryId,
+    String categoryName,
+  ) async {
     final now = DateTime.now();
     final start = DateTime(now.year, now.month, 1);
     final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
@@ -298,8 +397,19 @@ class AssistantService {
 
   String _monthName(int month) {
     const names = [
-      '', 'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+      '',
+      'Enero',
+      'Febrero',
+      'Marzo',
+      'Abril',
+      'Mayo',
+      'Junio',
+      'Julio',
+      'Agosto',
+      'Septiembre',
+      'Octubre',
+      'Noviembre',
+      'Diciembre',
     ];
     return names[month];
   }

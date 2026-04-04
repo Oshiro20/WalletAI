@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../../data/datasources/excel_service.dart';
 import '../../providers/database_providers.dart';
+import 'mylifeos_integration_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -15,9 +15,7 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ajustes'),
-      ),
+      appBar: AppBar(title: const Text('Ajustes')),
       body: ListView(
         children: [
           _buildSectionHeader(context, 'General'),
@@ -72,15 +70,21 @@ class SettingsScreen extends ConsumerWidget {
           const Divider(),
           _buildSectionHeader(context, 'Datos'),
           ListTile(
-            leading: const Icon(Icons.file_download_outlined), // Icono de descarga
+            leading: const Icon(
+              Icons.file_download_outlined,
+            ), // Icono de descarga
             title: const Text('Descargar Plantilla Excel'),
             subtitle: const Text('Obtén el formato correcto para importar'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
               try {
-                final file = await ref.read(excelServiceProvider).generateTemplate();
+                final file = await ref
+                    .read(excelServiceProvider)
+                    .generateTemplate();
                 // Usamos Share para "descargar"/enviar el archivo
-                await Share.shareXFiles([XFile(file.path)], text: 'Plantilla de Gastos');
+                await Share.shareXFiles([
+                  XFile(file.path),
+                ], text: 'Plantilla de Gastos');
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -104,18 +108,24 @@ class SettingsScreen extends ConsumerWidget {
 
                 if (result != null && result.files.single.path != null) {
                   final file = File(result.files.single.path!);
-                  
+
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Procesando archivo...')),
                     );
                   }
 
-                  final count = await ref.read(excelServiceProvider).importTransactions(file);
-                  
+                  final count = await ref
+                      .read(excelServiceProvider)
+                      .importTransactions(file);
+
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('¡Éxito! Se importaron $count transacciones')),
+                      SnackBar(
+                        content: Text(
+                          '¡Éxito! Se importaron $count transacciones',
+                        ),
+                      ),
                     );
                   }
                 }
@@ -129,14 +139,20 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.file_upload_outlined), // Icono de exportar (subir a nube/compartir)
+            leading: const Icon(
+              Icons.file_upload_outlined,
+            ), // Icono de exportar (subir a nube/compartir)
             title: const Text('Exportar a Excel'),
             subtitle: const Text('Copia de seguridad de tus datos'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
               try {
-                final file = await ref.read(excelServiceProvider).exportTransactions();
-                await Share.shareXFiles([XFile(file.path)], text: 'Mis Transacciones');
+                final file = await ref
+                    .read(excelServiceProvider)
+                    .exportTransactions();
+                await Share.shareXFiles([
+                  XFile(file.path),
+                ], text: 'Mis Transacciones');
               } catch (e) {
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -172,6 +188,13 @@ class SettingsScreen extends ConsumerWidget {
             onTap: () => context.push('/dashboard/customize'),
           ),
           ListTile(
+            leading: const Icon(Icons.link),
+            title: const Text('Integración MyLifeOS'),
+            subtitle: const Text('Conecta con tu app personal'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/mylifeos'),
+          ),
+          ListTile(
             leading: const Icon(Icons.palette_outlined),
             title: const Text('Apariencia'),
             subtitle: const Text('Modo oscuro y color de acento'),
@@ -197,9 +220,9 @@ class SettingsScreen extends ConsumerWidget {
             child: Text(
               'Zona de Peligro',
               style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                    color: Colors.red,
-                    fontWeight: FontWeight.bold,
-                  ),
+                color: Colors.red,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           ListTile(
@@ -226,22 +249,29 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmReset(BuildContext context, WidgetRef ref, String type) async {
+  Future<void> _confirmReset(
+    BuildContext context,
+    WidgetRef ref,
+    String type,
+  ) async {
     String title = '';
     String content = '';
-    
+
     switch (type) {
       case 'transactions':
         title = '¿Borrar solo transacciones?';
-        content = 'Se eliminarán todos los ingresos y gastos. Tus cuentas y categorías se mantendrán.';
+        content =
+            'Se eliminarán todos los ingresos y gastos. Tus cuentas y categorías se mantendrán.';
         break;
       case 'trans_cats':
         title = '¿Borrar transacciones y categorías?';
-        content = 'Se eliminarán transacciones y categorías personalizadas. Tus cuentas (bancos, efectivo) se mantendrán.';
+        content =
+            'Se eliminarán transacciones y categorías personalizadas. Tus cuentas (bancos, efectivo) se mantendrán.';
         break;
       case 'all':
         title = '¿RESTABLECER TODO?';
-        content = '¡Acción irreversible! Se borrarán cuentas, categorías, transacciones y configuraciones. La app quedará como nueva.';
+        content =
+            '¡Acción irreversible! Se borrarán cuentas, categorías, transacciones y configuraciones. La app quedará como nueva.';
         break;
     }
 
@@ -265,36 +295,42 @@ class SettingsScreen extends ConsumerWidget {
     );
 
     if (confirm == true && context.mounted) {
-       await _performReset(context, ref, type);
+      await _performReset(context, ref, type);
     }
   }
 
-  Future<void> _performReset(BuildContext context, WidgetRef ref, String type) async {
+  Future<void> _performReset(
+    BuildContext context,
+    WidgetRef ref,
+    String type,
+  ) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
+
     // Providers
     final transactionsDao = ref.read(transactionsDaoProvider);
     final categoriesDao = ref.read(categoriesDaoProvider);
     final accountsDao = ref.read(accountsDaoProvider);
-    
+
     try {
       if (type == 'transactions' || type == 'trans_cats' || type == 'all') {
-         await transactionsDao.deleteAllTransactions();
-         // También resetear pagos recurrentes? Generalmente transacciones van ligadas.
-         // El usuario pidió "Borrar Solo Transacciones", recurrentes son "futuras".
-         // Dejémoslo opcional, pero "Restablecer Todo" sí debe borrar recurrentes.
+        await transactionsDao.deleteAllTransactions();
+        // También resetear pagos recurrentes? Generalmente transacciones van ligadas.
+        // El usuario pidió "Borrar Solo Transacciones", recurrentes son "futuras".
+        // Dejémoslo opcional, pero "Restablecer Todo" sí debe borrar recurrentes.
       }
 
       if (type == 'trans_cats' || type == 'all') {
-         await categoriesDao.deleteAllSubcategories(); // Primero hijos
-         await categoriesDao.deleteAllCategories();
+        await categoriesDao.deleteAllSubcategories(); // Primero hijos
+        await categoriesDao.deleteAllCategories();
       }
 
       if (type == 'all') {
-         await accountsDao.deleteAllAccounts();
-         await ref.read(recurringPaymentsDaoProvider).deleteAllRecurringPayments();
+        await accountsDao.deleteAllAccounts();
+        await ref
+            .read(recurringPaymentsDaoProvider)
+            .deleteAllRecurringPayments();
       }
-      
+
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Operación completada con éxito')),
       );
@@ -310,9 +346,8 @@ class SettingsScreen extends ConsumerWidget {
       // Also invalidate filtered providers if being used
       ref.invalidate(filteredTransactionsProvider);
       ref.invalidate(filteredBalanceProvider);
-      
-      // If we are on Home Screen, these invalidations will trigger a re-fetch.
 
+      // If we are on Home Screen, these invalidations will trigger a re-fetch.
     } catch (e) {
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Error al borrar datos: $e')),
@@ -326,9 +361,9 @@ class SettingsScreen extends ConsumerWidget {
       child: Text(
         title,
         style: Theme.of(context).textTheme.titleSmall?.copyWith(
-              color: Theme.of(context).primaryColor,
-              fontWeight: FontWeight.bold,
-            ),
+          color: Theme.of(context).primaryColor,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

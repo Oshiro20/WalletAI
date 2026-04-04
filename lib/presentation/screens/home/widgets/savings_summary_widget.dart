@@ -29,10 +29,9 @@ class SavingsSummaryWidget extends ConsumerWidget {
               children: [
                 Text(
                   'Metas de Ahorro',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 TextButton(
                   onPressed: () => context.push('/savings'),
@@ -41,11 +40,9 @@ class SavingsSummaryWidget extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 8),
-            ...goals.take(3).map((goal) => _SavingsTile(
-                  goal: goal,
-                  fmt: fmt,
-                  cs: cs,
-                )),
+            ...goals
+                .take(3)
+                .map((goal) => _SavingsTile(goal: goal, fmt: fmt, cs: cs)),
           ],
         );
       },
@@ -58,16 +55,13 @@ class _SavingsTile extends StatelessWidget {
   final NumberFormat fmt;
   final ColorScheme cs;
 
-  const _SavingsTile({
-    required this.goal,
-    required this.fmt,
-    required this.cs,
-  });
+  const _SavingsTile({required this.goal, required this.fmt, required this.cs});
 
   @override
   Widget build(BuildContext context) {
-    final progress =
-        goal.targetAmount > 0 ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0) : 0.0;
+    final progress = goal.targetAmount > 0
+        ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0)
+        : 0.0;
     final isComplete = progress >= 1.0;
 
     return Card(
@@ -114,11 +108,14 @@ class _SavingsTile extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(fmt.format(goal.currentAmount),
-                    style: const TextStyle(fontSize: 12)),
-                Text(fmt.format(goal.targetAmount),
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.grey)),
+                Text(
+                  fmt.format(goal.currentAmount),
+                  style: const TextStyle(fontSize: 12),
+                ),
+                Text(
+                  fmt.format(goal.targetAmount),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
               ],
             ),
           ],

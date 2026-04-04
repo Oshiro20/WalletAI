@@ -8,14 +8,15 @@ import '../tables/subcategories_table.dart';
 part 'categories_dao.g.dart';
 
 @DriftAccessor(tables: [Categories, Subcategories])
-class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMixin {
+class CategoriesDao extends DatabaseAccessor<AppDatabase>
+    with _$CategoriesDaoMixin {
   CategoriesDao(super.db);
 
   /// Obtener todas las categorías
   Future<List<Category>> getAllCategories() {
-    return (select(categories)
-          ..orderBy([(c) => OrderingTerm(expression: c.sortOrder)]))
-        .get();
+    return (select(
+      categories,
+    )..orderBy([(c) => OrderingTerm(expression: c.sortOrder)])).get();
   }
 
   /// Obtener categorías por tipo (income, expense)
@@ -28,21 +29,23 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
 
   /// Obtener categoría por ID
   Future<Category?> getCategoryById(String id) {
-    return (select(categories)..where((c) => c.id.equals(id))).getSingleOrNull();
+    return (select(
+      categories,
+    )..where((c) => c.id.equals(id))).getSingleOrNull();
   }
 
   /// Buscar categoría por nombre (ignorando mayúsculas/minúsculas de manera básica)
   Future<Category?> findCategoryByName(String name) async {
     final allCats = await getAllCategories();
     final lowerName = name.toLowerCase().trim();
-    
+
     // 1. Coincidencia exacta
     for (var cat in allCats) {
       if (cat.name.toLowerCase().trim() == lowerName) {
         return cat;
       }
     }
-    
+
     // 2. Coincidencia parcial
     for (var cat in allCats) {
       final catLower = cat.name.toLowerCase().trim();
@@ -50,7 +53,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
         return cat;
       }
     }
-    
+
     return null;
   }
 
@@ -58,9 +61,11 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
   Future<int> createCategory(CategoriesCompanion category) {
     return attachedDatabase.transaction(() async {
       final id = await into(categories).insert(category);
-      
+
       // Sync Queue
-      final insertedRow = await (select(categories)..where((c) => c.id.equals(category.id.value))).getSingle();
+      final insertedRow = await (select(
+        categories,
+      )..where((c) => c.id.equals(category.id.value))).getSingle();
       await into(attachedDatabase.syncQueue).insert(
         SyncQueueCompanion.insert(
           id: const Uuid().v4(),
@@ -71,7 +76,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
           createdAt: DateTime.now(),
         ),
       );
-      
+
       return id;
     });
   }
@@ -80,7 +85,7 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
   Future<bool> updateCategory(Category category) {
     return attachedDatabase.transaction(() async {
       final result = await update(categories).replace(category);
-      
+
       if (result) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -100,10 +105,10 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
   /// Eliminar categoría (solo si no es del sistema)
   Future<int> deleteCategory(String categoryId) {
     return attachedDatabase.transaction(() async {
-      final result = await (delete(categories)
-            ..where((c) => c.id.equals(categoryId) & c.isSystem.equals(false)))
-          .go();
-      
+      final result = await (delete(
+        categories,
+      )..where((c) => c.id.equals(categoryId) & c.isSystem.equals(false))).go();
+
       if (result > 0) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -123,8 +128,12 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
   /// Eliminar TODAS las categorías (excepto sistema)
   Future<int> deleteAllCategories() {
     return attachedDatabase.transaction(() async {
-      final rows = await (select(categories)..where((c) => c.isSystem.equals(false))).get();
-      final result = await (delete(categories)..where((c) => c.isSystem.equals(false))).go();
+      final rows = await (select(
+        categories,
+      )..where((c) => c.isSystem.equals(false))).get();
+      final result = await (delete(
+        categories,
+      )..where((c) => c.isSystem.equals(false))).go();
 
       for (final row in rows) {
         await into(attachedDatabase.syncQueue).insert(
@@ -144,11 +153,11 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
 
   /// Eliminar TODAS las subcategorías
   Future<int> deleteAllSubcategories() {
-     return delete(subcategories).go();
-     // Subcategorias no se sincronizan aun en syncQueue segun plan anterior, o si?
-     // Revisando plan: "Support for Subcategories" fase 13.5. 
-     // El syncQueueDao para subcategorias no parece estar implementado explicitamente en el plan original de sync.
-     // Por simplicidad, asumimos borrado local. Si se require sync, se debe agregar.
+    return delete(subcategories).go();
+    // Subcategorias no se sincronizan aun en syncQueue segun plan anterior, o si?
+    // Revisando plan: "Support for Subcategories" fase 13.5.
+    // El syncQueueDao para subcategorias no parece estar implementado explicitamente en el plan original de sync.
+    // Por simplicidad, asumimos borrado local. Si se require sync, se debe agregar.
   }
 
   /// Obtener subcategorías de una categoría
@@ -171,7 +180,9 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase> with _$CategoriesDaoMi
 
   /// Eliminar subcategoría
   Future<int> deleteSubcategory(String subcategoryId) {
-    return (delete(subcategories)..where((s) => s.id.equals(subcategoryId))).go();
+    return (delete(
+      subcategories,
+    )..where((s) => s.id.equals(subcategoryId))).go();
   }
 
   /// Stream de categorías por tipo

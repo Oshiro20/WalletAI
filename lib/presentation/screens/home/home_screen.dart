@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/mylifeos_integration_service.dart';
 import '../../../data/datasources/notification_service.dart';
 import '../transactions/transaction_search_delegate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -28,7 +29,6 @@ import 'widgets/budget_rule_widget.dart';
 import '../../../core/services/update_service.dart';
 import '../../widgets/dialogs/update_dialog.dart';
 
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -48,8 +48,47 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _checkTutorial();
       _checkCreditCardAlerts();
       _checkUpdates();
+      _exportMyLifeOSSummary();
     });
+  }
 
+  /// Exporta el resumen mensual para MyLifeOS.
+  Future<void> _exportMyLifeOSSummary() async {
+    try {
+      final accounts = await ref.read(accountsStreamProvider.future);
+      final transactions = accounts.expand((a) => a.transactions).toList();
+
+      final now = DateTime.now();
+      final monthTxns = transactions
+          .where((t) => t.date.year == now.year && t.date.month == now.month)
+          .toList();
+
+      double income = 0, expenses = 0;
+      for (final t in monthTxns) {
+        final amount = t.amount.toDouble();
+        if (amount > 0) {
+          income += amount;
+        } else {
+          expenses += amount.abs();
+        }
+      }
+
+      final currency = ref.read(currencyProvider);
+      final summary = {
+        'balance': income - expenses,
+        'income': income,
+        'expenses': expenses,
+        'currency': currency ?? 'PEN',
+        'month': '${now.year}-${now.month.toString().padLeft(2, '0')}',
+      };
+
+      final integration = MyLifeOSIntegrationService(
+        getMonthlySummary: () async => summary,
+      );
+      await integration.exportWalletSummary();
+    } catch (e) {
+      debugPrint('[Home] Error exportando resumen MyLifeOS: $e');
+    }
   }
 
   Future<void> _checkCreditCardAlerts() async {
@@ -86,7 +125,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       showUpdateDialog(context, release);
     }
   }
-
 
   @override
   Widget build(BuildContext context) {

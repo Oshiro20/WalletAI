@@ -11,21 +11,30 @@ class MonthProjectionWidget extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
 
     return projectionAsync.when(
-      loading: () => const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
+      loading: () => const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (_, __) => const SizedBox.shrink(),
       data: (proj) {
         // Colores según estado de salud financiera
         final Color statusColor = proj.healthStatus == 0
-            ? const Color(0xFF10B981)   // verde
+            ? const Color(0xFF10B981) // verde
             : proj.healthStatus == 1
-                ? const Color(0xFFF59E0B) // amarillo
-                : const Color(0xFFEF4444); // rojo
+            ? const Color(0xFFF59E0B) // amarillo
+            : const Color(0xFFEF4444); // rojo
 
-        final String statusEmoji = proj.healthStatus == 0 ? '✅' : proj.healthStatus == 1 ? '⚠️' : '🔴';
+        final String statusEmoji = proj.healthStatus == 0
+            ? '✅'
+            : proj.healthStatus == 1
+            ? '⚠️'
+            : '🔴';
 
         return Card(
           elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           color: colorScheme.surfaceContainerLow,
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -35,11 +44,17 @@ class MonthProjectionWidget extends ConsumerWidget {
                 // ── Título ─────────────────────────────────────────────────
                 Row(
                   children: [
-                    Icon(Icons.trending_up, color: colorScheme.primary, size: 20),
+                    Icon(
+                      Icons.trending_up,
+                      color: colorScheme.primary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Proyección del Mes',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     const Spacer(),
                     Text(statusEmoji),
@@ -53,11 +68,15 @@ class MonthProjectionWidget extends ConsumerWidget {
                   children: [
                     Text(
                       'Día ${proj.daysElapsed} de ${proj.daysInMonth}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     Text(
                       '${(proj.progressPercent * 100).toInt()}% del mes',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -104,12 +123,16 @@ class MonthProjectionWidget extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: statusColor.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        proj.projectedBalance >= 0 ? Icons.savings : Icons.warning_amber,
+                        proj.projectedBalance >= 0
+                            ? Icons.savings
+                            : Icons.warning_amber,
                         size: 18,
                         color: statusColor,
                       ),
@@ -135,8 +158,8 @@ class MonthProjectionWidget extends ConsumerWidget {
                   Text(
                     'Promedio diario: S/ ${proj.dailyAverage.toStringAsFixed(2)}/día',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ],
@@ -172,13 +195,22 @@ class _InfoTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(label, style: const TextStyle(fontSize: 11)),
-          ]),
+          Row(
+            children: [
+              Icon(icon, size: 14, color: color),
+              const SizedBox(width: 4),
+              Text(label, style: const TextStyle(fontSize: 11)),
+            ],
+          ),
           const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 15)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 15,
+            ),
+          ),
         ],
       ),
     );

@@ -29,8 +29,9 @@ class MonthComparisonData {
   bool get balanceUp => balanceDelta >= 0;
 }
 
-final monthComparisonProvider =
-    FutureProvider<MonthComparisonData>((ref) async {
+final monthComparisonProvider = FutureProvider<MonthComparisonData>((
+  ref,
+) async {
   final txDao = ref.watch(transactionsDaoProvider);
   final now = DateTime.now();
 
@@ -86,8 +87,9 @@ class MonthlyComparisonWidget extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Text(
                   'vs $prevLabel',
-                  style: theme.textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -165,14 +167,14 @@ class _CompRow extends StatelessWidget {
     final color = delta == 0
         ? cs.onSurface.withAlpha(150)
         : isGood
-            ? Colors.green.shade600
-            : Colors.red.shade600;
+        ? Colors.green.shade600
+        : Colors.red.shade600;
 
     final arrow = delta == 0
         ? Icons.remove
         : delta > 0
-            ? Icons.arrow_upward_rounded
-            : Icons.arrow_downward_rounded;
+        ? Icons.arrow_upward_rounded
+        : Icons.arrow_downward_rounded;
 
     final pct = delta == 0 || current - delta == 0
         ? null

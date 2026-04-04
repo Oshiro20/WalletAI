@@ -3,7 +3,8 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 /// Servicio que se conecta a Gemini Flash para responder preguntas financieras.
 /// Obtén tu API key gratis en https://aistudio.google.com/apikey
 class GeminiService {
-  static const String _defaultApiKey = 'AIzaSyALEvE5k4Da3QKOrFLDonQdEiDj-X_MJ9o';
+  static const String _defaultApiKey =
+      'AIzaSyALEvE5k4Da3QKOrFLDonQdEiDj-X_MJ9o';
 
   /// True si el usuario ya configuró su API key
   static bool get isConfigured => _defaultApiKey != 'YOUR_GEMINI_API_KEY';
@@ -38,19 +39,26 @@ Reglas:
   }
 
   /// Envía una pregunta al modelo con el contexto financiero del usuario
-  Future<String> sendMessage(String userMessage, {String? financialContext}) async {
+  Future<String> sendMessage(
+    String userMessage, {
+    String? financialContext,
+  }) async {
     try {
-      final contextPrefix = financialContext != null && financialContext.isNotEmpty
+      final contextPrefix =
+          financialContext != null && financialContext.isNotEmpty
           ? '**Datos financieros del usuario:**\n$financialContext\n\n**Pregunta del usuario:**\n'
           : '';
 
       final fullMessage = '$contextPrefix$userMessage';
       final response = await _chat.sendMessage(Content.text(fullMessage));
-      return response.text ?? 'No pude generar una respuesta. Intenta de nuevo.';
+      return response.text ??
+          'No pude generar una respuesta. Intenta de nuevo.';
     } on GenerativeAIException catch (e) {
-      if (e.message.contains('API_KEY_INVALID') || e.message.contains('API key not valid')) {
+      if (e.message.contains('API_KEY_INVALID') ||
+          e.message.contains('API key not valid')) {
         return '🔑 La API key de Gemini no es válida. Ve a **Ajustes → API Key Gemini** para configurarla. Obtén una gratis en https://aistudio.google.com';
-      } else if (e.message.contains('QUOTA_EXCEEDED') || e.message.contains('Resource has been exhausted')) {
+      } else if (e.message.contains('QUOTA_EXCEEDED') ||
+          e.message.contains('Resource has been exhausted')) {
         return '⏳ Has alcanzado el límite de consultas gratuitas. Intenta más tarde.';
       }
       return '❌ Error al conectar con Gemini: ${e.message}';

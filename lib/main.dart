@@ -5,6 +5,7 @@ import 'package:showcaseview/showcaseview.dart';
 import 'package:home_widget/home_widget.dart';
 import 'data/datasources/notification_service.dart';
 import 'data/datasources/auto_sync_service.dart';
+import 'core/services/mylifeos_integration_service.dart';
 import 'app.dart';
 
 // Callback de background para refrescar widgets desde el sistema
@@ -25,9 +26,9 @@ Future<void> main() async {
   final notificationService = NotificationService();
   await notificationService.initialize();
   await notificationService.requestPermissions();
-  await notificationService.rescheduleIfEnabled(); // reactivar recordatorio al reiniciar app
+  await notificationService
+      .rescheduleIfEnabled(); // reactivar recordatorio al reiniciar app
 
-  // Inicializar servicio de sincronización automática (Workmanager)
   // Inicializar servicio de sincronización automática (Workmanager)
   await AutoSyncService().initialize();
 
@@ -43,11 +44,19 @@ Future<void> main() async {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.white, size: 64),
+                  const Icon(
+                    Icons.error_outline,
+                    color: Colors.white,
+                    size: 64,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     '¡Ups! Algo salió mal.',
-                    style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -58,8 +67,12 @@ Future<void> main() async {
                   const SizedBox(height: 16),
                   Text(
                     details.stack.toString().split('\n').take(5).join('\n'),
-                     style: const TextStyle(color: Colors.white30, fontSize: 10, fontFamily: 'monospace'),
-                     textAlign: TextAlign.left,
+                    style: const TextStyle(
+                      color: Colors.white30,
+                      fontSize: 10,
+                      fontFamily: 'monospace',
+                    ),
+                    textAlign: TextAlign.left,
                   ),
                 ],
               ),
@@ -72,9 +85,5 @@ Future<void> main() async {
 
   ShowcaseView.register();
 
-  runApp(
-    const ProviderScope(
-      child: MyApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: MyApp()));
 }

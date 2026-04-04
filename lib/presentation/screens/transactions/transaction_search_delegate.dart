@@ -56,7 +56,8 @@ class TransactionSearchDelegate extends SearchDelegate {
       data: (transactions) {
         final results = transactions.where((t) {
           final q = query.toLowerCase();
-          final matchesDescription = t.description?.toLowerCase().contains(q) ?? false;
+          final matchesDescription =
+              t.description?.toLowerCase().contains(q) ?? false;
           final matchesAmount = t.amount.toString().contains(q);
           return matchesDescription || matchesAmount;
         }).toList();
@@ -93,13 +94,18 @@ class TransactionSearchDelegate extends SearchDelegate {
               const Divider(),
               const Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text('Transacciones', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(
+                  'Transacciones',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
               ),
             ],
             ...results.map((transaction) {
-               return ListTile(
+              return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: _getTypeColor(transaction.type).withValues(alpha: 0.1),
+                  backgroundColor: _getTypeColor(
+                    transaction.type,
+                  ).withValues(alpha: 0.1),
                   child: Icon(
                     _getTypeIcon(transaction.type),
                     color: _getTypeColor(transaction.type),
@@ -110,7 +116,9 @@ class TransactionSearchDelegate extends SearchDelegate {
                   transaction.description ?? 'Sin descripción',
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
-                subtitle: Text(DateFormat('dd/MM/yyyy').format(transaction.date)),
+                subtitle: Text(
+                  DateFormat('dd/MM/yyyy').format(transaction.date),
+                ),
                 trailing: Text(
                   'S/ ${transaction.amount.toStringAsFixed(2)}',
                   style: TextStyle(
@@ -119,7 +127,7 @@ class TransactionSearchDelegate extends SearchDelegate {
                   ),
                 ),
                 onTap: () {
-                  // Navigate to details or edit 
+                  // Navigate to details or edit
                 },
               );
             }),
@@ -133,19 +141,27 @@ class TransactionSearchDelegate extends SearchDelegate {
 
   Color _getTypeColor(String type) {
     switch (type) {
-      case 'income': return AppColors.income;
-      case 'expense': return AppColors.expense;
-      case 'transfer': return AppColors.transfer;
-      default: return Colors.grey;
+      case 'income':
+        return AppColors.income;
+      case 'expense':
+        return AppColors.expense;
+      case 'transfer':
+        return AppColors.transfer;
+      default:
+        return Colors.grey;
     }
   }
 
   IconData _getTypeIcon(String type) {
     switch (type) {
-      case 'income': return Icons.arrow_downward;
-      case 'expense': return Icons.arrow_upward;
-      case 'transfer': return Icons.swap_horiz;
-      default: return Icons.help_outline;
+      case 'income':
+        return Icons.arrow_downward;
+      case 'expense':
+        return Icons.arrow_upward;
+      case 'transfer':
+        return Icons.swap_horiz;
+      default:
+        return Icons.help_outline;
     }
   }
 }

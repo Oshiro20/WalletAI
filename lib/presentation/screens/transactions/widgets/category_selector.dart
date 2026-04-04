@@ -31,7 +31,8 @@ class CategorySelector extends ConsumerWidget {
               leading: const Icon(Icons.warning, color: Colors.orange),
               title: const Text('No hay categorías'),
               subtitle: Text(
-                  'Crea una categoría de ${transactionType == 'expense' ? 'gastos' : 'ingresos'}'),
+                'Crea una categoría de ${transactionType == 'expense' ? 'gastos' : 'ingresos'}',
+              ),
             ),
           );
         }

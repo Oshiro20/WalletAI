@@ -13,15 +13,17 @@ class CreateCategoryScreen extends ConsumerStatefulWidget {
   const CreateCategoryScreen({super.key, this.initialType, this.categoryId});
 
   @override
-  ConsumerState<CreateCategoryScreen> createState() => _CreateCategoryScreenState();
+  ConsumerState<CreateCategoryScreen> createState() =>
+      _CreateCategoryScreenState();
 }
 
-class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> with SingleTickerProviderStateMixin {
+class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _aliasesController = TextEditingController();
   late TabController _iconTabController;
-  
+
   String _selectedType = 'expense';
   String _selectedIcon = 'label_outline'; // Default Material Icon
   Color _selectedColor = Colors.blue;
@@ -35,26 +37,77 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
 
   // 2. Emojis List
   final List<String> _emojis = [
-    '🏷️', '🏠', '🍔', '🚗', '💊', '🎬', '✈️', '🛒', '🐾', '📚',
-    '🎓', '💼', '💡', '🔧', '🎁', '🎉', '🏋️', '🧘', '💸', '💰',
-    '💳', '🏦', '📈', '📉', '🔒', '🔑', '📱', '💻', '📷', '🎵',
-    '🎨', '🖌️', '👶', '🧸', '🍺', '🍷', '🍕', '🌮', '🍦', '🍩'
+    '🏷️',
+    '🏠',
+    '🍔',
+    '🚗',
+    '💊',
+    '🎬',
+    '✈️',
+    '🛒',
+    '🐾',
+    '📚',
+    '🎓',
+    '💼',
+    '💡',
+    '🔧',
+    '🎁',
+    '🎉',
+    '🏋️',
+    '🧘',
+    '💸',
+    '💰',
+    '💳',
+    '🏦',
+    '📈',
+    '📉',
+    '🔒',
+    '🔑',
+    '📱',
+    '💻',
+    '📷',
+    '🎵',
+    '🎨',
+    '🖌️',
+    '👶',
+    '🧸',
+    '🍺',
+    '🍷',
+    '🍕',
+    '🌮',
+    '🍦',
+    '🍩',
   ];
 
   final List<Color> _colors = [
-    Colors.red, Colors.pink, Colors.purple, Colors.deepPurple,
-    Colors.indigo, Colors.blue, Colors.lightBlue, Colors.cyan,
-    Colors.teal, Colors.green, Colors.lightGreen, Colors.lime,
-    Colors.yellow, Colors.amber, Colors.orange, Colors.deepOrange,
-    Colors.brown, Colors.grey, Colors.blueGrey,
+    Colors.red,
+    Colors.pink,
+    Colors.purple,
+    Colors.deepPurple,
+    Colors.indigo,
+    Colors.blue,
+    Colors.lightBlue,
+    Colors.cyan,
+    Colors.teal,
+    Colors.green,
+    Colors.lightGreen,
+    Colors.lime,
+    Colors.yellow,
+    Colors.amber,
+    Colors.orange,
+    Colors.deepOrange,
+    Colors.brown,
+    Colors.grey,
+    Colors.blueGrey,
   ];
 
   @override
   void initState() {
     super.initState();
     _iconTabController = TabController(length: 2, vsync: this);
-    
-    if (widget.initialType != null && ['expense', 'income'].contains(widget.initialType)) {
+
+    if (widget.initialType != null &&
+        ['expense', 'income'].contains(widget.initialType)) {
       _selectedType = widget.initialType!;
     }
 
@@ -74,13 +127,15 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
         _selectedType = cat.type;
         _selectedIcon = cat.icon ?? 'label_outline';
         if (cat.color != null) {
-          _selectedColor = Color(int.tryParse(cat.color!.replaceFirst('#', '0xff')) ?? 0xFF2196F3);
+          _selectedColor = Color(
+            int.tryParse(cat.color!.replaceFirst('#', '0xff')) ?? 0xFF2196F3,
+          );
         }
         if (cat.aliases != null && cat.aliases!.isNotEmpty) {
           _aliasesController.text = cat.aliases!;
           _showAliases = true;
         }
-        
+
         // Determine initial tab based on icon type (Emoji vs Material)
         if (AppIcons.isMaterialIcon(_selectedIcon)) {
           _iconTabController.animateTo(0); // Material
@@ -106,8 +161,9 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
 
     try {
       final dao = ref.read(categoriesDaoProvider);
-      
-      final colorHex = '#${_selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
+
+      final colorHex =
+          '#${_selectedColor.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}';
 
       if (_isEditing && _existingCategory != null) {
         // UPDATE
@@ -116,9 +172,11 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
           type: _selectedType,
           icon: drift.Value(_selectedIcon),
           color: drift.Value(colorHex),
-          aliases: drift.Value(_aliasesController.text.trim().isEmpty
-              ? null
-              : _aliasesController.text.trim()),
+          aliases: drift.Value(
+            _aliasesController.text.trim().isEmpty
+                ? null
+                : _aliasesController.text.trim(),
+          ),
         );
         await dao.updateCategory(updatedCat);
       } else {
@@ -131,9 +189,11 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
           icon: drift.Value(_selectedIcon),
           color: drift.Value(colorHex),
           isSystem: const drift.Value(false),
-          aliases: drift.Value(_aliasesController.text.trim().isEmpty
-              ? null
-              : _aliasesController.text.trim()),
+          aliases: drift.Value(
+            _aliasesController.text.trim().isEmpty
+                ? null
+                : _aliasesController.text.trim(),
+          ),
           createdAt: DateTime.now(),
         );
         await dao.createCategory(category);
@@ -142,14 +202,18 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(_isEditing ? 'Categoría actualizada' : 'Categoría creada')),
+          SnackBar(
+            content: Text(
+              _isEditing ? 'Categoría actualizada' : 'Categoría creada',
+            ),
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) {
@@ -184,7 +248,8 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
                 prefixIcon: Icon(Icons.label),
               ),
               textCapitalization: TextCapitalization.sentences,
-              validator: (value) => value == null || value.isEmpty ? 'Ingresa un nombre' : null,
+              validator: (value) =>
+                  value == null || value.isEmpty ? 'Ingresa un nombre' : null,
             ),
             const SizedBox(height: 16),
 
@@ -214,14 +279,18 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
-                    Icon(Icons.mic, size: 18,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    Icon(
+                      Icons.mic,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Alias para reconocimiento de voz (opcional)',
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 13),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
                     ),
                     const Spacer(),
                     Icon(
@@ -241,12 +310,14 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
                   hintText: 'ej: angie, novia, pareja',
                   border: const OutlineInputBorder(),
                   prefixIcon: const Icon(Icons.mic_none),
-                  helperText: 'Palabras clave para detectar esta categoría por voz',
+                  helperText:
+                      'Palabras clave para detectar esta categoría por voz',
                   helperMaxLines: 2,
                   suffixIcon: _aliasesController.text.isNotEmpty
                       ? IconButton(
                           icon: const Icon(Icons.clear),
-                          onPressed: () => setState(() => _aliasesController.clear()),
+                          onPressed: () =>
+                              setState(() => _aliasesController.clear()),
                         )
                       : null,
                 ),
@@ -259,25 +330,27 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
             // Icon Picker Section
             Text('Icono', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
-            
+
             // Tabs for Material vs Emoji
             TabBar(
               controller: _iconTabController,
               labelColor: Theme.of(context).primaryColor,
-              unselectedLabelColor:
-                  Theme.of(context).colorScheme.onSurfaceVariant,
+              unselectedLabelColor: Theme.of(
+                context,
+              ).colorScheme.onSurfaceVariant,
               tabs: const [
                 Tab(text: 'Iconos'),
                 Tab(text: 'Emojis'),
               ],
             ),
             const SizedBox(height: 8),
-            
+
             Container(
-              height: 250, 
+              height: 250,
               decoration: BoxDecoration(
                 border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant),
+                  color: Theme.of(context).colorScheme.outlineVariant,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: TabBarView(
@@ -299,7 +372,8 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
               spacing: 12,
               runSpacing: 12,
               children: _colors.map((color) {
-                final isSelected = _selectedColor.toARGB32() == color.toARGB32();
+                final isSelected =
+                    _selectedColor.toARGB32() == color.toARGB32();
                 return GestureDetector(
                   onTap: () => setState(() => _selectedColor = color),
                   child: Container(
@@ -311,21 +385,23 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
                       border: isSelected
                           ? Border.all(
                               color: Theme.of(context).colorScheme.onSurface,
-                              width: 2)
+                              width: 2,
+                            )
                           : null,
                       boxShadow: [
                         if (isSelected)
-                           BoxShadow(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .shadow
-                                .withValues(alpha: 0.3),
+                          BoxShadow(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.shadow.withValues(alpha: 0.3),
                             blurRadius: 4,
                             spreadRadius: 1,
-                          )
+                          ),
                       ],
                     ),
-                    child: isSelected ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
+                    child: isSelected
+                        ? const Icon(Icons.check, color: Colors.white, size: 20)
+                        : null,
                   ),
                 );
               }).toList(),
@@ -353,15 +429,19 @@ class _CreateCategoryScreenState extends ConsumerState<CreateCategoryScreen> wit
           borderRadius: BorderRadius.circular(8),
           child: Container(
             decoration: BoxDecoration(
-              color: isSelected ? Theme.of(context).primaryColor.withValues(alpha: 0.2) : null,
-              border: isSelected ? Border.all(color: Theme.of(context).primaryColor, width: 2) : null,
+              color: isSelected
+                  ? Theme.of(context).primaryColor.withValues(alpha: 0.2)
+                  : null,
+              border: isSelected
+                  ? Border.all(color: Theme.of(context).primaryColor, width: 2)
+                  : null,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Center(
               child: AppIcons.getIcon(
-                iconName, 
-                size: 24, 
-                color: isMaterial ? Theme.of(context).primaryColor : null
+                iconName,
+                size: 24,
+                color: isMaterial ? Theme.of(context).primaryColor : null,
               ),
             ),
           ),

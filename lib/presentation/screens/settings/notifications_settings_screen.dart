@@ -44,7 +44,8 @@ class _NotificationsSettingsScreenState
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-                '✅ Recordatorio programado a las ${_time.format(context)}'),
+              '✅ Recordatorio programado a las ${_time.format(context)}',
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -55,10 +56,7 @@ class _NotificationsSettingsScreenState
   }
 
   Future<void> _pickTime() async {
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: _time,
-    );
+    final picked = await showTimePicker(context: context, initialTime: _time);
     if (picked == null || !mounted) return;
     setState(() => _time = picked);
     if (_enabled) {
@@ -69,7 +67,9 @@ class _NotificationsSettingsScreenState
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('🔔 Recordatorio actualizado a las ${picked.format(context)}'),
+            content: Text(
+              '🔔 Recordatorio actualizado a las ${picked.format(context)}',
+            ),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -95,7 +95,8 @@ class _NotificationsSettingsScreenState
                   onChanged: _toggleReminder,
                   title: const Text('Recordatorio de registro'),
                   subtitle: const Text(
-                      'Te recuerda registrar tus gastos cada día'),
+                    'Te recuerda registrar tus gastos cada día',
+                  ),
                   secondary: Container(
                     width: 40,
                     height: 40,
@@ -103,8 +104,11 @@ class _NotificationsSettingsScreenState
                       color: cs.primaryContainer,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.notifications_outlined,
-                        color: cs.primary, size: 22),
+                    child: Icon(
+                      Icons.notifications_outlined,
+                      color: cs.primary,
+                      size: 22,
+                    ),
                   ),
                 ),
                 if (_enabled) ...[
@@ -116,14 +120,19 @@ class _NotificationsSettingsScreenState
                         color: cs.tertiaryContainer,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.access_time,
-                          color: cs.tertiary, size: 22),
+                      child: Icon(
+                        Icons.access_time,
+                        color: cs.tertiary,
+                        size: 22,
+                      ),
                     ),
                     title: const Text('Hora del recordatorio'),
                     subtitle: Text(
                       _time.format(context),
                       style: TextStyle(
-                          color: cs.primary, fontWeight: FontWeight.bold),
+                        color: cs.primary,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     trailing: const Icon(Icons.chevron_right),
                     onTap: _pickTime,
@@ -143,7 +152,8 @@ class _NotificationsSettingsScreenState
                   icon: Icons.warning_amber,
                   iconColor: Colors.red,
                   title: 'Gasto inusualmente alto',
-                  subtitle: 'Se activa cuando un gasto supera 3× tu promedio diario',
+                  subtitle:
+                      'Se activa cuando un gasto supera 3× tu promedio diario',
                 ),
                 _InfoTile(
                   icon: Icons.flag_outlined,

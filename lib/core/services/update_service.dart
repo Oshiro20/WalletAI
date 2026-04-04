@@ -26,7 +26,8 @@ class GithubRelease {
     // Buscamos el primer asset que termine en .apk
     final apkAsset = assets.firstWhere(
       (asset) => asset['name'].toString().endsWith('.apk'),
-      orElse: () => throw Exception('No se encontró un archivo APK en el release.'),
+      orElse: () =>
+          throw Exception('No se encontró un archivo APK en el release.'),
     );
 
     return GithubRelease(
@@ -53,7 +54,7 @@ class UpdateService {
       if (response.statusCode == 200) {
         final release = GithubRelease.fromJson(response.data);
         final packageInfo = await PackageInfo.fromPlatform();
-        
+
         // Comparamos versiones. Ejemplo: v1.1.0 vs 1.1.0
         // Limpiamos el tag_name de posibles prefijos 'v'
         final latestVersion = release.tagName.replaceAll('v', '');
@@ -110,7 +111,6 @@ class UpdateService {
       _logger.e('Error durante descarga/instalación: $e');
       rethrow;
     }
-
   }
 }
 

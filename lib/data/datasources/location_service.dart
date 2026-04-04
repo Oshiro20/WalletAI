@@ -43,13 +43,16 @@ class LocationService {
         );
         if (placemarks.isNotEmpty) {
           final p = placemarks.first;
-          final parts = [p.name, p.locality, p.administrativeArea]
-              .where((s) => s != null && s.isNotEmpty)
-              .toList();
+          final parts = [
+            p.name,
+            p.locality,
+            p.administrativeArea,
+          ].where((s) => s != null && s.isNotEmpty).toList();
           placeName = parts.take(2).join(', ');
         }
       } catch (_) {
-        placeName = '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
+        placeName =
+            '${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)}';
       }
 
       return LocationResult(

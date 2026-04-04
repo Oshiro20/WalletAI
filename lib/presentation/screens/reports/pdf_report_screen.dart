@@ -62,13 +62,18 @@ class PdfReportService {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('REPORTE FINANCIERO',
-                        style: pw.TextStyle(
-                            fontSize: 20,
-                            fontWeight: pw.FontWeight.bold,
-                            color: primaryColor)),
-                    pw.Text(monthLabel.toUpperCase(),
-                        style: pw.TextStyle(fontSize: 14, color: greyDark)),
+                    pw.Text(
+                      'REPORTE FINANCIERO',
+                      style: pw.TextStyle(
+                        fontSize: 20,
+                        fontWeight: pw.FontWeight.bold,
+                        color: primaryColor,
+                      ),
+                    ),
+                    pw.Text(
+                      monthLabel.toUpperCase(),
+                      style: pw.TextStyle(fontSize: 14, color: greyDark),
+                    ),
                   ],
                 ),
                 pw.Text(
@@ -85,9 +90,17 @@ class PdfReportService {
           // ── Summary Cards ──
           pw.Row(
             children: [
-              _pdfCard('INGRESOS', 'S/ ${totalIncome.toStringAsFixed(2)}', greenColor),
+              _pdfCard(
+                'INGRESOS',
+                'S/ ${totalIncome.toStringAsFixed(2)}',
+                greenColor,
+              ),
               pw.SizedBox(width: 12),
-              _pdfCard('GASTOS', 'S/ ${totalExpense.toStringAsFixed(2)}', redColor),
+              _pdfCard(
+                'GASTOS',
+                'S/ ${totalExpense.toStringAsFixed(2)}',
+                redColor,
+              ),
               pw.SizedBox(width: 12),
               _pdfCard(
                 'BALANCE',
@@ -100,11 +113,14 @@ class PdfReportService {
 
           // ── Expenses by Category ──
           if (sortedExpenses.isNotEmpty) ...[
-            pw.Text('GASTOS POR CATEGORÍA',
-                style: pw.TextStyle(
-                    fontSize: 13,
-                    fontWeight: pw.FontWeight.bold,
-                    color: primaryColor)),
+            pw.Text(
+              'GASTOS POR CATEGORÍA',
+              style: pw.TextStyle(
+                fontSize: 13,
+                fontWeight: pw.FontWeight.bold,
+                color: primaryColor,
+              ),
+            ),
             pw.SizedBox(height: 8),
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
@@ -125,12 +141,15 @@ class PdfReportService {
                 ),
                 // Rows
                 ...sortedExpenses.map((e) {
-                  final pct = totalExpense > 0 ? e.value / totalExpense * 100 : 0;
+                  final pct = totalExpense > 0
+                      ? e.value / totalExpense * 100
+                      : 0;
                   return pw.TableRow(
                     decoration: pw.BoxDecoration(
-                        color: sortedExpenses.indexOf(e) % 2 == 0
-                            ? PdfColors.white
-                            : greyLight),
+                      color: sortedExpenses.indexOf(e) % 2 == 0
+                          ? PdfColors.white
+                          : greyLight,
+                    ),
                     children: [
                       _pdfCell(catName(e.key)),
                       _pdfCell('S/ ${e.value.toStringAsFixed(2)}'),
@@ -143,7 +162,10 @@ class PdfReportService {
                   decoration: pw.BoxDecoration(color: greyLight),
                   children: [
                     _pdfCell('TOTAL', bold: true),
-                    _pdfCell('S/ ${totalExpense.toStringAsFixed(2)}', bold: true),
+                    _pdfCell(
+                      'S/ ${totalExpense.toStringAsFixed(2)}',
+                      bold: true,
+                    ),
                     _pdfCell('100%', bold: true),
                   ],
                 ),
@@ -153,11 +175,14 @@ class PdfReportService {
           ],
 
           // ── Transaction List ──
-          pw.Text('DETALLE DE TRANSACCIONES',
-              style: pw.TextStyle(
-                  fontSize: 13,
-                  fontWeight: pw.FontWeight.bold,
-                  color: primaryColor)),
+          pw.Text(
+            'DETALLE DE TRANSACCIONES',
+            style: pw.TextStyle(
+              fontSize: 13,
+              fontWeight: pw.FontWeight.bold,
+              color: primaryColor,
+            ),
+          ),
           pw.SizedBox(height: 8),
           pw.Table(
             border: pw.TableBorder.all(color: PdfColors.grey300, width: 0.5),
@@ -185,7 +210,8 @@ class PdfReportService {
                 final isExpense = t.type == 'expense';
                 return pw.TableRow(
                   decoration: pw.BoxDecoration(
-                      color: i % 2 == 0 ? PdfColors.white : greyLight),
+                    color: i % 2 == 0 ? PdfColors.white : greyLight,
+                  ),
                   children: [
                     _pdfCell(DateFormat('dd/MM').format(t.date)),
                     _pdfCell(t.description ?? '-', maxLines: 1),
@@ -227,12 +253,22 @@ class PdfReportService {
         child: pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
-            pw.Text(label,
-                style: pw.TextStyle(fontSize: 9, color: PdfColor.fromHex('757575'))),
+            pw.Text(
+              label,
+              style: pw.TextStyle(
+                fontSize: 9,
+                color: PdfColor.fromHex('757575'),
+              ),
+            ),
             pw.SizedBox(height: 4),
-            pw.Text(value,
-                style: pw.TextStyle(
-                    fontSize: 14, fontWeight: pw.FontWeight.bold, color: color)),
+            pw.Text(
+              value,
+              style: pw.TextStyle(
+                fontSize: 14,
+                fontWeight: pw.FontWeight.bold,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),
@@ -253,7 +289,9 @@ class PdfReportService {
         maxLines: maxLines,
         style: pw.TextStyle(
           fontSize: isHeader ? 9 : 8,
-          fontWeight: (isHeader || bold) ? pw.FontWeight.bold : pw.FontWeight.normal,
+          fontWeight: (isHeader || bold)
+              ? pw.FontWeight.bold
+              : pw.FontWeight.normal,
           color: isHeader ? PdfColors.white : (color ?? PdfColors.black),
         ),
       ),
@@ -285,14 +323,21 @@ class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
           children: [
             // Month selector
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Selecciona el mes',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text(
+                      'Selecciona el mes',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -301,19 +346,25 @@ class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
                           icon: const Icon(Icons.chevron_left),
                           onPressed: () => setState(() {
                             _selectedMonth = DateTime(
-                                _selectedMonth.year, _selectedMonth.month - 1);
+                              _selectedMonth.year,
+                              _selectedMonth.month - 1,
+                            );
                           }),
                         ),
                         Text(
                           DateFormat('MMMM yyyy', 'es').format(_selectedMonth),
                           style: const TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                         IconButton(
                           icon: const Icon(Icons.chevron_right),
                           onPressed: () => setState(() {
                             _selectedMonth = DateTime(
-                                _selectedMonth.year, _selectedMonth.month + 1);
+                              _selectedMonth.year,
+                              _selectedMonth.month + 1,
+                            );
                           }),
                         ),
                       ],
@@ -326,32 +377,45 @@ class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
 
             // What's included
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('El reporte incluye:',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Text(
+                      'El reporte incluye:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     ...[
                       '📊 Resumen de ingresos, gastos y balance',
                       '🗂️ Gastos desglosados por categoría',
                       '📋 Lista completa de transacciones',
                       '💳 Cuenta utilizada en cada transacción',
-                    ].map((item) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Text(item.substring(0, 2),
-                                  style: const TextStyle(fontSize: 16)),
-                              const SizedBox(width: 8),
-                              Text(item.substring(3),
-                                  style: const TextStyle(fontSize: 13)),
-                            ],
-                          ),
-                        )),
+                    ].map(
+                      (item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Text(
+                              item.substring(0, 2),
+                              style: const TextStyle(fontSize: 16),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              item.substring(3),
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -387,8 +451,10 @@ class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
               child: OutlinedButton.icon(
                 onPressed: _isGenerating ? null : _generateAndPrint,
                 icon: const Icon(Icons.print),
-                label: const Text('Vista Previa / Imprimir',
-                    style: TextStyle(fontSize: 16)),
+                label: const Text(
+                  'Vista Previa / Imprimir',
+                  style: TextStyle(fontSize: 16),
+                ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -411,9 +477,9 @@ class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
       );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -428,9 +494,9 @@ class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
       await Printing.layoutPdf(onLayout: (_) async => bytes);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -443,12 +509,25 @@ class _PdfReportScreenState extends ConsumerState<PdfReportScreen> {
     final accountsDao = ref.read(accountsDaoProvider);
 
     final start = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-    final end = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0, 23, 59, 59);
+    final end = DateTime(
+      _selectedMonth.year,
+      _selectedMonth.month + 1,
+      0,
+      23,
+      59,
+      59,
+    );
 
-    final transactions = await transactionsDao.getTransactionsByDateRange(start, end);
+    final transactions = await transactionsDao.getTransactionsByDateRange(
+      start,
+      end,
+    );
     final categories = await categoriesDao.getAllCategories();
     final accounts = await accountsDao.getAllAccounts();
-    final expensesByCategory = await transactionsDao.getExpensesByCategory(start, end);
+    final expensesByCategory = await transactionsDao.getExpensesByCategory(
+      start,
+      end,
+    );
 
     // Income by category
     final incomeByCategory = <String, double>{};

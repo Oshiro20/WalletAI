@@ -13,53 +13,161 @@ class AppTheme {
   // ─── Text Themes ──────────────────────────────────────────────────────
 
   static TextTheme _buildDarkTextTheme() {
-    final jakartaDisplay = GoogleFonts.plusJakartaSans(color: AppColors.onSurface);
+    final jakartaDisplay = GoogleFonts.plusJakartaSans(
+      color: AppColors.onSurface,
+    );
     final manropeBody = GoogleFonts.manrope(color: AppColors.onSurface);
     final manropeLabel = GoogleFonts.manrope(color: AppColors.onSurfaceVariant);
 
     return TextTheme(
       // Plus Jakarta Sans — Numbers & Headlines
-      displayLarge: jakartaDisplay.copyWith(fontSize: 57, fontWeight: FontWeight.w700, letterSpacing: -0.5),
-      displayMedium: jakartaDisplay.copyWith(fontSize: 45, fontWeight: FontWeight.w700),
-      displaySmall: jakartaDisplay.copyWith(fontSize: 36, fontWeight: FontWeight.w700),
-      headlineLarge: jakartaDisplay.copyWith(fontSize: 32, fontWeight: FontWeight.w700),
-      headlineMedium: jakartaDisplay.copyWith(fontSize: 28, fontWeight: FontWeight.w600),
-      headlineSmall: jakartaDisplay.copyWith(fontSize: 24, fontWeight: FontWeight.w600),
-      titleLarge: jakartaDisplay.copyWith(fontSize: 22, fontWeight: FontWeight.w600),
-      titleMedium: jakartaDisplay.copyWith(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.15),
-      titleSmall: jakartaDisplay.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
+      displayLarge: jakartaDisplay.copyWith(
+        fontSize: 57,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      displayMedium: jakartaDisplay.copyWith(
+        fontSize: 45,
+        fontWeight: FontWeight.w700,
+      ),
+      displaySmall: jakartaDisplay.copyWith(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineLarge: jakartaDisplay.copyWith(
+        fontSize: 32,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineMedium: jakartaDisplay.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+      ),
+      headlineSmall: jakartaDisplay.copyWith(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+      ),
+      titleLarge: jakartaDisplay.copyWith(
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+      ),
+      titleMedium: jakartaDisplay.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.15,
+      ),
+      titleSmall: jakartaDisplay.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.1,
+      ),
 
       // Manrope — Body & Labels
-      bodyLarge: manropeBody.copyWith(fontSize: 16, fontWeight: FontWeight.w400),
-      bodyMedium: manropeBody.copyWith(fontSize: 14, fontWeight: FontWeight.w400),
-      bodySmall: manropeBody.copyWith(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.onSurfaceVariant),
-      labelLarge: manropeLabel.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
-      labelMedium: manropeLabel.copyWith(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
-      labelSmall: manropeLabel.copyWith(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+      bodyLarge: manropeBody.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+      ),
+      bodyMedium: manropeBody.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+      ),
+      bodySmall: manropeBody.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: AppColors.onSurfaceVariant,
+      ),
+      labelLarge: manropeLabel.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.1,
+      ),
+      labelMedium: manropeLabel.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.5,
+      ),
+      labelSmall: manropeLabel.copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.5,
+      ),
     );
   }
 
   static TextTheme _buildLightTextTheme() {
-    final jakartaDisplay = GoogleFonts.plusJakartaSans(color: AppColors.textPrimary);
+    final jakartaDisplay = GoogleFonts.plusJakartaSans(
+      color: AppColors.textPrimary,
+    );
     final manropeBody = GoogleFonts.manrope(color: AppColors.textPrimary);
     final manropeLabel = GoogleFonts.manrope(color: AppColors.textSecondary);
 
     return TextTheme(
-      displayLarge: jakartaDisplay.copyWith(fontSize: 57, fontWeight: FontWeight.w700, letterSpacing: -0.5),
-      displayMedium: jakartaDisplay.copyWith(fontSize: 45, fontWeight: FontWeight.w700),
-      displaySmall: jakartaDisplay.copyWith(fontSize: 36, fontWeight: FontWeight.w700),
-      headlineLarge: jakartaDisplay.copyWith(fontSize: 32, fontWeight: FontWeight.w700),
-      headlineMedium: jakartaDisplay.copyWith(fontSize: 28, fontWeight: FontWeight.w600),
-      headlineSmall: jakartaDisplay.copyWith(fontSize: 24, fontWeight: FontWeight.w600),
-      titleLarge: jakartaDisplay.copyWith(fontSize: 22, fontWeight: FontWeight.w600),
-      titleMedium: jakartaDisplay.copyWith(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0.15),
-      titleSmall: jakartaDisplay.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
-      bodyLarge: manropeBody.copyWith(fontSize: 16, fontWeight: FontWeight.w400),
-      bodyMedium: manropeBody.copyWith(fontSize: 14, fontWeight: FontWeight.w400),
-      bodySmall: manropeBody.copyWith(fontSize: 12, fontWeight: FontWeight.w400, color: AppColors.textSecondary),
-      labelLarge: manropeLabel.copyWith(fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 0.1),
-      labelMedium: manropeLabel.copyWith(fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 0.5),
-      labelSmall: manropeLabel.copyWith(fontSize: 11, fontWeight: FontWeight.w500, letterSpacing: 0.5),
+      displayLarge: jakartaDisplay.copyWith(
+        fontSize: 57,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.5,
+      ),
+      displayMedium: jakartaDisplay.copyWith(
+        fontSize: 45,
+        fontWeight: FontWeight.w700,
+      ),
+      displaySmall: jakartaDisplay.copyWith(
+        fontSize: 36,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineLarge: jakartaDisplay.copyWith(
+        fontSize: 32,
+        fontWeight: FontWeight.w700,
+      ),
+      headlineMedium: jakartaDisplay.copyWith(
+        fontSize: 28,
+        fontWeight: FontWeight.w600,
+      ),
+      headlineSmall: jakartaDisplay.copyWith(
+        fontSize: 24,
+        fontWeight: FontWeight.w600,
+      ),
+      titleLarge: jakartaDisplay.copyWith(
+        fontSize: 22,
+        fontWeight: FontWeight.w600,
+      ),
+      titleMedium: jakartaDisplay.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.15,
+      ),
+      titleSmall: jakartaDisplay.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.1,
+      ),
+      bodyLarge: manropeBody.copyWith(
+        fontSize: 16,
+        fontWeight: FontWeight.w400,
+      ),
+      bodyMedium: manropeBody.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w400,
+      ),
+      bodySmall: manropeBody.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+        color: AppColors.textSecondary,
+      ),
+      labelLarge: manropeLabel.copyWith(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.1,
+      ),
+      labelMedium: manropeLabel.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.5,
+      ),
+      labelSmall: manropeLabel.copyWith(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.5,
+      ),
     );
   }
 
@@ -101,7 +209,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: scheme.surfaceContainerLow,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -142,8 +253,13 @@ class AppTheme {
           foregroundColor: scheme.onPrimary,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.manrope(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
         ),
       ),
 
@@ -152,8 +268,13 @@ class AppTheme {
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.manrope(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
         ),
       ),
 
@@ -228,7 +349,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surfaceContainerLowest,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -250,8 +374,13 @@ class AppTheme {
       chipTheme: ChipThemeData(
         selectedColor: refinedScheme.primaryContainer,
         backgroundColor: AppColors.surfaceContainerHighest,
-        labelStyle: GoogleFonts.manrope(fontSize: 13, color: AppColors.onSurface),
-        side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+        labelStyle: GoogleFonts.manrope(
+          fontSize: 13,
+          color: AppColors.onSurface,
+        ),
+        side: BorderSide(
+          color: AppColors.outlineVariant.withValues(alpha: 0.3),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         showCheckmark: false,
       ),
@@ -269,8 +398,13 @@ class AppTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.manrope(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
         ),
       ),
 
@@ -279,8 +413,13 @@ class AppTheme {
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          textStyle: GoogleFonts.manrope(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
         ),
       ),
 
@@ -306,7 +445,10 @@ class AppTheme {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: AppColors.primarySoft, size: 24);
           }
-          return const IconThemeData(color: AppColors.onSurfaceVariant, size: 24);
+          return const IconThemeData(
+            color: AppColors.onSurfaceVariant,
+            size: 24,
+          );
         }),
       ),
 
@@ -344,5 +486,5 @@ class AppTheme {
 
   // ─── Legacy: compatibilidad ───────────────────────────────────────────
   static final ThemeData lightTheme = buildLight(const Color(0xFF6366F1));
-  static final ThemeData darkTheme  = buildDark(const Color(0xFF6366F1));
+  static final ThemeData darkTheme = buildDark(const Color(0xFF6366F1));
 }

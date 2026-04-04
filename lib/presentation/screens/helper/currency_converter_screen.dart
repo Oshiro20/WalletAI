@@ -7,7 +7,8 @@ class CurrencyConverterScreen extends StatefulWidget {
   const CurrencyConverterScreen({super.key});
 
   @override
-  State<CurrencyConverterScreen> createState() => _CurrencyConverterScreenState();
+  State<CurrencyConverterScreen> createState() =>
+      _CurrencyConverterScreenState();
 }
 
 class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
@@ -37,9 +38,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar monedas: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cargar monedas: $e')));
       }
     }
   }
@@ -60,19 +61,19 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
         });
         return;
       }
-      
+
       // Llamada directa a API: /latest?amount=10&from=USD&to=EUR
       // Implementación básica en servicio
-        // Aquí simulamos uso de cache si ya tenemos tasas base PEN, 
-        // pero para simplificar usaremos el endpoint de conversión.
-      
+      // Aquí simulamos uso de cache si ya tenemos tasas base PEN,
+      // pero para simplificar usaremos el endpoint de conversión.
+
       // Ajuste: el servicio en el paso anterior tenía un método convert
       // pero usaba logica de cache base PEN.
       // Vamos a usar endpoint publico directo para conversión exacta.
-       final res = await _service.convert(
-        amount: amount, 
-        from: _fromCurrency, 
-        to: _toCurrency
+      final res = await _service.convert(
+        amount: amount,
+        from: _fromCurrency,
+        to: _toCurrency,
       );
 
       if (mounted) {
@@ -84,9 +85,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -104,7 +105,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Conversor de Moneda'),
@@ -117,7 +118,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
             // Card principal
             Card(
               elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Column(
@@ -125,9 +128,13 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                     // Campo Monto
                     TextField(
                       controller: _amountCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+                        FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+\.?\d{0,2}'),
+                        ),
                       ],
                       decoration: const InputDecoration(
                         labelText: 'Monto',
@@ -135,7 +142,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                         border: OutlineInputBorder(),
                       ),
                       onChanged: (_) {
-                         // Debounce manual o botón "Convertir"
+                        // Debounce manual o botón "Convertir"
                       },
                       onSubmitted: (_) => _convert(),
                     ),
@@ -168,7 +175,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 32),
 
                     // Resultado
@@ -193,9 +200,9 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                           ),
                         ],
                       ),
-                      
+
                     const SizedBox(height: 24),
-                    
+
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
@@ -211,7 +218,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                 ),
               ),
             ),
-            
+
             const Spacer(),
             Text(
               'Tasas de cambio aproximadas vía Frankfurter API.\nNo usar para trading real.',
@@ -236,14 +243,14 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
       isExpanded: true,
       items: _currencies.keys.map((code) {
         final details = kCurrencyDetails[code];
-        final displayText = details != null 
-            ? '${details.flag} $code - ${details.name}' 
+        final displayText = details != null
+            ? '${details.flag} $code - ${details.name}'
             : code;
 
         return DropdownMenuItem(
           value: code,
           child: Text(
-            displayText, 
+            displayText,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontWeight: FontWeight.w500),
           ),

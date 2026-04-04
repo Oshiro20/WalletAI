@@ -570,16 +570,34 @@ class _SwipeableTransactionTile extends StatelessWidget {
                     Expanded(
                       child: Builder(
                         builder: (context) {
-                          final hasProduct = transaction.productName != null && transaction.productName!.toString().trim().isNotEmpty;
-                          final hasDescription = transaction.description != null && transaction.description!.toString().trim().isNotEmpty;
-                          
+                          final hasProduct =
+                              transaction.productName != null &&
+                              transaction.productName!
+                                  .toString()
+                                  .trim()
+                                  .isNotEmpty;
+                          final hasDescription =
+                              transaction.description != null &&
+                              transaction.description!
+                                  .toString()
+                                  .trim()
+                                  .isNotEmpty;
+
                           final mainText = transaction.type == 'transfer'
                               ? AppLocalizations.of(context)!.filterTransfer
-                              : (hasProduct ? transaction.productName! : (hasDescription ? transaction.description! : AppLocalizations.of(context)!.noDescription));
-                              
-                          final subText = transaction.type == 'transfer' 
-                              ? null 
-                              : (hasProduct && hasDescription ? transaction.description! : null);
+                              : (hasProduct
+                                    ? transaction.productName!
+                                    : (hasDescription
+                                          ? transaction.description!
+                                          : AppLocalizations.of(
+                                              context,
+                                            )!.noDescription));
+
+                          final subText = transaction.type == 'transfer'
+                              ? null
+                              : (hasProduct && hasDescription
+                                    ? transaction.description!
+                                    : null);
 
                           return Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -608,7 +626,7 @@ class _SwipeableTransactionTile extends StatelessWidget {
                               ],
                             ],
                           );
-                        }
+                        },
                       ),
                     ),
                     const SizedBox(width: 8),

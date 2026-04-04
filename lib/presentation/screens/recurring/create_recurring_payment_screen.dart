@@ -12,14 +12,16 @@ class CreateRecurringPaymentScreen extends ConsumerStatefulWidget {
   const CreateRecurringPaymentScreen({super.key});
 
   @override
-  ConsumerState<CreateRecurringPaymentScreen> createState() => _CreateRecurringPaymentScreenState();
+  ConsumerState<CreateRecurringPaymentScreen> createState() =>
+      _CreateRecurringPaymentScreenState();
 }
 
-class _CreateRecurringPaymentScreenState extends ConsumerState<CreateRecurringPaymentScreen> {
+class _CreateRecurringPaymentScreenState
+    extends ConsumerState<CreateRecurringPaymentScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _amountController = TextEditingController();
-  
+
   String? _selectedAccountId;
   String? _selectedCategoryId;
   String _frequency = 'monthly';
@@ -36,15 +38,23 @@ class _CreateRecurringPaymentScreenState extends ConsumerState<CreateRecurringPa
           children: [
             TextFormField(
               controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Nombre (ej. Netflix)'),
+              decoration: const InputDecoration(
+                labelText: 'Nombre (ej. Netflix)',
+              ),
               validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _amountController,
-              decoration: const InputDecoration(labelText: 'Monto', prefixText: 'S/ '),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (v) => double.tryParse(v ?? '') == null ? 'Monto inválido' : null,
+              decoration: const InputDecoration(
+                labelText: 'Monto',
+                prefixText: 'S/ ',
+              ),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              validator: (v) =>
+                  double.tryParse(v ?? '') == null ? 'Monto inválido' : null,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -61,7 +71,9 @@ class _CreateRecurringPaymentScreenState extends ConsumerState<CreateRecurringPa
             const SizedBox(height: 16),
             ListTile(
               title: const Text('Primer Cobro'),
-              subtitle: Text('${_nextDueDate.day}/${_nextDueDate.month}/${_nextDueDate.year}'),
+              subtitle: Text(
+                '${_nextDueDate.day}/${_nextDueDate.month}/${_nextDueDate.year}',
+              ),
               trailing: const Icon(Icons.calendar_today),
               onTap: () async {
                 final date = await showDatePicker(
@@ -74,17 +86,25 @@ class _CreateRecurringPaymentScreenState extends ConsumerState<CreateRecurringPa
               },
             ),
             const SizedBox(height: 16),
-            const Text('Cuenta de Cargo', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'Cuenta de Cargo',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             AccountSelector(
               selectedAccountId: _selectedAccountId,
-              onAccountSelected: (id) => setState(() => _selectedAccountId = id),
+              onAccountSelected: (id) =>
+                  setState(() => _selectedAccountId = id),
             ),
             const SizedBox(height: 16),
-            const Text('Categoría (Opcional)', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'Categoría (Opcional)',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
             CategorySelector(
               selectedCategoryId: _selectedCategoryId,
               transactionType: 'expense',
-              onCategorySelected: (id) => setState(() => _selectedCategoryId = id),
+              onCategorySelected: (id) =>
+                  setState(() => _selectedCategoryId = id),
             ),
             const SizedBox(height: 32),
             ElevatedButton(
@@ -100,7 +120,9 @@ class _CreateRecurringPaymentScreenState extends ConsumerState<CreateRecurringPa
   void _savePayment() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedAccountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona una cuenta')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Selecciona una cuenta')));
       return;
     }
 

@@ -21,7 +21,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   List<drive.File> _driveBackups = [];
   bool _isLoading = false;
   bool _loadingDrive = false;
-  
+
   // Auto-Sync
   bool _autoSyncEnabled = false;
   String _autoSyncFrequency = 'daily'; // daily, weekly
@@ -55,24 +55,39 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final service = AutoSyncService();
     if (enabled) {
       if (_googleUser == null) await _signInGoogle();
-      
+
       if (_googleUser != null) {
-        final duration = frequency == 'weekly' 
-            ? const Duration(days: 7) 
+        final duration = frequency == 'weekly'
+            ? const Duration(days: 7)
             : const Duration(hours: 24);
         await service.registerPeriodicTask(frequency: duration);
-        _showResult(const BackupResult(success: true, message: 'Respaldo automático configurado'));
+        _showResult(
+          const BackupResult(
+            success: true,
+            message: 'Respaldo automático configurado',
+          ),
+        );
       } else {
         // No se pudo loguear
         setState(() => _autoSyncEnabled = false);
         await prefs.setBool('auto_sync_enabled', false);
-        _showResult(const BackupResult(success: false, message: 'Requiere inicio de sesión en Google'));
+        _showResult(
+          const BackupResult(
+            success: false,
+            message: 'Requiere inicio de sesión en Google',
+          ),
+        );
       }
     } else {
       await service.cancelTask();
-      _showResult(const BackupResult(success: true, message: 'Respaldo automático desactivado'));
+      _showResult(
+        const BackupResult(
+          success: true,
+          message: 'Respaldo automático desactivado',
+        ),
+      );
     }
-    
+
     setState(() => _isLoading = false);
   }
 
@@ -107,7 +122,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.message),
-        backgroundColor: result.success ? Colors.green.shade600 : Colors.red.shade600,
+        backgroundColor: result.success
+            ? Colors.green.shade600
+            : Colors.red.shade600,
         duration: const Duration(seconds: 4),
       ),
     );
@@ -116,7 +133,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   // ─── ENCRYPTED ────────────────────────────────────────────────────────────
 
   Future<void> _encryptAndSave() async {
-    final password = await _showPasswordDialog(title: 'Nueva contraseña de cifrado');
+    final password = await _showPasswordDialog(
+      title: 'Nueva contraseña de cifrado',
+    );
     if (password == null) return;
     setState(() => _isLoading = true);
     final result = await EncryptedBackupService.encryptAndSave(password);
@@ -124,7 +143,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 
   Future<void> _encryptAndShare() async {
-    final password = await _showPasswordDialog(title: 'Nueva contraseña de cifrado');
+    final password = await _showPasswordDialog(
+      title: 'Nueva contraseña de cifrado',
+    );
     if (password == null) return;
     setState(() => _isLoading = true);
     final result = await EncryptedBackupService.encryptAndShare(password);
@@ -164,7 +185,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     if (!confirm) return;
 
     setState(() => _isLoading = true);
-    final result = await EncryptedBackupService.decryptAndRestore(filePath, password);
+    final result = await EncryptedBackupService.decryptAndRestore(
+      filePath,
+      password,
+    );
     _showResult(BackupResult(success: result.success, message: result.message));
   }
 
@@ -186,16 +210,23 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Row(children: [
-            const Icon(Icons.lock_outline),
-            const SizedBox(width: 8),
-            Flexible(child: Text(title, style: const TextStyle(fontSize: 16))),
-          ]),
+          title: Row(
+            children: [
+              const Icon(Icons.lock_outline),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(title, style: const TextStyle(fontSize: 16)),
+              ),
+            ],
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (hint != null) ...[  
-                Text(hint, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              if (hint != null) ...[
+                Text(
+                  hint,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
                 const SizedBox(height: 12),
               ],
               TextField(
@@ -207,12 +238,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   errorText: error,
                   prefixIcon: const Icon(Icons.password),
                   suffixIcon: IconButton(
-                    icon: Icon(visible1 ? Icons.visibility_off : Icons.visibility),
+                    icon: Icon(
+                      visible1 ? Icons.visibility_off : Icons.visibility,
+                    ),
                     onPressed: () => setDialogState(() => visible1 = !visible1),
                   ),
                 ),
               ),
-              if (confirmMode) ...[ 
+              if (confirmMode) ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: controller2,
@@ -221,8 +254,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                     labelText: 'Confirmar contraseña',
                     prefixIcon: const Icon(Icons.password),
                     suffixIcon: IconButton(
-                      icon: Icon(visible2 ? Icons.visibility_off : Icons.visibility),
-                      onPressed: () => setDialogState(() => visible2 = !visible2),
+                      icon: Icon(
+                        visible2 ? Icons.visibility_off : Icons.visibility,
+                      ),
+                      onPressed: () =>
+                          setDialogState(() => visible2 = !visible2),
                     ),
                   ),
                 ),
@@ -292,7 +328,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Inicio de sesión cancelado o fallido')),
+            const SnackBar(
+              content: Text('Inicio de sesión cancelado o fallido'),
+            ),
           );
         }
       }
@@ -301,7 +339,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error de Google Sign-In: $e\n(Posible falta de configuración SHA-1)'),
+            content: Text(
+              'Error de Google Sign-In: $e\n(Posible falta de configuración SHA-1)',
+            ),
             backgroundColor: Colors.red.shade600,
             duration: const Duration(seconds: 5),
           ),
@@ -338,13 +378,21 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Eliminar backup'),
-        content: Text('¿Eliminar "${file.name}"?\nEsta acción no se puede deshacer.'),
+        content: Text(
+          '¿Eliminar "${file.name}"?\nEsta acción no se puede deshacer.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -360,17 +408,22 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     return await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Row(children: [
-              Icon(Icons.warning_amber, color: Colors.orange),
-              SizedBox(width: 8),
-              Text('⚠️ Confirmar restauración'),
-            ]),
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber, color: Colors.orange),
+                SizedBox(width: 8),
+                Text('⚠️ Confirmar restauración'),
+              ],
+            ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (fileName != null)
-                  Text('Archivo: $fileName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    'Archivo: $fileName',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                 const SizedBox(height: 8),
                 const Text(
                   'Esto reemplazará TODOS tus datos actuales con los del backup.\n\n'
@@ -386,7 +439,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Restaurar', style: TextStyle(color: Colors.white)),
+                child: const Text(
+                  'Restaurar',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
             ],
           ),
@@ -423,12 +479,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.shield, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Icons.shield,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
                     'Haz backups regularmente para no perder tus datos financieros.',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onPrimaryContainer),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                    ),
                   ),
                 ),
               ],
@@ -442,14 +503,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           const SizedBox(height: 12),
 
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Column(
               children: [
                 _ActionTile(
                   icon: Icons.save,
                   iconColor: Colors.blue,
                   title: 'Guardar en el dispositivo',
-                  subtitle: 'Guarda un archivo .db en la memoria de tu teléfono',
+                  subtitle:
+                      'Guarda un archivo .db en la memoria de tu teléfono',
                   onTap: _isLoading ? null : _backupLocally,
                 ),
                 const Divider(height: 1, indent: 56),
@@ -465,7 +529,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   icon: Icons.restore,
                   iconColor: Colors.orange,
                   title: 'Restaurar desde archivo',
-                  subtitle: 'Abre un archivo .db de tu galería o almacenamiento',
+                  subtitle:
+                      'Abre un archivo .db de tu galería o almacenamiento',
                   onTap: _isLoading ? null : _restoreLocal,
                 ),
               ],
@@ -486,11 +551,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.enhanced_encryption, color: Colors.purple.shade700, size: 18),
+                Icon(
+                  Icons.enhanced_encryption,
+                  color: Colors.purple.shade700,
+                  size: 18,
+                ),
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Text(
-                    'Protege tu backup con una contraseña. '  
+                    'Protege tu backup con una contraseña. '
                     'Solo quien tenga la clave puede restaurarlo.',
                     style: TextStyle(fontSize: 12),
                   ),
@@ -500,14 +569,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           const SizedBox(height: 12),
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Column(
               children: [
                 _ActionTile(
                   icon: Icons.lock_outline,
                   iconColor: Colors.purple,
                   title: 'Guardar cifrado',
-                  subtitle: 'Guarda un archivo .walletai protegido con contraseña',
+                  subtitle:
+                      'Guarda un archivo .walletai protegido con contraseña',
                   onTap: _isLoading ? null : _encryptAndSave,
                 ),
                 const Divider(height: 1, indent: 56),
@@ -515,7 +587,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   icon: Icons.share,
                   iconColor: Colors.deepPurple,
                   title: 'Cifrar y compartir',
-                  subtitle: 'Comparte el backup cifrado vía WhatsApp, email, etc.',
+                  subtitle:
+                      'Comparte el backup cifrado vía WhatsApp, email, etc.',
                   onTap: _isLoading ? null : _encryptAndShare,
                 ),
                 const Divider(height: 1, indent: 56),
@@ -538,7 +611,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
           // Estado de sesión Google
           Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: _googleUser == null
                 ? _ActionTile(
                     icon: Icons.login,
@@ -559,13 +634,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                               ? const Icon(Icons.person)
                               : null,
                         ),
-                        title: Text(_googleUser!.displayName ?? 'Usuario de Google',
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
+                        title: Text(
+                          _googleUser!.displayName ?? 'Usuario de Google',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
                         subtitle: Text(_googleUser!.email),
                         trailing: TextButton(
                           onPressed: _signOutGoogle,
-                          child: const Text('Salir',
-                              style: TextStyle(color: Colors.red)),
+                          child: const Text(
+                            'Salir',
+                            style: TextStyle(color: Colors.red),
+                          ),
                         ),
                       ),
                       const Divider(height: 1, indent: 72),
@@ -576,29 +655,55 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                             color: Colors.blue.shade50,
                             shape: BoxShape.circle,
                           ),
-                          child: Icon(Icons.sync, color: Colors.blue.shade700, size: 20),
+                          child: Icon(
+                            Icons.sync,
+                            color: Colors.blue.shade700,
+                            size: 20,
+                          ),
                         ),
-                        title: const Text('Respaldo automático', style: TextStyle(fontSize: 14)),
-                        subtitle: Text(_autoSyncEnabled 
-                            ? (_autoSyncFrequency == 'daily' ? 'Cada 24 horas' : 'Semanalmente') 
-                            : 'Desactivado'),
+                        title: const Text(
+                          'Respaldo automático',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          _autoSyncEnabled
+                              ? (_autoSyncFrequency == 'daily'
+                                    ? 'Cada 24 horas'
+                                    : 'Semanalmente')
+                              : 'Desactivado',
+                        ),
                         value: _autoSyncEnabled,
-                        onChanged: _isLoading ? null : (val) => _updateAutoSync(val, _autoSyncFrequency),
+                        onChanged: _isLoading
+                            ? null
+                            : (val) => _updateAutoSync(val, _autoSyncFrequency),
                       ),
                       if (_autoSyncEnabled)
                         Padding(
-                          padding: const EdgeInsets.only(left: 72, right: 16, bottom: 12),
+                          padding: const EdgeInsets.only(
+                            left: 72,
+                            right: 16,
+                            bottom: 12,
+                          ),
                           child: DropdownButtonFormField<String>(
                             initialValue: _autoSyncFrequency,
                             decoration: const InputDecoration(
                               labelText: 'Frecuencia',
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               border: OutlineInputBorder(),
                               isDense: true,
                             ),
                             items: const [
-                              DropdownMenuItem(value: 'daily', child: Text('Diario (24h)')),
-                              DropdownMenuItem(value: 'weekly', child: Text('Semanal (7 días)')),
+                              DropdownMenuItem(
+                                value: 'daily',
+                                child: Text('Diario (24h)'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'weekly',
+                                child: Text('Semanal (7 días)'),
+                              ),
                             ],
                             onChanged: (val) {
                               if (val != null) _updateAutoSync(true, val);
@@ -610,7 +715,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                         icon: Icons.cloud_upload,
                         iconColor: Colors.blue,
                         title: 'Subir backup a Drive',
-                        subtitle: 'Crea una nueva copia de seguridad en la nube',
+                        subtitle:
+                            'Crea una nueva copia de seguridad en la nube',
                         onTap: _isLoading ? null : _backupToDrive,
                       ),
                     ],
@@ -625,10 +731,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               children: [
                 Text(
                   'Backups en Drive',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
@@ -645,17 +750,25 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   padding: const EdgeInsets.all(24),
                   child: Column(
                     children: [
-                      Icon(Icons.cloud_off, size: 48, color: Colors.grey.shade400),
+                      Icon(
+                        Icons.cloud_off,
+                        size: 48,
+                        color: Colors.grey.shade400,
+                      ),
                       const SizedBox(height: 12),
-                      Text('No hay backups en Drive',
-                          style: TextStyle(color: Colors.grey.shade600)),
+                      Text(
+                        'No hay backups en Drive',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
                     ],
                   ),
                 ),
               )
             else
               Card(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: ListView.separated(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -687,9 +800,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(sizeKb,
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.grey)),
+                          Text(
+                            sizeKb,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey,
+                            ),
+                          ),
                           PopupMenuButton<String>(
                             icon: const Icon(Icons.more_vert),
                             onSelected: (value) {
@@ -702,19 +819,30 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                             itemBuilder: (_) => [
                               const PopupMenuItem(
                                 value: 'restore',
-                                child: Row(children: [
-                                  Icon(Icons.restore, size: 18),
-                                  SizedBox(width: 8),
-                                  Text('Restaurar'),
-                                ]),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.restore, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Restaurar'),
+                                  ],
+                                ),
                               ),
                               const PopupMenuItem(
                                 value: 'delete',
-                                child: Row(children: [
-                                  Icon(Icons.delete, size: 18, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Eliminar', style: TextStyle(color: Colors.red)),
-                                ]),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.delete,
+                                      size: 18,
+                                      color: Colors.red,
+                                    ),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Eliminar',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),

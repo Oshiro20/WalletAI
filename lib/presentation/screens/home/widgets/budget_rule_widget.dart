@@ -12,19 +12,37 @@ class BudgetRuleWidget extends ConsumerWidget {
 
   // Categorías agrupadas por tipo de necesidad
   static const _necessityCategoryNames = [
-    'Vivienda', 'Alimentación', 'Transporte', 'Salud', 'Servicios', 'Supermercado',
-    'Agua', 'Luz', 'Gas', 'Internet', 'Hogar', 'Educación',
+    'Vivienda',
+    'Alimentación',
+    'Transporte',
+    'Salud',
+    'Servicios',
+    'Supermercado',
+    'Agua',
+    'Luz',
+    'Gas',
+    'Internet',
+    'Hogar',
+    'Educación',
   ];
 
   static const _wantsCategoryNames = [
-    'Entretenimiento', 'Restaurantes', 'Ocio', 'Compras', 'Suscripciones',
-    'Ropa', 'Viajes', 'Delivery',
+    'Entretenimiento',
+    'Restaurantes',
+    'Ocio',
+    'Compras',
+    'Suscripciones',
+    'Ropa',
+    'Viajes',
+    'Delivery',
   ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final incomeAsync = ref.watch(currentMonthIncomeProvider);
-    final expensesByCatAsync = ref.watch(currentMonthExpensesByCategoryProvider);
+    final expensesByCatAsync = ref.watch(
+      currentMonthExpensesByCategoryProvider,
+    );
 
     return incomeAsync.when(
       data: (income) {
@@ -40,9 +58,13 @@ class BudgetRuleWidget extends ConsumerWidget {
               final catName = entry.key;
               final amount = entry.value.abs();
 
-              if (_necessityCategoryNames.any((n) => catName.toLowerCase().contains(n.toLowerCase()))) {
+              if (_necessityCategoryNames.any(
+                (n) => catName.toLowerCase().contains(n.toLowerCase()),
+              )) {
                 necessities += amount;
-              } else if (_wantsCategoryNames.any((n) => catName.toLowerCase().contains(n.toLowerCase()))) {
+              } else if (_wantsCategoryNames.any(
+                (n) => catName.toLowerCase().contains(n.toLowerCase()),
+              )) {
                 wants += amount;
               } else {
                 wants += amount; // Default to wants
@@ -107,7 +129,11 @@ class _RuleCard extends StatelessWidget {
                   color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.pie_chart_rounded, color: AppColors.primarySoft, size: 18),
+                child: const Icon(
+                  Icons.pie_chart_rounded,
+                  color: AppColors.primarySoft,
+                  size: 18,
+                ),
               ),
               const SizedBox(width: 10),
               Text(
@@ -201,10 +227,7 @@ class _RuleItem extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 10),
         Expanded(

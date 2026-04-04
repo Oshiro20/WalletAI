@@ -42,7 +42,10 @@ class _RecurringSuggestionsScreenState
           final visible = suggestions
               .asMap()
               .entries
-              .where((e) => !_dismissed.contains(e.key) && !_accepted.contains(e.key))
+              .where(
+                (e) =>
+                    !_dismissed.contains(e.key) && !_accepted.contains(e.key),
+              )
               .toList();
 
           if (visible.isEmpty) {
@@ -126,7 +129,9 @@ class _RecurringSuggestionsScreenState
     }
   }
 
-  Future<void> _acceptAll(List<MapEntry<int, RecurringSuggestion>> entries) async {
+  Future<void> _acceptAll(
+    List<MapEntry<int, RecurringSuggestion>> entries,
+  ) async {
     final service = ref.read(smartRecurringServiceProvider);
     for (final entry in entries) {
       await service.acceptSuggestion(entry.value);
@@ -189,7 +194,9 @@ class _SuggestionCard extends StatelessWidget {
                     children: [
                       Text(
                         suggestion.name,
-                        style: text.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                        style: text.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -198,7 +205,9 @@ class _SuggestionCard extends StatelessWidget {
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 2),
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: confidenceColor.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
@@ -241,7 +250,8 @@ class _SuggestionCard extends StatelessWidget {
             _InfoRow(
               icon: Icons.event_repeat,
               label: 'Visto',
-              value: '${suggestion.occurrences} veces – último: '
+              value:
+                  '${suggestion.occurrences} veces – último: '
                   '${DateFormat('dd/MM/yyyy').format(suggestion.lastSeen)}',
             ),
 
@@ -264,7 +274,7 @@ class _SuggestionCard extends StatelessWidget {
 
   Color _confidenceColor(double c) {
     if (c >= 0.75) return Colors.green.shade700;
-    if (c >= 0.5)  return Colors.orange.shade700;
+    if (c >= 0.5) return Colors.orange.shade700;
     return Colors.red.shade700;
   }
 }
@@ -274,7 +284,11 @@ class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -315,8 +329,8 @@ class _LoadingView extends StatelessWidget {
           Text(
             'Analizando tu historial de transacciones…',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),
@@ -339,7 +353,9 @@ class _EmptyView extends StatelessWidget {
             Icon(
               hasResults ? Icons.check_circle_outline : Icons.search_off,
               size: 64,
-              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.4),
+              color: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.4),
             ),
             const SizedBox(height: 16),
             Text(
@@ -354,11 +370,11 @@ class _EmptyView extends StatelessWidget {
               hasResults
                   ? 'WalletAI seguirá monitoreando tu historial.'
                   : 'Registra más transacciones para que WalletAI'
-                      ' pueda detectar patrones.',
+                        ' pueda detectar patrones.',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ],
         ),

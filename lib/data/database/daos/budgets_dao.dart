@@ -15,8 +15,9 @@ class BudgetsDao extends DatabaseAccessor<AppDatabase> with _$BudgetsDaoMixin {
 
   /// Obtener presupuesto por categoría
   Future<Budget?> getBudgetByCategory(String categoryId) {
-    return (select(budgets)
-          ..where((b) => b.categoryId.equals(categoryId) & b.isActive.equals(true)))
+    return (select(budgets)..where(
+          (b) => b.categoryId.equals(categoryId) & b.isActive.equals(true),
+        ))
         .getSingleOrNull();
   }
 
