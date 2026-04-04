@@ -6,8 +6,9 @@ import '../../../core/theme/app_colors.dart';
 
 class UpdateDialog extends ConsumerStatefulWidget {
   final GithubRelease release;
+  final VoidCallback? onDismiss;
 
-  const UpdateDialog({super.key, required this.release});
+  const UpdateDialog({super.key, required this.release, this.onDismiss});
 
   @override
   ConsumerState<UpdateDialog> createState() => _UpdateDialogState();
@@ -164,7 +165,10 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
+                    onPressed: () {
+                      widget.onDismiss?.call();
+                      Navigator.of(context).pop();
+                    },
                     child: Text(
                       'Después',
                       style: GoogleFonts.plusJakartaSans(
@@ -204,10 +208,14 @@ class _UpdateDialogState extends ConsumerState<UpdateDialog> {
 }
 
 /// Función auxiliar para mostrar el diálogo
-Future<void> showUpdateDialog(BuildContext context, GithubRelease release) {
+Future<void> showUpdateDialog(
+  BuildContext context,
+  GithubRelease release, {
+  VoidCallback? onDismiss,
+}) {
   return showDialog(
     context: context,
     barrierDismissible: false,
-    builder: (context) => UpdateDialog(release: release),
+    builder: (context) => UpdateDialog(release: release, onDismiss: onDismiss),
   );
 }

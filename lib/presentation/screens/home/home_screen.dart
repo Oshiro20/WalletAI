@@ -115,11 +115,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
 
+    final prefs = await SharedPreferences.getInstance();
+    final lastDismissed = prefs.getString('update_last_dismissed');
+
     final updateService = ref.read(updateServiceProvider);
     final release = await updateService.checkForUpdate();
 
     if (release != null && mounted) {
-      showUpdateDialog(context, release);
+      // Solo mostrar si no fue descartada antes para esta versión
+      if (lastDismissed != release.tagName) {
+        showUpdateDialog(
+          context,
+          release,
+          onDismiss: () async {
+            await prefs.setString('update_last_dismissed', release.tagName);
+          },
+        );
+      }
     }
   }
 
