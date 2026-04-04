@@ -7,7 +7,8 @@ import '../../presentation/providers/database_providers.dart';
 /// Servicio que empuja los datos más recientes hacia los widgets nativos de pantalla de inicio.
 /// Debe llamarse: al iniciar la app, tras cada transacción nueva, y cuando la app pasa a background.
 class HomeWidgetService {
-  static const _appGroupId = 'com.finanzas.aplicativo_gastos'; // ≡ applicationId
+  static const _appGroupId =
+      'com.finanzas.aplicativo_gastos'; // ≡ applicationId
   static final _fmt = NumberFormat.currency(locale: 'es_PE', symbol: 'S/ ');
 
   /// Actualiza el widget de Balance con los datos actuales.
@@ -19,19 +20,32 @@ class HomeWidgetService {
       final accountsDao = ref.read(accountsDaoProvider);
       final allAccounts = await accountsDao.getAllAccounts();
       final balance = allAccounts
-          .where((a) => a.type == 'cash' || a.type == 'bank' || a.type == 'wallet')
+          .where(
+            (a) => a.type == 'cash' || a.type == 'bank' || a.type == 'wallet',
+          )
           .fold<double>(0.0, (sum, a) => sum + a.balance);
-      final summary = await ref.read(currentMonthSummaryProvider.future).catchError((_) => <String, double>{});
-      final income  = summary['income'] ?? 0.0;
+      final summary = await ref
+          .read(currentMonthSummaryProvider.future)
+          .catchError((_) => <String, double>{});
+      final income = summary['income'] ?? 0.0;
       final expense = summary['expense'] ?? 0.0;
 
       final now = DateTime.now();
       final updated = 'Act. ${DateFormat('HH:mm').format(now)}';
 
       await Future.wait([
-        HomeWidget.saveWidgetData<String>('hw_balance_amount',  _fmt.format(balance)),
-        HomeWidget.saveWidgetData<String>('hw_balance_income',  _fmt.format(income)),
-        HomeWidget.saveWidgetData<String>('hw_balance_expense', _fmt.format(expense)),
+        HomeWidget.saveWidgetData<String>(
+          'hw_balance_amount',
+          _fmt.format(balance),
+        ),
+        HomeWidget.saveWidgetData<String>(
+          'hw_balance_income',
+          _fmt.format(income),
+        ),
+        HomeWidget.saveWidgetData<String>(
+          'hw_balance_expense',
+          _fmt.format(expense),
+        ),
         HomeWidget.saveWidgetData<String>('hw_balance_updated', updated),
       ]);
 
@@ -57,9 +71,7 @@ class HomeWidgetService {
       final now = DateTime.now();
 
       // Pagos activos ordenados por fecha
-      final upcoming = all
-          .where((p) => p.isActive)
-          .toList()
+      final upcoming = all.where((p) => p.isActive).toList()
         ..sort((a, b) => a.nextDueDate.compareTo(b.nextDueDate));
 
       final top3 = upcoming.take(3).toList();
@@ -72,13 +84,22 @@ class HomeWidgetService {
           final when = daysLeft < 0
               ? ' (vencido)'
               : daysLeft == 0
-                  ? ' (hoy)'
-                  : ' ($daysLeft d.)';
-          await HomeWidget.saveWidgetData<String>('hw_recurring_name$idx',   '${p.name}$when');
-          await HomeWidget.saveWidgetData<String>('hw_recurring_amount$idx', _fmt.format(p.amount));
+              ? ' (hoy)'
+              : ' ($daysLeft d.)';
+          await HomeWidget.saveWidgetData<String>(
+            'hw_recurring_name$idx',
+            '${p.name}$when',
+          );
+          await HomeWidget.saveWidgetData<String>(
+            'hw_recurring_amount$idx',
+            _fmt.format(p.amount),
+          );
         } else {
-          await HomeWidget.saveWidgetData<String>('hw_recurring_name$idx',   '');
-          await HomeWidget.saveWidgetData<String>('hw_recurring_amount$idx', '');
+          await HomeWidget.saveWidgetData<String>('hw_recurring_name$idx', '');
+          await HomeWidget.saveWidgetData<String>(
+            'hw_recurring_amount$idx',
+            '',
+          );
         }
       }
 
@@ -96,10 +117,7 @@ class HomeWidgetService {
 
   /// Actualiza ambos widgets a la vez.
   static Future<void> updateAll(Ref ref) async {
-    await Future.wait([
-      updateBalanceWidget(ref),
-      updateRecurringWidget(ref),
-    ]);
+    await Future.wait([updateBalanceWidget(ref), updateRecurringWidget(ref)]);
   }
 }
 

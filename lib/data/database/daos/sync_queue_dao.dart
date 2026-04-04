@@ -5,7 +5,8 @@ import '../tables/sync_queue_table.dart';
 part 'sync_queue_dao.g.dart';
 
 @DriftAccessor(tables: [SyncQueue])
-class SyncQueueDao extends DatabaseAccessor<AppDatabase> with _$SyncQueueDaoMixin {
+class SyncQueueDao extends DatabaseAccessor<AppDatabase>
+    with _$SyncQueueDaoMixin {
   SyncQueueDao(super.db);
 
   /// Agregar item a la cola

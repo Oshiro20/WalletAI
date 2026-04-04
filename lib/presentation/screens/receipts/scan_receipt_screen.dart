@@ -30,11 +30,19 @@ class _EditableItem {
   String? subcategoryId;
   bool isSelected = true;
 
-  _EditableItem(String name, double price, {this.categoryId, this.subcategoryId, double? quantity, String? unit})
-      : nameController = TextEditingController(text: name),
-        priceController = TextEditingController(text: price.toStringAsFixed(2)),
-        quantityController = TextEditingController(text: quantity?.toString() ?? '1'),
-        unitController = TextEditingController(text: unit ?? 'UND');
+  _EditableItem(
+    String name,
+    double price, {
+    this.categoryId,
+    this.subcategoryId,
+    double? quantity,
+    String? unit,
+  }) : nameController = TextEditingController(text: name),
+       priceController = TextEditingController(text: price.toStringAsFixed(2)),
+       quantityController = TextEditingController(
+         text: quantity?.toString() ?? '1',
+       ),
+       unitController = TextEditingController(text: unit ?? 'UND');
 
   void dispose() {
     nameController.dispose();
@@ -91,8 +99,14 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
 
     final dao = ref.read(databaseProvider).learningRulesDao;
     final result = await (source == ImageSource.camera
-        ? _scanner.scanFromCamera(isMultiple: _selectedMode == ScanMode.multiple, dao: dao)
-        : _scanner.scanFromGallery(isMultiple: _selectedMode == ScanMode.multiple, dao: dao));
+        ? _scanner.scanFromCamera(
+            isMultiple: _selectedMode == ScanMode.multiple,
+            dao: dao,
+          )
+        : _scanner.scanFromGallery(
+            isMultiple: _selectedMode == ScanMode.multiple,
+            dao: dao,
+          ));
 
     if (!mounted) return;
 
@@ -124,9 +138,24 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
             subcatsAsync.whenData((subs) => subcategories = subs);
 
             for (var item in result.items!) {
-              final searchText = '${result.merchant ?? ""} ${item.name} ${item.category ?? ""} ${item.subcategory ?? ""}';
-              final parsed = _parser.parse(searchText, categories, accounts, subcategories: subcategories);
-              _editableItems.add(_EditableItem(item.name, item.price, categoryId: parsed.categoryId ?? item.category, subcategoryId: parsed.subcategoryId ?? item.subcategory, quantity: item.quantity, unit: item.unit));
+              final searchText =
+                  '${result.merchant ?? ""} ${item.name} ${item.category ?? ""} ${item.subcategory ?? ""}';
+              final parsed = _parser.parse(
+                searchText,
+                categories,
+                accounts,
+                subcategories: subcategories,
+              );
+              _editableItems.add(
+                _EditableItem(
+                  item.name,
+                  item.price,
+                  categoryId: parsed.categoryId ?? item.category,
+                  subcategoryId: parsed.subcategoryId ?? item.subcategory,
+                  quantity: item.quantity,
+                  unit: item.unit,
+                ),
+              );
             }
           }
         } else {
@@ -134,24 +163,32 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
           _descriptionController.text = result.merchant ?? '';
           _productController.text = result.productName ?? '';
           _singleSelectedDate = result.date ?? DateTime.now();
-          
+
           final categoriesAsync = ref.read(expenseCategoriesStreamProvider);
           final accountsAsync = ref.read(accountsStreamProvider);
           final subcatsAsync = ref.read(allSubcategoriesStreamProvider);
-          
+
           List<Category> categories = [];
           List<Account> accounts = [];
           List<Subcategory> subcategories = [];
           categoriesAsync.whenData((cats) => categories = cats);
           accountsAsync.whenData((accs) => accounts = accs);
           subcatsAsync.whenData((subs) => subcategories = subs);
-          
-          final searchText = '${result.merchant ?? ""} ${result.productName ?? ""} ${result.category ?? ""} ${result.subcategory ?? ""}';
-          final parsed = _parser.parse(searchText, categories, accounts, subcategories: subcategories);
-          
+
+          final searchText =
+              '${result.merchant ?? ""} ${result.productName ?? ""} ${result.category ?? ""} ${result.subcategory ?? ""}';
+          final parsed = _parser.parse(
+            searchText,
+            categories,
+            accounts,
+            subcategories: subcategories,
+          );
+
           _singleCategoryId = parsed.categoryId ?? result.category;
           _singleSubcategoryId = parsed.subcategoryId ?? result.subcategory;
-          _singleAccountId = parsed.accountId ?? (accounts.isNotEmpty ? accounts.first.id : null);
+          _singleAccountId =
+              parsed.accountId ??
+              (accounts.isNotEmpty ? accounts.first.id : null);
         }
       }
     });
@@ -170,11 +207,15 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
     if (!mounted) return;
 
     if (_singleAccountId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selecciona una cuenta de origen')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecciona una cuenta de origen')),
+      );
       return;
     }
     if (_singleCategoryId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Por favor selecciona una categoría')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Por favor selecciona una categoría')),
+      );
       return;
     }
 
@@ -190,8 +231,16 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
         accountId: _singleAccountId!,
         categoryId: drift.Value(_singleCategoryId),
         subcategoryId: drift.Value(_singleSubcategoryId),
-        description: drift.Value(_descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim()),
-        productName: drift.Value(_productController.text.trim().isEmpty ? null : _productController.text.trim()),
+        description: drift.Value(
+          _descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim(),
+        ),
+        productName: drift.Value(
+          _productController.text.trim().isEmpty
+              ? null
+              : _productController.text.trim(),
+        ),
         quantity: drift.Value(_result!.quantity ?? 1.0),
         unit: drift.Value((_result!.unit ?? 'UND').toUpperCase()),
         date: _singleSelectedDate ?? DateTime.now(),
@@ -206,18 +255,22 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
         amount: amount ?? 0.0,
         type: 'expense',
       );
-      
+
       if (_productController.text.trim().isNotEmpty) {
-         await dao.saveRule(_productController.text.trim(), _singleCategoryId!);
+        await dao.saveRule(_productController.text.trim(), _singleCategoryId!);
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Transacción guardada exitosamente 🚀')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transacción guardada exitosamente 🚀')),
+        );
         context.pop();
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -241,26 +294,34 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
     }
 
     setState(() => _isSaving = true);
-    
+
     // Default categories if missing
-    String catId = _multipleCategoryId ?? (await ref.read(expenseCategoriesStreamProvider.future)).first.id;
+    String catId =
+        _multipleCategoryId ??
+        (await ref.read(expenseCategoriesStreamProvider.future)).first.id;
 
     final repo = ref.read(transactionRepositoryProvider);
     final date = _multipleSelectedDate ?? DateTime.now();
-    final merchant = _descriptionController.text.trim().isEmpty ? null : _descriptionController.text.trim();
+    final merchant = _descriptionController.text.trim().isEmpty
+        ? null
+        : _descriptionController.text.trim();
     final dao = ref.read(databaseProvider).learningRulesDao;
 
     try {
       int count = 0;
       for (final item in selectedItems) {
-        final amount = double.tryParse(item.priceController.text.replaceAll(',', '.'));
+        final amount = double.tryParse(
+          item.priceController.text.replaceAll(',', '.'),
+        );
         if (amount == null || amount <= 0) continue;
-        
+
         final name = item.nameController.text.trim();
         final qty = double.tryParse(item.quantityController.text) ?? 1.0;
-        final unit = item.unitController.text.trim().isEmpty ? 'UND' : item.unitController.text.trim();
+        final unit = item.unitController.text.trim().isEmpty
+            ? 'UND'
+            : item.unitController.text.trim();
         final finalCatId = item.categoryId ?? catId;
-        
+
         final t = TransactionsCompanion.insert(
           id: const Uuid().v4(),
           type: 'expense',
@@ -284,12 +345,12 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
           amount: amount,
           type: 'expense',
         );
-        
+
         // 🧠 APRENDIZAJE PERSISTENTE: Guardar la regla para la próxima vez
         if (name.isNotEmpty) {
-           await dao.saveRule(name, finalCatId);
+          await dao.saveRule(name, finalCatId);
         }
-        
+
         count++;
       }
 
@@ -301,9 +362,9 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -331,10 +392,10 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
       body: _isScanning
           ? _buildScanningState()
           : _result == null
-              ? _buildIdleState(colorScheme)
-              : _result!.success
-                  ? _buildResultState(colorScheme)
-                  : _buildErrorState(),
+          ? _buildIdleState(colorScheme)
+          : _result!.success
+          ? _buildResultState(colorScheme)
+          : _buildErrorState(),
     );
   }
 
@@ -349,11 +410,12 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
           const SizedBox(height: 8),
 
           // ── Selector de modo ──────────────────────────────────────────
-          Text('Modo de escaneo',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Modo de escaneo',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -374,7 +436,8 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                   title: 'Múltiple',
                   subtitle: 'Varios productos\nde distintas categorías',
                   isSelected: _selectedMode == ScanMode.multiple,
-                  onTap: () => setState(() => _selectedMode = ScanMode.multiple),
+                  onTap: () =>
+                      setState(() => _selectedMode = ScanMode.multiple),
                   color: Colors.teal,
                 ),
               ),
@@ -406,10 +469,9 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                   _selectedMode == ScanMode.simple
                       ? 'Escanear boleta (Total)'
                       : 'Escanear boleta (Múltiple)',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -425,38 +487,38 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
 
           const SizedBox(height: 32),
 
-            // ── Botones de captura ────────────────────────────────────────
-            Row(
-              children: [
-                Expanded(
-                  child: _ScanOptionCard(
-                    icon: Icons.camera_alt,
-                    label: 'Cámara',
-                    subtitle: 'Toma una foto',
-                    color: cs.primary,
-                    onTap: () => _scan(ImageSource.camera),
-                  ),
+          // ── Botones de captura ────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: _ScanOptionCard(
+                  icon: Icons.camera_alt,
+                  label: 'Cámara',
+                  subtitle: 'Toma una foto',
+                  color: cs.primary,
+                  onTap: () => _scan(ImageSource.camera),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: _ScanOptionCard(
-                    icon: Icons.photo_library,
-                    label: 'Galería',
-                    subtitle: 'Elige una imagen',
-                    color: Colors.teal,
-                    onTap: () => _scan(ImageSource.gallery),
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _ScanOptionCard(
+                  icon: Icons.photo_library,
+                  label: 'Galería',
+                  subtitle: 'Elige una imagen',
+                  color: Colors.teal,
+                  onTap: () => _scan(ImageSource.gallery),
                 ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            _TipBanner(
-              text: _selectedMode == ScanMode.simple
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _TipBanner(
+            text: _selectedMode == ScanMode.simple
                 ? 'Consejo: mejor iluminación = mayor precisión. '
-                  'Que el "Importe Total" sea visible.'
+                      'Que el "Importe Total" sea visible.'
                 : 'Alinea toda la boleta. WalletAI leerá cada producto y '
-                  'estimará su categoría.',
-            ),
+                      'estimará su categoría.',
+          ),
         ],
       ),
     );
@@ -512,12 +574,16 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                       const Text(
                         '✅ Factura leída exitosamente',
                         style: TextStyle(
-                            fontWeight: FontWeight.bold, color: Colors.green),
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green,
+                        ),
                       ),
                       Text(
                         'Revisa y ajusta si es necesario antes de registrar',
-                        style:
-                            TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -527,18 +593,20 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
           ),
 
           // Badge de confianza de la IA
-          if (_result!.confidence != null) ...[  
+          if (_result!.confidence != null) ...[
             const SizedBox(height: 8),
             _ConfidenceBadge(confidence: _result!.confidence!),
           ],
 
           const SizedBox(height: 24),
           Text(
-              _selectedMode == ScanMode.simple ? 'Datos de la compra' : 'Productos detectados',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+            _selectedMode == ScanMode.simple
+                ? 'Datos de la compra'
+                : 'Productos detectados',
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 12),
 
           if (_selectedMode == ScanMode.simple)
@@ -572,12 +640,19 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                       ? const SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.add),
-                  label: _isSaving 
-                      ? const Text('Guardando...') 
-                      : Text(_selectedMode == ScanMode.multiple ? 'Guardar lote' : 'Registrar gasto'),
+                  label: _isSaving
+                      ? const Text('Guardando...')
+                      : Text(
+                          _selectedMode == ScanMode.multiple
+                              ? 'Guardar lote'
+                              : 'Registrar gasto',
+                        ),
                 ),
               ),
             ],
@@ -606,7 +681,9 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                     ? 'Detectado: S/ ${_result!.amount!.toStringAsFixed(2)}'
                     : '⚠️ No se detectó monto, ingresa manualmente',
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
             ),
             const SizedBox(height: 16),
             // Nombre del producto
@@ -637,7 +714,7 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
               textCapitalization: TextCapitalization.sentences,
             ),
             const SizedBox(height: 16),
-            
+
             // Selector de Cuenta
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
@@ -646,9 +723,14 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                 prefixIcon: Icon(Icons.account_balance_wallet),
               ),
               initialValue: _singleAccountId,
-              items: ref.watch(accountsStreamProvider).when(
+              items: ref
+                  .watch(accountsStreamProvider)
+                  .when(
                     data: (accounts) => accounts.map((acc) {
-                      return DropdownMenuItem(value: acc.id, child: Text(acc.name));
+                      return DropdownMenuItem(
+                        value: acc.id,
+                        child: Text(acc.name),
+                      );
                     }).toList(),
                     loading: () => [],
                     error: (_, __) => [],
@@ -656,7 +738,7 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
               onChanged: (val) => setState(() => _singleAccountId = val),
             ),
             const SizedBox(height: 16),
-            
+
             // Selector de Categoría
             DropdownButtonFormField<String>(
               decoration: const InputDecoration(
@@ -664,13 +746,23 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.category),
               ),
-              initialValue: _singleCategoryId != null && 
-                     ref.watch(expenseCategoriesStreamProvider).value?.any((c) => c.id == _singleCategoryId) == true
-                 ? _singleCategoryId
-                 : null,
-              items: ref.watch(expenseCategoriesStreamProvider).when(
+              initialValue:
+                  _singleCategoryId != null &&
+                      ref
+                              .watch(expenseCategoriesStreamProvider)
+                              .value
+                              ?.any((c) => c.id == _singleCategoryId) ==
+                          true
+                  ? _singleCategoryId
+                  : null,
+              items: ref
+                  .watch(expenseCategoriesStreamProvider)
+                  .when(
                     data: (categories) => categories.map((cat) {
-                      return DropdownMenuItem(value: cat.id, child: Text(cat.name));
+                      return DropdownMenuItem(
+                        value: cat.id,
+                        child: Text(cat.name),
+                      );
                     }).toList(),
                     loading: () => [],
                     error: (_, __) => [],
@@ -678,15 +770,18 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
               onChanged: (val) {
                 setState(() {
                   _singleCategoryId = val;
-                  _singleSubcategoryId = null; // Reset subcategory when category changes
+                  _singleSubcategoryId =
+                      null; // Reset subcategory when category changes
                 });
               },
             ),
             const SizedBox(height: 16),
-            
+
             // Selector de Subcategoría (condicional)
             if (_singleCategoryId != null)
-              ref.watch(subcategoriesStreamProvider(_singleCategoryId!)).when(
+              ref
+                  .watch(subcategoriesStreamProvider(_singleCategoryId!))
+                  .when(
                     data: (subcategories) {
                       if (subcategories.isEmpty) return const SizedBox.shrink();
                       return DropdownButtonFormField<String>(
@@ -695,17 +790,27 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                           border: OutlineInputBorder(),
                           prefixIcon: Icon(Icons.subdirectory_arrow_right),
                         ),
-                        initialValue: _singleSubcategoryId != null &&
-                               subcategories.any((sub) => sub.id == _singleSubcategoryId)
+                        initialValue:
+                            _singleSubcategoryId != null &&
+                                subcategories.any(
+                                  (sub) => sub.id == _singleSubcategoryId,
+                                )
                             ? _singleSubcategoryId
                             : null,
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('Ninguna')),
+                          const DropdownMenuItem(
+                            value: null,
+                            child: Text('Ninguna'),
+                          ),
                           ...subcategories.map((sub) {
-                            return DropdownMenuItem(value: sub.id, child: Text(sub.name));
+                            return DropdownMenuItem(
+                              value: sub.id,
+                              child: Text(sub.name),
+                            );
                           }),
                         ],
-                        onChanged: (val) => setState(() => _singleSubcategoryId = val),
+                        onChanged: (val) =>
+                            setState(() => _singleSubcategoryId = val),
                       );
                     },
                     loading: () => const SizedBox.shrink(),
@@ -749,13 +854,18 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
       children: [
         // Opciones globales
         Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Datos Generales', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Datos Generales',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _descriptionController,
@@ -770,7 +880,7 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                   textCapitalization: TextCapitalization.sentences,
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Selector de Fecha
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -778,7 +888,9 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                   title: const Text('Fecha'),
                   subtitle: Text(
                     _multipleSelectedDate != null
-                        ? DateFormat('dd/MM/yyyy').format(_multipleSelectedDate!)
+                        ? DateFormat(
+                            'dd/MM/yyyy',
+                          ).format(_multipleSelectedDate!)
                         : 'Seleccionar fecha',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
@@ -798,7 +910,7 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                   },
                 ),
                 const SizedBox(height: 16),
-                
+
                 DropdownButtonFormField<String>(
                   decoration: const InputDecoration(
                     labelText: 'Cuenta de Origen',
@@ -806,9 +918,14 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                     prefixIcon: Icon(Icons.account_balance_wallet),
                   ),
                   initialValue: _multipleAccountId,
-                  items: ref.watch(accountsStreamProvider).when(
+                  items: ref
+                      .watch(accountsStreamProvider)
+                      .when(
                         data: (accounts) => accounts.map((acc) {
-                          return DropdownMenuItem(value: acc.id, child: Text(acc.name));
+                          return DropdownMenuItem(
+                            value: acc.id,
+                            child: Text(acc.name),
+                          );
                         }).toList(),
                         loading: () => [],
                         error: (_, __) => [],
@@ -823,9 +940,14 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                     prefixIcon: Icon(Icons.category),
                   ),
                   initialValue: _multipleCategoryId,
-                  items: ref.watch(expenseCategoriesStreamProvider).when(
+                  items: ref
+                      .watch(expenseCategoriesStreamProvider)
+                      .when(
                         data: (categories) => categories.map((cat) {
-                          return DropdownMenuItem(value: cat.id, child: Text(cat.name));
+                          return DropdownMenuItem(
+                            value: cat.id,
+                            child: Text(cat.name),
+                          );
                         }).toList(),
                         loading: () => [],
                         error: (_, __) => [],
@@ -836,7 +958,10 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                 if (_result!.date != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 16),
-                    child: Text('Fecha de compra: ${DateFormat('dd MM yyyy').format(_result!.date!)}', style: const TextStyle(color: Colors.grey)),
+                    child: Text(
+                      'Fecha de compra: ${DateFormat('dd MM yyyy').format(_result!.date!)}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
                   ),
               ],
             ),
@@ -849,11 +974,16 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
           const Center(
             child: Padding(
               padding: EdgeInsets.all(24.0),
-              child: Text('No se encontraron productos con formato de ítem+precio en la boleta.'),
+              child: Text(
+                'No se encontraron productos con formato de ítem+precio en la boleta.',
+              ),
             ),
           )
         else ...[
-          Text('Ítems detectados (${_editableItems.where((e) => e.isSelected).length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            'Ítems detectados (${_editableItems.where((e) => e.isSelected).length})',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           ListView.builder(
             shrinkWrap: true,
@@ -863,7 +993,9 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
               final item = _editableItems[idx];
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 color: item.isSelected ? null : Colors.grey.shade50,
                 child: Padding(
                   padding: const EdgeInsets.all(8.0),
@@ -873,7 +1005,8 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                         children: [
                           Checkbox(
                             value: item.isSelected,
-                            onChanged: (val) => setState(() => item.isSelected = val ?? false),
+                            onChanged: (val) =>
+                                setState(() => item.isSelected = val ?? false),
                           ),
                           Expanded(
                             flex: 2,
@@ -886,12 +1019,18 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                               ),
                               enabled: item.isSelected,
                               style: TextStyle(
-                                decoration: item.isSelected ? null : TextDecoration.lineThrough,
+                                decoration: item.isSelected
+                                    ? null
+                                    : TextDecoration.lineThrough,
                                 color: item.isSelected ? null : Colors.grey,
                               ),
                             ),
                           ),
-                          Container(width: 1, height: 30, color: Colors.grey.shade300),
+                          Container(
+                            width: 1,
+                            height: 30,
+                            color: Colors.grey.shade300,
+                          ),
                           Expanded(
                             flex: 1,
                             child: TextField(
@@ -901,83 +1040,135 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                                 hintText: '0.00',
                                 border: InputBorder.none,
                                 isDense: true,
-                                contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
                               ),
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                  ),
                               enabled: item.isSelected,
                               textAlign: TextAlign.right,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
-                                color: item.isSelected ? Colors.green.shade700 : Colors.grey,
+                                color: item.isSelected
+                                    ? Colors.green.shade700
+                                    : Colors.grey,
                               ),
                             ),
                           ),
                         ],
                       ),
                       if (item.isSelected)
-                         Padding(
-                           padding: const EdgeInsets.only(left: 48.0, right: 8.0, bottom: 4.0),
-                           child: Column(
-                             children: [
-                               DropdownButtonFormField<String>(
-                                 decoration: const InputDecoration(
-                                   border: InputBorder.none,
-                                   isDense: true,
-                                   contentPadding: EdgeInsets.zero,
-                                   hintText: 'Categoría individual',
-                                   hintStyle: TextStyle(fontSize: 12),
-                                 ),
-                                 isExpanded: true,
-                                 initialValue: item.categoryId,
-                                 iconSize: 16,
-                                 items: ref.watch(expenseCategoriesStreamProvider).when(
-                                       data: (categories) => categories.map((cat) {
-                                         return DropdownMenuItem(value: cat.id, child: Text(cat.name, style: const TextStyle(fontSize: 13, color: Colors.grey)));
-                                       }).toList(),
-                                       loading: () => [],
-                                       error: (_, __) => [],
-                                     ),
-                                 onChanged: (val) {
-                                   setState(() {
-                                     item.categoryId = val;
-                                     item.subcategoryId = null; // Reset subcategory when category changes
-                                   });
-                                 },
-                               ),
-                               if (item.categoryId != null)
-                                 ref.watch(subcategoriesStreamProvider(item.categoryId!)).when(
-                                   data: (subcategories) {
-                                     if (subcategories.isEmpty) return const SizedBox.shrink();
-                                     
-                                     // Ensure the selected subcategory is still valid, else clear it
-                                     if (item.subcategoryId != null && !subcategories.any((s) => s.id == item.subcategoryId)) {
-                                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                                         if (mounted) setState(() => item.subcategoryId = null);
-                                       });
-                                     }
-                                     return DropdownButtonFormField<String>(
-                                       decoration: const InputDecoration(
-                                         border: InputBorder.none,
-                                         isDense: true,
-                                         contentPadding: EdgeInsets.zero,
-                                         hintText: 'Subcategoría',
-                                         hintStyle: TextStyle(fontSize: 12),
-                                       ),
-                                       isExpanded: true,
-                                       initialValue: item.subcategoryId,
-                                       iconSize: 16,
-                                       items: subcategories.map((sub) {
-                                         return DropdownMenuItem(value: sub.id, child: Text(sub.name, style: const TextStyle(fontSize: 13, color: Colors.grey)));
-                                       }).toList(),
-                                       onChanged: (val) => setState(() => item.subcategoryId = val),
-                                     );
-                                   },
-                                   loading: () => const SizedBox.shrink(),
-                                   error: (_, __) => const SizedBox.shrink(),
-                                 ),
-                             ],
-                           ),
-                         ),
+                        Padding(
+                          padding: const EdgeInsets.only(
+                            left: 48.0,
+                            right: 8.0,
+                            bottom: 4.0,
+                          ),
+                          child: Column(
+                            children: [
+                              DropdownButtonFormField<String>(
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  hintText: 'Categoría individual',
+                                  hintStyle: TextStyle(fontSize: 12),
+                                ),
+                                isExpanded: true,
+                                initialValue: item.categoryId,
+                                iconSize: 16,
+                                items: ref
+                                    .watch(expenseCategoriesStreamProvider)
+                                    .when(
+                                      data: (categories) =>
+                                          categories.map((cat) {
+                                            return DropdownMenuItem(
+                                              value: cat.id,
+                                              child: Text(
+                                                cat.name,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                      loading: () => [],
+                                      error: (_, __) => [],
+                                    ),
+                                onChanged: (val) {
+                                  setState(() {
+                                    item.categoryId = val;
+                                    item.subcategoryId =
+                                        null; // Reset subcategory when category changes
+                                  });
+                                },
+                              ),
+                              if (item.categoryId != null)
+                                ref
+                                    .watch(
+                                      subcategoriesStreamProvider(
+                                        item.categoryId!,
+                                      ),
+                                    )
+                                    .when(
+                                      data: (subcategories) {
+                                        if (subcategories.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+
+                                        // Ensure the selected subcategory is still valid, else clear it
+                                        if (item.subcategoryId != null &&
+                                            !subcategories.any(
+                                              (s) => s.id == item.subcategoryId,
+                                            )) {
+                                          WidgetsBinding.instance
+                                              .addPostFrameCallback((_) {
+                                                if (mounted) {
+                                                  setState(
+                                                    () => item.subcategoryId =
+                                                        null,
+                                                  );
+                                                }
+                                              });
+                                        }
+                                        return DropdownButtonFormField<String>(
+                                          decoration: const InputDecoration(
+                                            border: InputBorder.none,
+                                            isDense: true,
+                                            contentPadding: EdgeInsets.zero,
+                                            hintText: 'Subcategoría',
+                                            hintStyle: TextStyle(fontSize: 12),
+                                          ),
+                                          isExpanded: true,
+                                          initialValue: item.subcategoryId,
+                                          iconSize: 16,
+                                          items: subcategories.map((sub) {
+                                            return DropdownMenuItem(
+                                              value: sub.id,
+                                              child: Text(
+                                                sub.name,
+                                                style: const TextStyle(
+                                                  fontSize: 13,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                          onChanged: (val) => setState(
+                                            () => item.subcategoryId = val,
+                                          ),
+                                        );
+                                      },
+                                      loading: () => const SizedBox.shrink(),
+                                      error: (_, __) => const SizedBox.shrink(),
+                                    ),
+                            ],
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -987,12 +1178,13 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
           const SizedBox(height: 16),
           Center(
             child: TextButton.icon(
-              onPressed: () => setState(() => _editableItems.add(_EditableItem('', 0.0))),
+              onPressed: () =>
+                  setState(() => _editableItems.add(_EditableItem('', 0.0))),
               icon: const Icon(Icons.add_circle_outline),
               label: const Text('Añadir ítem manual'),
             ),
           ),
-        ]
+        ],
       ],
     );
   }
@@ -1052,7 +1244,9 @@ class _ModeCard extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.12) : Colors.transparent,
+          color: isSelected
+              ? color.withValues(alpha: 0.12)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? color : Colors.grey.shade300,
@@ -1068,8 +1262,10 @@ class _ModeCard extends StatelessWidget {
                 const Spacer(),
                 if (comingSoon)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.amber.shade100,
                       borderRadius: BorderRadius.circular(6),
@@ -1077,9 +1273,10 @@ class _ModeCard extends StatelessWidget {
                     child: Text(
                       'Próx.',
                       style: TextStyle(
-                          fontSize: 9,
-                          color: Colors.amber.shade800,
-                          fontWeight: FontWeight.bold),
+                        fontSize: 9,
+                        color: Colors.amber.shade800,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 if (!comingSoon && isSelected)
@@ -1097,8 +1294,7 @@ class _ModeCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style:
-                  TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
           ],
         ),
@@ -1140,7 +1336,10 @@ class _ScanOptionCard extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                  fontWeight: FontWeight.bold, color: color, fontSize: 16),
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 16,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -1171,12 +1370,7 @@ class _TipBanner extends StatelessWidget {
         children: [
           Icon(Icons.tips_and_updates, color: Colors.amber.shade700),
           const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 12),
-            ),
-          ),
+          Expanded(child: Text(text, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );
@@ -1195,7 +1389,10 @@ class _ScanResultPreview extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ExpansionTile(
         leading: const Icon(Icons.saved_search),
-        title: const Text('Ver original escaneado', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Ver original escaneado',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: const Text('Revisa la foto o el texto extraído'),
         children: [
           DefaultTabController(
@@ -1243,7 +1440,8 @@ class _ScanResultPreview extends StatelessWidget {
                               fontFamily: 'monospace',
                               fontSize: 13,
                               height: 1.5,
-                              color: Colors.black87, // Letra más oscura para mejor contraste
+                              color: Colors
+                                  .black87, // Letra más oscura para mejor contraste
                             ),
                           ),
                         ),

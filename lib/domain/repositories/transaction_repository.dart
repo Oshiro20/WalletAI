@@ -8,7 +8,8 @@ abstract class TransactionRepository {
     String type,
     String? destinationAccountId, // For transfers
     // Recurring Payment (optional)
-    dynamic recurringPayment, // Using dynamic to avoid circular import or verbose import of Companion
+    dynamic
+    recurringPayment, // Using dynamic to avoid circular import or verbose import of Companion
   });
 
   Future<void> updateTransaction(Transaction transaction);
@@ -16,7 +17,7 @@ abstract class TransactionRepository {
   Future<void> deleteTransaction(String id);
 
   Stream<List<Transaction>> watchAllTransactions();
-  
+
   Stream<List<Transaction>> watchFilteredTransactions({
     DateTime? startDate,
     DateTime? endDate,

@@ -75,127 +75,493 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (Migrator m) async {
-          await m.createAll();
-          await _insertDefaultCategories();
-          await _insertDefaultSubcategories();
-        },
-        onUpgrade: (Migrator m, int from, int to) async {
-          if (from < 2) {
-            try { await m.addColumn(accounts, accounts.closingDay); } catch (_) {}
-            try { await m.addColumn(accounts, accounts.paymentDueDay); } catch (_) {}
-          }
-          if (from < 3) {
-            await _insertDefaultSubcategories();
-          }
-          if (from < 4) {
-            // Agregar columna aliases a categorías
-            try { await m.addColumn(categories, categories.aliases); } catch (_) {}
-          }
-          if (from < 5) {
-            // Insertar nuevas subcategorías: Delivery, Estacionamiento, Gimnasio, Juegos/Apps
-            await _insertDefaultSubcategories();
-          }
-          if (from < 6) {
-            // Agregar columnas GPS a transacciones
-            try { await m.addColumn(transactions, transactions.latitude); } catch (_) {}
-            try { await m.addColumn(transactions, transactions.longitude); } catch (_) {}
-            try { await m.addColumn(transactions, transactions.locationName); } catch (_) {}
-          }
-          if (from < 7) {
-            // Ola 3: Multi-moneda
-            try { await m.addColumn(transactions, transactions.currency); } catch (_) {}
-          }
-          if (from < 8) {
-            // Ola 4: Expansión de categorías (Deporte, Vehículo, Viajes, Regalos, Inversiones)
-            await _insertNewCategoriesV8();
-            await _insertDefaultSubcategories();
-          }
-          if (from < 9) {
-            // v1.15: Campo nombre del producto en transacciones
-            try { await m.addColumn(transactions, transactions.productName); } catch (_) {}
-          }
-          if (from < 10) {
-            // Ola 5: Tabla de Viajes
-            try { await m.createTable(travels); } catch (_) {}
-          }
-          if (from < 11) {
-            // Ola 6: Aprendizaje y Unidades
-            try { await m.addColumn(transactions, transactions.quantity); } catch (_) {}
-            try { await m.addColumn(transactions, transactions.unit); } catch (_) {}
-            try { await m.createTable(learningRules); } catch (_) {}
-          }
-        },
-      );
-
+    onCreate: (Migrator m) async {
+      await m.createAll();
+      await _insertDefaultCategories();
+      await _insertDefaultSubcategories();
+    },
+    onUpgrade: (Migrator m, int from, int to) async {
+      if (from < 2) {
+        try {
+          await m.addColumn(accounts, accounts.closingDay);
+        } catch (_) {}
+        try {
+          await m.addColumn(accounts, accounts.paymentDueDay);
+        } catch (_) {}
+      }
+      if (from < 3) {
+        await _insertDefaultSubcategories();
+      }
+      if (from < 4) {
+        // Agregar columna aliases a categorías
+        try {
+          await m.addColumn(categories, categories.aliases);
+        } catch (_) {}
+      }
+      if (from < 5) {
+        // Insertar nuevas subcategorías: Delivery, Estacionamiento, Gimnasio, Juegos/Apps
+        await _insertDefaultSubcategories();
+      }
+      if (from < 6) {
+        // Agregar columnas GPS a transacciones
+        try {
+          await m.addColumn(transactions, transactions.latitude);
+        } catch (_) {}
+        try {
+          await m.addColumn(transactions, transactions.longitude);
+        } catch (_) {}
+        try {
+          await m.addColumn(transactions, transactions.locationName);
+        } catch (_) {}
+      }
+      if (from < 7) {
+        // Ola 3: Multi-moneda
+        try {
+          await m.addColumn(transactions, transactions.currency);
+        } catch (_) {}
+      }
+      if (from < 8) {
+        // Ola 4: Expansión de categorías (Deporte, Vehículo, Viajes, Regalos, Inversiones)
+        await _insertNewCategoriesV8();
+        await _insertDefaultSubcategories();
+      }
+      if (from < 9) {
+        // v1.15: Campo nombre del producto en transacciones
+        try {
+          await m.addColumn(transactions, transactions.productName);
+        } catch (_) {}
+      }
+      if (from < 10) {
+        // Ola 5: Tabla de Viajes
+        try {
+          await m.createTable(travels);
+        } catch (_) {}
+      }
+      if (from < 11) {
+        // Ola 6: Aprendizaje y Unidades
+        try {
+          await m.addColumn(transactions, transactions.quantity);
+        } catch (_) {}
+        try {
+          await m.addColumn(transactions, transactions.unit);
+        } catch (_) {}
+        try {
+          await m.createTable(learningRules);
+        } catch (_) {}
+      }
+    },
+  );
 
   /// Insertar/actualizar todas las subcategorías predefinidas
   Future<void> _insertDefaultSubcategories() async {
     final now = DateTime.now();
     final subcategoriesList = [
       // ── ALIMENTACIÓN ──────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_mercado', categoryId: 'cat_alimentacion', name: 'Mercado/Supermercado', icon: const Value('🛒'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_restaurantes', categoryId: 'cat_alimentacion', name: 'Restaurante', icon: const Value('🍽️'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_delivery', categoryId: 'cat_alimentacion', name: 'Delivery', icon: const Value('🛵'), sortOrder: const Value(3), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_snacks', categoryId: 'cat_antojos', name: 'Snacks/Antojos', icon: const Value('🍭'), sortOrder: const Value(1), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_mercado',
+        categoryId: 'cat_alimentacion',
+        name: 'Mercado/Supermercado',
+        icon: const Value('🛒'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_restaurantes',
+        categoryId: 'cat_alimentacion',
+        name: 'Restaurante',
+        icon: const Value('🍽️'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_delivery',
+        categoryId: 'cat_alimentacion',
+        name: 'Delivery',
+        icon: const Value('🛵'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_snacks',
+        categoryId: 'cat_antojos',
+        name: 'Snacks/Antojos',
+        icon: const Value('🍭'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
       // ── TRANSPORTE ────────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_publico', categoryId: 'cat_transporte', name: 'Transporte Público', icon: const Value('🚌'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_taxi', categoryId: 'cat_transporte', name: 'Taxi/Uber', icon: const Value('🚕'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_gasolina', categoryId: 'cat_transporte', name: 'Gasolina', icon: const Value('⛽'), sortOrder: const Value(3), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_estacionamiento', categoryId: 'cat_transporte', name: 'Estacionamiento/Peaje', icon: const Value('🅿️'), sortOrder: const Value(4), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_publico',
+        categoryId: 'cat_transporte',
+        name: 'Transporte Público',
+        icon: const Value('🚌'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_taxi',
+        categoryId: 'cat_transporte',
+        name: 'Taxi/Uber',
+        icon: const Value('🚕'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_gasolina',
+        categoryId: 'cat_transporte',
+        name: 'Gasolina',
+        icon: const Value('⛽'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_estacionamiento',
+        categoryId: 'cat_transporte',
+        name: 'Estacionamiento/Peaje',
+        icon: const Value('🅿️'),
+        sortOrder: const Value(4),
+        createdAt: now,
+      ),
       // ── ENTRETENIMIENTO ───────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_streaming', categoryId: 'cat_entretenimiento', name: 'Streaming', icon: const Value('🎬'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_salidas', categoryId: 'cat_entretenimiento', name: 'Cine/Salidas', icon: const Value('🍿'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_juegos', categoryId: 'cat_entretenimiento', name: 'Videojuegos', icon: const Value('🎮'), sortOrder: const Value(3), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_libros_revistas', categoryId: 'cat_entretenimiento', name: 'Libros/Revistas', icon: const Value('📚'), sortOrder: const Value(4), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_streaming',
+        categoryId: 'cat_entretenimiento',
+        name: 'Streaming',
+        icon: const Value('🎬'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_salidas',
+        categoryId: 'cat_entretenimiento',
+        name: 'Cine/Salidas',
+        icon: const Value('🍿'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_juegos',
+        categoryId: 'cat_entretenimiento',
+        name: 'Videojuegos',
+        icon: const Value('🎮'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_libros_revistas',
+        categoryId: 'cat_entretenimiento',
+        name: 'Libros/Revistas',
+        icon: const Value('📚'),
+        sortOrder: const Value(4),
+        createdAt: now,
+      ),
       // ── SALUD ─────────────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_farmacia', categoryId: 'cat_salud', name: 'Farmacia/Botica', icon: const Value('💊'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_citas', categoryId: 'cat_salud', name: 'Citas Médicas', icon: const Value('🩺'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_gym', categoryId: 'cat_salud', name: 'Gimnasio', icon: const Value('🏋️'), sortOrder: const Value(3), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_farmacia',
+        categoryId: 'cat_salud',
+        name: 'Farmacia/Botica',
+        icon: const Value('💊'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_citas',
+        categoryId: 'cat_salud',
+        name: 'Citas Médicas',
+        icon: const Value('🩺'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_gym',
+        categoryId: 'cat_salud',
+        name: 'Gimnasio',
+        icon: const Value('🏋️'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
       // ── CUIDADO PERSONAL ──────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_peluqueria', categoryId: 'cat_cuidado_personal', name: 'Peluquería/Barbería', icon: const Value('✂️'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_higiene', categoryId: 'cat_cuidado_personal', name: 'Higiene/Cosméticos', icon: const Value('🧴'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_estetica', categoryId: 'cat_cuidado_personal', name: 'Estética', icon: const Value('💅'), sortOrder: const Value(3), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_peluqueria',
+        categoryId: 'cat_cuidado_personal',
+        name: 'Peluquería/Barbería',
+        icon: const Value('✂️'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_higiene',
+        categoryId: 'cat_cuidado_personal',
+        name: 'Higiene/Cosméticos',
+        icon: const Value('🧴'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_estetica',
+        categoryId: 'cat_cuidado_personal',
+        name: 'Estética',
+        icon: const Value('💅'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
       // ── ROPA ──────────────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_ropa', categoryId: 'cat_ropa', name: 'Ropa', icon: const Value('👕'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_calzado', categoryId: 'cat_ropa', name: 'Calzado', icon: const Value('👟'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_ropa_deportiva', categoryId: 'cat_ropa', name: 'Ropa Deportiva', icon: const Value('🎽'), sortOrder: const Value(3), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_accesorios_moda', categoryId: 'cat_ropa', name: 'Accesorios de Moda', icon: const Value('💍'), sortOrder: const Value(4), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_ropa',
+        categoryId: 'cat_ropa',
+        name: 'Ropa',
+        icon: const Value('👕'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_calzado',
+        categoryId: 'cat_ropa',
+        name: 'Calzado',
+        icon: const Value('👟'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_ropa_deportiva',
+        categoryId: 'cat_ropa',
+        name: 'Ropa Deportiva',
+        icon: const Value('🎽'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_accesorios_moda',
+        categoryId: 'cat_ropa',
+        name: 'Accesorios de Moda',
+        icon: const Value('💍'),
+        sortOrder: const Value(4),
+        createdAt: now,
+      ),
       // ── ALOJAMIENTO/HOGAR ─────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_servicios_hogar', categoryId: 'cat_alojamiento', name: 'Servicios del Hogar', icon: const Value('💡'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_limpieza_hogar', categoryId: 'cat_alojamiento', name: 'Limpieza del Hogar', icon: const Value('🧹'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_mantenimiento_hogar', categoryId: 'cat_alojamiento', name: 'Mantenimiento', icon: const Value('🔧'), sortOrder: const Value(3), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_electrodomesticos', categoryId: 'cat_alojamiento', name: 'Electrodomésticos', icon: const Value('🔌'), sortOrder: const Value(4), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_decoracion', categoryId: 'cat_alojamiento', name: 'Decoración/Muebles', icon: const Value('🛋️'), sortOrder: const Value(5), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_servicios_hogar',
+        categoryId: 'cat_alojamiento',
+        name: 'Servicios del Hogar',
+        icon: const Value('💡'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_limpieza_hogar',
+        categoryId: 'cat_alojamiento',
+        name: 'Limpieza del Hogar',
+        icon: const Value('🧹'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_mantenimiento_hogar',
+        categoryId: 'cat_alojamiento',
+        name: 'Mantenimiento',
+        icon: const Value('🔧'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_electrodomesticos',
+        categoryId: 'cat_alojamiento',
+        name: 'Electrodomésticos',
+        icon: const Value('🔌'),
+        sortOrder: const Value(4),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_decoracion',
+        categoryId: 'cat_alojamiento',
+        name: 'Decoración/Muebles',
+        icon: const Value('🛋️'),
+        sortOrder: const Value(5),
+        createdAt: now,
+      ),
       // ── DEPORTE/FITNESS ───────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_membresia_gym', categoryId: 'cat_deporte', name: 'Membresía Gimnasio', icon: const Value('🏋️'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_equipo_deportivo', categoryId: 'cat_deporte', name: 'Equipamiento Deportivo', icon: const Value('⚽'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_clases', categoryId: 'cat_deporte', name: 'Clases/Actividades', icon: const Value('🧘'), sortOrder: const Value(3), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_nutricion_deportiva', categoryId: 'cat_deporte', name: 'Nutrición Deportiva', icon: const Value('🥗'), sortOrder: const Value(4), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_membresia_gym',
+        categoryId: 'cat_deporte',
+        name: 'Membresía Gimnasio',
+        icon: const Value('🏋️'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_equipo_deportivo',
+        categoryId: 'cat_deporte',
+        name: 'Equipamiento Deportivo',
+        icon: const Value('⚽'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_clases',
+        categoryId: 'cat_deporte',
+        name: 'Clases/Actividades',
+        icon: const Value('🧘'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_nutricion_deportiva',
+        categoryId: 'cat_deporte',
+        name: 'Nutrición Deportiva',
+        icon: const Value('🥗'),
+        sortOrder: const Value(4),
+        createdAt: now,
+      ),
       // ── VEHÍCULO ──────────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_lavado_auto', categoryId: 'cat_vehiculo', name: 'Lavado de Auto', icon: const Value('🚿'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_mecanica', categoryId: 'cat_vehiculo', name: 'Mecánica/Repuestos', icon: const Value('🔩'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_peajes', categoryId: 'cat_vehiculo', name: 'Peajes/SOAT', icon: const Value('🛣️'), sortOrder: const Value(3), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_lavado_auto',
+        categoryId: 'cat_vehiculo',
+        name: 'Lavado de Auto',
+        icon: const Value('🚿'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_mecanica',
+        categoryId: 'cat_vehiculo',
+        name: 'Mecánica/Repuestos',
+        icon: const Value('🔩'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_peajes',
+        categoryId: 'cat_vehiculo',
+        name: 'Peajes/SOAT',
+        icon: const Value('🛣️'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
       // ── VIAJES ────────────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_pasajes', categoryId: 'cat_viajes', name: 'Pasajes', icon: const Value('🛫'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_hospedaje', categoryId: 'cat_viajes', name: 'Hospedaje', icon: const Value('🏨'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_tours', categoryId: 'cat_viajes', name: 'Tours/Actividades', icon: const Value('🗺️'), sortOrder: const Value(3), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_pasajes',
+        categoryId: 'cat_viajes',
+        name: 'Pasajes',
+        icon: const Value('🛫'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_hospedaje',
+        categoryId: 'cat_viajes',
+        name: 'Hospedaje',
+        icon: const Value('🏨'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_tours',
+        categoryId: 'cat_viajes',
+        name: 'Tours/Actividades',
+        icon: const Value('🗺️'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
       // ── REGALOS/DONACIONES ────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_regalos', categoryId: 'cat_regalos', name: 'Regalos', icon: const Value('🎁'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_donaciones', categoryId: 'cat_regalos', name: 'Donaciones/Propinas', icon: const Value('💝'), sortOrder: const Value(2), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_regalos',
+        categoryId: 'cat_regalos',
+        name: 'Regalos',
+        icon: const Value('🎁'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_donaciones',
+        categoryId: 'cat_regalos',
+        name: 'Donaciones/Propinas',
+        icon: const Value('💝'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
       // ── MASCOTAS ──────────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_alimento_mascota', categoryId: 'cat_mascotas', name: 'Alimento', icon: const Value('🦴'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_veterinario', categoryId: 'cat_mascotas', name: 'Veterinario', icon: const Value('🩺'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_accesorios_mascota', categoryId: 'cat_mascotas', name: 'Accesorios/Higiene', icon: const Value('🛁'), sortOrder: const Value(3), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_alimento_mascota',
+        categoryId: 'cat_mascotas',
+        name: 'Alimento',
+        icon: const Value('🦴'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_veterinario',
+        categoryId: 'cat_mascotas',
+        name: 'Veterinario',
+        icon: const Value('🩺'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_accesorios_mascota',
+        categoryId: 'cat_mascotas',
+        name: 'Accesorios/Higiene',
+        icon: const Value('🛁'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
       // ── PAREJA ────────────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_salida_romantica', categoryId: 'cat_pareja', name: 'Salida Romántica', icon: const Value('🥂'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_regalos_pareja', categoryId: 'cat_pareja', name: 'Regalos/Detalles', icon: const Value('🎀'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_plan_especial', categoryId: 'cat_pareja', name: 'Plan Especial', icon: const Value('💒'), sortOrder: const Value(3), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_detalles_dia', categoryId: 'cat_pareja', name: 'Detalles del Día', icon: const Value('☕'), sortOrder: const Value(4), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_salida_romantica',
+        categoryId: 'cat_pareja',
+        name: 'Salida Romántica',
+        icon: const Value('🥂'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_regalos_pareja',
+        categoryId: 'cat_pareja',
+        name: 'Regalos/Detalles',
+        icon: const Value('🎀'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_plan_especial',
+        categoryId: 'cat_pareja',
+        name: 'Plan Especial',
+        icon: const Value('💒'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_detalles_dia',
+        categoryId: 'cat_pareja',
+        name: 'Detalles del Día',
+        icon: const Value('☕'),
+        sortOrder: const Value(4),
+        createdAt: now,
+      ),
       // ── INVERSIONES ───────────────────────────────────────
-      SubcategoriesCompanion.insert(id: 'sub_fondo_ahorro', categoryId: 'cat_inversiones', name: 'Fondo Mutuo/Ahorro', icon: const Value('🏦'), sortOrder: const Value(1), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_acciones', categoryId: 'cat_inversiones', name: 'Acciones/Bolsa', icon: const Value('📈'), sortOrder: const Value(2), createdAt: now),
-      SubcategoriesCompanion.insert(id: 'sub_cripto', categoryId: 'cat_inversiones', name: 'Criptomonedas', icon: const Value('₿'), sortOrder: const Value(3), createdAt: now),
+      SubcategoriesCompanion.insert(
+        id: 'sub_fondo_ahorro',
+        categoryId: 'cat_inversiones',
+        name: 'Fondo Mutuo/Ahorro',
+        icon: const Value('🏦'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_acciones',
+        categoryId: 'cat_inversiones',
+        name: 'Acciones/Bolsa',
+        icon: const Value('📈'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_cripto',
+        categoryId: 'cat_inversiones',
+        name: 'Criptomonedas',
+        icon: const Value('₿'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
     ];
 
     await batch((batch) {
@@ -207,22 +573,66 @@ class AppDatabase extends _$AppDatabase {
   Future<void> _insertNewCategoriesV8() async {
     final now = DateTime.now();
     final newCategories = [
-      CategoriesCompanion.insert(id: 'cat_deporte', name: 'Deporte/Fitness', type: 'expense', icon: const Value('🏋️'), color: const Value('#22C55E'), isSystem: const Value(true), sortOrder: const Value(16), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_vehiculo', name: 'Vehículo', type: 'expense', icon: const Value('🚗'), color: const Value('#64748B'), isSystem: const Value(true), sortOrder: const Value(17), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_viajes', name: 'Viajes', type: 'expense', icon: const Value('✈️'), color: const Value('#0EA5E9'), isSystem: const Value(true), sortOrder: const Value(18), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_regalos', name: 'Regalos/Donaciones', type: 'expense', icon: const Value('🎁'), color: const Value('#F43F5E'), isSystem: const Value(true), sortOrder: const Value(19), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_inversiones', name: 'Inversiones', type: 'expense', icon: const Value('📈'), color: const Value('#8B5CF6'), isSystem: const Value(true), sortOrder: const Value(20), createdAt: now),
+      CategoriesCompanion.insert(
+        id: 'cat_deporte',
+        name: 'Deporte/Fitness',
+        type: 'expense',
+        icon: const Value('🏋️'),
+        color: const Value('#22C55E'),
+        isSystem: const Value(true),
+        sortOrder: const Value(16),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_vehiculo',
+        name: 'Vehículo',
+        type: 'expense',
+        icon: const Value('🚗'),
+        color: const Value('#64748B'),
+        isSystem: const Value(true),
+        sortOrder: const Value(17),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_viajes',
+        name: 'Viajes',
+        type: 'expense',
+        icon: const Value('✈️'),
+        color: const Value('#0EA5E9'),
+        isSystem: const Value(true),
+        sortOrder: const Value(18),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_regalos',
+        name: 'Regalos/Donaciones',
+        type: 'expense',
+        icon: const Value('🎁'),
+        color: const Value('#F43F5E'),
+        isSystem: const Value(true),
+        sortOrder: const Value(19),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_inversiones',
+        name: 'Inversiones',
+        type: 'expense',
+        icon: const Value('📈'),
+        color: const Value('#8B5CF6'),
+        isSystem: const Value(true),
+        sortOrder: const Value(20),
+        createdAt: now,
+      ),
     ];
     await batch((batch) {
       batch.insertAllOnConflictUpdate(categories, newCategories);
     });
   }
 
-
   /// Insertar categorías predefinidas del sistema
   Future<void> _insertDefaultCategories() async {
     final now = DateTime.now();
-    
+
     // Categorías de gastos
     final expenseCategories = [
       CategoriesCompanion.insert(
@@ -355,13 +765,76 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(13),
         createdAt: now,
       ),
-      CategoriesCompanion.insert(id: 'cat_antojos', name: 'Antojos', type: 'expense', icon: const Value('🍭'), color: const Value('#EAB308'), isSystem: const Value(true), sortOrder: const Value(14), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_deporte', name: 'Deporte/Fitness', type: 'expense', icon: const Value('🏋️'), color: const Value('#22C55E'), isSystem: const Value(true), sortOrder: const Value(15), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_vehiculo', name: 'Vehículo', type: 'expense', icon: const Value('🚗'), color: const Value('#64748B'), isSystem: const Value(true), sortOrder: const Value(16), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_viajes', name: 'Viajes', type: 'expense', icon: const Value('✈️'), color: const Value('#0EA5E9'), isSystem: const Value(true), sortOrder: const Value(17), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_regalos', name: 'Regalos/Donaciones', type: 'expense', icon: const Value('🎁'), color: const Value('#F43F5E'), isSystem: const Value(true), sortOrder: const Value(18), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_inversiones', name: 'Inversiones', type: 'expense', icon: const Value('📈'), color: const Value('#8B5CF6'), isSystem: const Value(true), sortOrder: const Value(19), createdAt: now),
-      CategoriesCompanion.insert(id: 'cat_otro_gasto', name: 'Otro', type: 'expense', icon: const Value('📦'), color: const Value('#6B7280'), isSystem: const Value(true), sortOrder: const Value(20), createdAt: now),
+      CategoriesCompanion.insert(
+        id: 'cat_antojos',
+        name: 'Antojos',
+        type: 'expense',
+        icon: const Value('🍭'),
+        color: const Value('#EAB308'),
+        isSystem: const Value(true),
+        sortOrder: const Value(14),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_deporte',
+        name: 'Deporte/Fitness',
+        type: 'expense',
+        icon: const Value('🏋️'),
+        color: const Value('#22C55E'),
+        isSystem: const Value(true),
+        sortOrder: const Value(15),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_vehiculo',
+        name: 'Vehículo',
+        type: 'expense',
+        icon: const Value('🚗'),
+        color: const Value('#64748B'),
+        isSystem: const Value(true),
+        sortOrder: const Value(16),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_viajes',
+        name: 'Viajes',
+        type: 'expense',
+        icon: const Value('✈️'),
+        color: const Value('#0EA5E9'),
+        isSystem: const Value(true),
+        sortOrder: const Value(17),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_regalos',
+        name: 'Regalos/Donaciones',
+        type: 'expense',
+        icon: const Value('🎁'),
+        color: const Value('#F43F5E'),
+        isSystem: const Value(true),
+        sortOrder: const Value(18),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_inversiones',
+        name: 'Inversiones',
+        type: 'expense',
+        icon: const Value('📈'),
+        color: const Value('#8B5CF6'),
+        isSystem: const Value(true),
+        sortOrder: const Value(19),
+        createdAt: now,
+      ),
+      CategoriesCompanion.insert(
+        id: 'cat_otro_gasto',
+        name: 'Otro',
+        type: 'expense',
+        icon: const Value('📦'),
+        color: const Value('#6B7280'),
+        isSystem: const Value(true),
+        sortOrder: const Value(20),
+        createdAt: now,
+      ),
     ];
 
     // Categorías de ingresos

@@ -7,11 +7,13 @@ import '../tables/subcategories_table.dart';
 part 'subcategories_dao.g.dart';
 
 @DriftAccessor(tables: [Subcategories])
-class SubcategoriesDao extends DatabaseAccessor<AppDatabase> with _$SubcategoriesDaoMixin {
+class SubcategoriesDao extends DatabaseAccessor<AppDatabase>
+    with _$SubcategoriesDaoMixin {
   SubcategoriesDao(super.db);
 
   /// Obtener todas las subcategorías
-  Future<List<Subcategory>> getAllSubcategories() => select(subcategories).get();
+  Future<List<Subcategory>> getAllSubcategories() =>
+      select(subcategories).get();
 
   /// Obtener subcategorías por categoría
   Future<List<Subcategory>> getSubcategoriesByCategoryId(String categoryId) {
@@ -31,18 +33,20 @@ class SubcategoriesDao extends DatabaseAccessor<AppDatabase> with _$Subcategorie
 
   /// Stream de todas las subcategorías
   Stream<List<Subcategory>> watchAllSubcategories() {
-    return (select(subcategories)
-          ..orderBy([(t) => OrderingTerm(expression: t.name)]))
-        .watch();
+    return (select(
+      subcategories,
+    )..orderBy([(t) => OrderingTerm(expression: t.name)])).watch();
   }
 
   /// Crear subcategoría
   Future<int> createSubcategory(SubcategoriesCompanion subcategory) {
     return attachedDatabase.transaction(() async {
       final id = await into(subcategories).insert(subcategory);
-      
+
       // Sync Queue
-      final insertedRow = await (select(subcategories)..where((s) => s.id.equals(subcategory.id.value))).getSingle();
+      final insertedRow = await (select(
+        subcategories,
+      )..where((s) => s.id.equals(subcategory.id.value))).getSingle();
       await into(attachedDatabase.syncQueue).insert(
         SyncQueueCompanion.insert(
           id: const Uuid().v4(),
@@ -53,7 +57,7 @@ class SubcategoriesDao extends DatabaseAccessor<AppDatabase> with _$Subcategorie
           createdAt: DateTime.now(),
         ),
       );
-      
+
       return id;
     });
   }
@@ -69,7 +73,7 @@ class SubcategoriesDao extends DatabaseAccessor<AppDatabase> with _$Subcategorie
   Future<bool> updateSubcategory(Subcategory subcategory) {
     return attachedDatabase.transaction(() async {
       final result = await update(subcategories).replace(subcategory);
-      
+
       if (result) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -89,8 +93,10 @@ class SubcategoriesDao extends DatabaseAccessor<AppDatabase> with _$Subcategorie
   /// Eliminar subcategoría
   Future<int> deleteSubcategory(String subcategoryId) {
     return attachedDatabase.transaction(() async {
-      final result = await (delete(subcategories)..where((s) => s.id.equals(subcategoryId))).go();
-      
+      final result = await (delete(
+        subcategories,
+      )..where((s) => s.id.equals(subcategoryId))).go();
+
       if (result > 0) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(

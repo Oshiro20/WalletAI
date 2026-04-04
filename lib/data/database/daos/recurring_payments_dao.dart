@@ -7,7 +7,8 @@ import '../tables/recurring_payments_table.dart';
 part 'recurring_payments_dao.g.dart';
 
 @DriftAccessor(tables: [RecurringPayments])
-class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase> with _$RecurringPaymentsDaoMixin {
+class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase>
+    with _$RecurringPaymentsDaoMixin {
   RecurringPaymentsDao(super.db);
 
   /// Obtener todos los pagos recurrentes activos
@@ -22,9 +23,10 @@ class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase> with _$Recurrin
   Future<List<RecurringPayment>> getUpcomingPayments(int daysAhead) {
     final limitDate = DateTime.now().add(Duration(days: daysAhead));
     return (select(recurringPayments)
-          ..where((t) => 
-            t.isActive.equals(true) & 
-            t.nextDueDate.isSmallerOrEqualValue(limitDate)
+          ..where(
+            (t) =>
+                t.isActive.equals(true) &
+                t.nextDueDate.isSmallerOrEqualValue(limitDate),
           )
           ..orderBy([(t) => OrderingTerm(expression: t.nextDueDate)]))
         .get();
@@ -34,9 +36,11 @@ class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase> with _$Recurrin
   Future<int> createRecurringPayment(RecurringPaymentsCompanion payment) {
     return attachedDatabase.transaction(() async {
       final id = await into(recurringPayments).insert(payment);
-      
+
       // Sync Queue
-      final insertedRow = await (select(recurringPayments)..where((t) => t.id.equals(payment.id.value))).getSingle();
+      final insertedRow = await (select(
+        recurringPayments,
+      )..where((t) => t.id.equals(payment.id.value))).getSingle();
       await into(attachedDatabase.syncQueue).insert(
         SyncQueueCompanion.insert(
           id: const Uuid().v4(),
@@ -47,7 +51,7 @@ class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase> with _$Recurrin
           createdAt: DateTime.now(),
         ),
       );
-      
+
       return id;
     });
   }
@@ -56,7 +60,7 @@ class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase> with _$Recurrin
   Future<bool> updateRecurringPayment(RecurringPayment payment) {
     return attachedDatabase.transaction(() async {
       final result = await update(recurringPayments).replace(payment);
-      
+
       if (result) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
@@ -76,11 +80,14 @@ class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase> with _$Recurrin
   /// Desactivar pago recurrente
   Future<void> deactivateRecurringPayment(String id) {
     return attachedDatabase.transaction(() async {
-      final result = await (update(recurringPayments)..where((t) => t.id.equals(id)))
-          .write(RecurringPaymentsCompanion(isActive: const Value(false)));
+      final result =
+          await (update(recurringPayments)..where((t) => t.id.equals(id)))
+              .write(RecurringPaymentsCompanion(isActive: const Value(false)));
 
       if (result > 0) {
-        final updatedRow = await (select(recurringPayments)..where((t) => t.id.equals(id))).getSingle();
+        final updatedRow = await (select(
+          recurringPayments,
+        )..where((t) => t.id.equals(id))).getSingle();
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(
             id: const Uuid().v4(),
@@ -98,8 +105,10 @@ class RecurringPaymentsDao extends DatabaseAccessor<AppDatabase> with _$Recurrin
   /// Eliminar pago recurrente
   Future<int> deleteRecurringPayment(String id) {
     return attachedDatabase.transaction(() async {
-      final result = await (delete(recurringPayments)..where((t) => t.id.equals(id))).go();
-      
+      final result = await (delete(
+        recurringPayments,
+      )..where((t) => t.id.equals(id))).go();
+
       if (result > 0) {
         await into(attachedDatabase.syncQueue).insert(
           SyncQueueCompanion.insert(

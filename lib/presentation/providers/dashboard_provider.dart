@@ -6,17 +6,17 @@ import 'dart:convert';
 // ─── Modelo de Widget del Dashboard ───────────────────────────────────────────
 
 enum DashboardWidgetType {
-  balanceSummary,      // Balance total + ingresos + gastos
-  recentTransactions,  // Últimas transacciones
-  categoryBreakdown,   // Torta de categorías
-  budgetProgress,      // Progreso de presupuestos
-  savingsGoals,        // Metas de ahorro
-  recurringPayments,   // Próximos pagos recurrentes
-  monthlyTrend,        // Gráfico de tendencia mensual
-  quickActions,        // Acciones rápidas
-  monthProjection,     // Proyección financiera del mes
-  monthComparison,     // Comparación este mes vs mes anterior
-  budgetRule,          // Regla 50/30/20
+  balanceSummary, // Balance total + ingresos + gastos
+  recentTransactions, // Últimas transacciones
+  categoryBreakdown, // Torta de categorías
+  budgetProgress, // Progreso de presupuestos
+  savingsGoals, // Metas de ahorro
+  recurringPayments, // Próximos pagos recurrentes
+  monthlyTrend, // Gráfico de tendencia mensual
+  quickActions, // Acciones rápidas
+  monthProjection, // Proyección financiera del mes
+  monthComparison, // Comparación este mes vs mes anterior
+  budgetRule, // Regla 50/30/20
 }
 
 class DashboardWidgetConfig {
@@ -39,10 +39,10 @@ class DashboardWidgetConfig {
   }
 
   Map<String, dynamic> toJson() => {
-        'type': type.name,
-        'visible': visible,
-        'order': order,
-      };
+    'type': type.name,
+    'visible': visible,
+    'order': order,
+  };
 
   factory DashboardWidgetConfig.fromJson(Map<String, dynamic> json) {
     return DashboardWidgetConfig(
@@ -57,33 +57,55 @@ class DashboardWidgetConfig {
 
   String get label {
     switch (type) {
-      case DashboardWidgetType.balanceSummary:      return 'Resumen de Balance';
-      case DashboardWidgetType.recentTransactions:  return 'Transacciones Recientes';
-      case DashboardWidgetType.categoryBreakdown:   return 'Distribución por Categoría';
-      case DashboardWidgetType.budgetProgress:      return 'Progreso de Presupuestos';
-      case DashboardWidgetType.savingsGoals:        return 'Metas de Ahorro';
-      case DashboardWidgetType.recurringPayments:   return 'Próximos Pagos';
-      case DashboardWidgetType.monthlyTrend:        return 'Tendencia Mensual';
-      case DashboardWidgetType.quickActions:        return 'Acciones Rápidas';
-      case DashboardWidgetType.monthProjection:     return 'Proyección del Mes';
-      case DashboardWidgetType.monthComparison:     return 'Comparación Mensual';
-      case DashboardWidgetType.budgetRule:           return 'Regla 50/30/20';
+      case DashboardWidgetType.balanceSummary:
+        return 'Resumen de Balance';
+      case DashboardWidgetType.recentTransactions:
+        return 'Transacciones Recientes';
+      case DashboardWidgetType.categoryBreakdown:
+        return 'Distribución por Categoría';
+      case DashboardWidgetType.budgetProgress:
+        return 'Progreso de Presupuestos';
+      case DashboardWidgetType.savingsGoals:
+        return 'Metas de Ahorro';
+      case DashboardWidgetType.recurringPayments:
+        return 'Próximos Pagos';
+      case DashboardWidgetType.monthlyTrend:
+        return 'Tendencia Mensual';
+      case DashboardWidgetType.quickActions:
+        return 'Acciones Rápidas';
+      case DashboardWidgetType.monthProjection:
+        return 'Proyección del Mes';
+      case DashboardWidgetType.monthComparison:
+        return 'Comparación Mensual';
+      case DashboardWidgetType.budgetRule:
+        return 'Regla 50/30/20';
     }
   }
 
   IconData get icon {
     switch (type) {
-      case DashboardWidgetType.balanceSummary:      return Icons.account_balance_wallet;
-      case DashboardWidgetType.recentTransactions:  return Icons.receipt_long;
-      case DashboardWidgetType.categoryBreakdown:   return Icons.pie_chart;
-      case DashboardWidgetType.budgetProgress:      return Icons.savings;
-      case DashboardWidgetType.savingsGoals:        return Icons.flag;
-      case DashboardWidgetType.recurringPayments:   return Icons.loop;
-      case DashboardWidgetType.monthlyTrend:        return Icons.show_chart;
-      case DashboardWidgetType.quickActions:        return Icons.grid_view;
-      case DashboardWidgetType.monthProjection:     return Icons.trending_up;
-      case DashboardWidgetType.monthComparison:     return Icons.compare_arrows;
-      case DashboardWidgetType.budgetRule:           return Icons.pie_chart;
+      case DashboardWidgetType.balanceSummary:
+        return Icons.account_balance_wallet;
+      case DashboardWidgetType.recentTransactions:
+        return Icons.receipt_long;
+      case DashboardWidgetType.categoryBreakdown:
+        return Icons.pie_chart;
+      case DashboardWidgetType.budgetProgress:
+        return Icons.savings;
+      case DashboardWidgetType.savingsGoals:
+        return Icons.flag;
+      case DashboardWidgetType.recurringPayments:
+        return Icons.loop;
+      case DashboardWidgetType.monthlyTrend:
+        return Icons.show_chart;
+      case DashboardWidgetType.quickActions:
+        return Icons.grid_view;
+      case DashboardWidgetType.monthProjection:
+        return Icons.trending_up;
+      case DashboardWidgetType.monthComparison:
+        return Icons.compare_arrows;
+      case DashboardWidgetType.budgetRule:
+        return Icons.pie_chart;
     }
   }
 }
@@ -133,7 +155,10 @@ class DashboardLayoutNotifier extends Notifier<List<DashboardWidgetConfig>> {
 
   Future<void> _save() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, jsonEncode(state.map((e) => e.toJson()).toList()));
+    await prefs.setString(
+      _prefsKey,
+      jsonEncode(state.map((e) => e.toJson()).toList()),
+    );
   }
 
   void toggleVisibility(DashboardWidgetType type) {
@@ -161,11 +186,13 @@ class DashboardLayoutNotifier extends Notifier<List<DashboardWidgetConfig>> {
 
 final dashboardLayoutProvider =
     NotifierProvider<DashboardLayoutNotifier, List<DashboardWidgetConfig>>(
-  DashboardLayoutNotifier.new,
-);
+      DashboardLayoutNotifier.new,
+    );
 
 /// Solo los widgets visibles, en orden
-final visibleDashboardWidgetsProvider = Provider<List<DashboardWidgetConfig>>((ref) {
+final visibleDashboardWidgetsProvider = Provider<List<DashboardWidgetConfig>>((
+  ref,
+) {
   final all = ref.watch(dashboardLayoutProvider);
   return all.where((w) => w.visible).toList()
     ..sort((a, b) => a.order.compareTo(b.order));

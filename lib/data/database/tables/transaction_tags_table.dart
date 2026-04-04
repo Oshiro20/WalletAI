@@ -5,7 +5,7 @@ import 'package:drift/drift.dart';
 class TransactionTags extends Table {
   TextColumn get transactionId => text()();
   TextColumn get tagId => text()();
-  
+
   @override
   Set<Column> get primaryKey => {transactionId, tagId};
 }

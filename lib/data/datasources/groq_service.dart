@@ -29,7 +29,10 @@ Reglas:
   GroqService();
 
   /// Envía un mensaje al modelo con contexto financiero opcional
-  Future<String> sendMessage(String userMessage, {String? financialContext}) async {
+  Future<String> sendMessage(
+    String userMessage, {
+    String? financialContext,
+  }) async {
     // Construir el mensaje completo con contexto si está disponible
     final fullMessage = financialContext != null && financialContext.isNotEmpty
         ? '**Datos actuales del usuario:**\n$financialContext\n\n**Pregunta:** $userMessage'
@@ -39,16 +42,16 @@ Reglas:
     _history.add({'role': 'user', 'content': fullMessage});
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/parse-voice'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'systemPrompt': _systemPrompt,
-          'userMessage': fullMessage,
-        }),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/parse-voice'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'systemPrompt': _systemPrompt,
+              'userMessage': fullMessage,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -67,7 +70,7 @@ Reglas:
       } else {
         final errorData = jsonDecode(response.body);
         String errorMsg = 'Error desconocido';
-        
+
         if (errorData['error'] != null) {
           if (errorData['error'] is String) {
             errorMsg = errorData['error'];
@@ -121,7 +124,9 @@ Reglas:
           '_Crea una meta en la app para hacer seguimiento automático._';
     }
 
-    if (q.contains('presupuesto') || q.contains('budget') || q.contains('límite')) {
+    if (q.contains('presupuesto') ||
+        q.contains('budget') ||
+        q.contains('límite')) {
       return '📋 Sin conexión — Sobre presupuestos:\n\n'
           'Un buen presupuesto mensual debería incluir:\n'
           '• Gastos fijos: alquiler, servicios, deudas\n'
@@ -131,7 +136,9 @@ Reglas:
           '_Configura presupuestos por categoría en la sección Presupuestos._';
     }
 
-    if (q.contains('inversión') || q.contains('invertir') || q.contains('interés')) {
+    if (q.contains('inversión') ||
+        q.contains('invertir') ||
+        q.contains('interés')) {
       return '📈 Sin conexión — Tip de inversión:\n\n'
           'Para empezar a invertir en Perú:\n'
           '• **Fondos Mutuos** (BBVA, Intercorp): desde S/ 100\n'
@@ -167,11 +174,15 @@ Reglas:
   }
 
   /// PROCESAMIENTO OCR: Analiza el texto en bruto de una boleta y devuelve JSON estructurado
-  Future<Map<String, dynamic>?> parseReceipt(String rawText, {bool isMultiple = false}) async {
+  Future<Map<String, dynamic>?> parseReceipt(
+    String rawText, {
+    bool isMultiple = false,
+  }) async {
     final currentDate = DateTime.now();
     final formattedDate = DateFormat('yyyy-MM-dd').format(currentDate);
 
-    final promptSimple = '''
+    final promptSimple =
+        '''
 1️⃣ ROL DEL SISTEMA
 Actúa como un Especialista Senior en:
 - OCR financiero, Procesamiento de tickets comerciales, Normalización de texto ruidoso y Clasificación semántica jerárquica.
@@ -249,7 +260,8 @@ ENFÓCATE EN LA VERSIÓN SIMPLE, EXTRACCION DE UN SOLO PRODUCTO PRINCIPAL.
 Texto OCR a analizar:
 ''';
 
-    final promptMultiple = '''
+    final promptMultiple =
+        '''
 1️⃣ ROL DEL SISTEMA
 
 Actúa como un Arquitecto Senior en:
@@ -520,21 +532,21 @@ Texto OCR a analizar:
     final activePrompt = isMultiple ? promptMultiple : promptSimple;
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/parse-receipt'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-          'systemPrompt': activePrompt,
-          'base64Image': rawText,
-        }),
-      ).timeout(const Duration(seconds: 40));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/parse-receipt'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'systemPrompt': activePrompt,
+              'base64Image': rawText,
+            }),
+          )
+          .timeout(const Duration(seconds: 40));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final content = data['choices'][0]['message']['content'] as String;
-        
+
         // Limpiar bloques de markdown del texto si existen
         String cleanContent = content;
         if (cleanContent.contains('```json')) {
@@ -546,7 +558,7 @@ Texto OCR a analizar:
           cleanContent = cleanContent.split('```')[0];
         }
         cleanContent = cleanContent.trim();
-        
+
         return jsonDecode(cleanContent) as Map<String, dynamic>?;
       }
     } catch (_) {
@@ -562,7 +574,8 @@ Texto OCR a analizar:
   ) async {
     final categoriesListStr = categories.map((c) => c.name).join(', ');
 
-    final prompt = '''
+    final prompt =
+        '''
 1️⃣ ROL DEL SISTEMA
 Actúa como un Asistente Financiero Especializado en Procesamiento de Lenguaje Natural (NLP).
 Tu tarea es interpretar un texto dictado por voz por el usuario y extraer los datos para registrar una transacción.
@@ -614,16 +627,13 @@ Texto dictado:
 ''';
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/parse-voice'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-           'systemPrompt': prompt,
-           'userMessage': rawVoice,
-        }),
-      ).timeout(const Duration(seconds: 25));
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/parse-voice'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'systemPrompt': prompt, 'userMessage': rawVoice}),
+          )
+          .timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -644,7 +654,8 @@ Texto dictado:
     if (product.trim().isEmpty) return null;
 
     final categoriesListStr = categories.map((c) => c.name).join(', ');
-    final prompt = '''
+    final prompt =
+        '''
 Eres un categorizador financiero predictivo ultra-rápido.
 El usuario está escribiendo un gasto y necesitas decirle a qué categoría pertenece de acuerdo a su nombre o entidad.
 
@@ -659,16 +670,15 @@ REGLAS ESTRICTAS:
 ''';
 
     try {
-      final response = await http.post(
-        Uri.parse('$_baseUrl/parse-voice'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode({
-           'systemPrompt': prompt,
-           'userMessage': product,
-        }),
-      ).timeout(const Duration(seconds: 4)); // Timeout muy corto por ser predictivo
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/parse-voice'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'systemPrompt': prompt, 'userMessage': product}),
+          )
+          .timeout(
+            const Duration(seconds: 4),
+          ); // Timeout muy corto por ser predictivo
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));

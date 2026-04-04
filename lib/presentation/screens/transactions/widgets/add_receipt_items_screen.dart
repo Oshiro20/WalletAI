@@ -13,7 +13,8 @@ class AddReceiptItemsScreen extends ConsumerStatefulWidget {
   const AddReceiptItemsScreen({super.key, required this.receipt});
 
   @override
-  ConsumerState<AddReceiptItemsScreen> createState() => _AddReceiptItemsScreenState();
+  ConsumerState<AddReceiptItemsScreen> createState() =>
+      _AddReceiptItemsScreenState();
 }
 
 class _AddReceiptItemsScreenState extends ConsumerState<AddReceiptItemsScreen> {
@@ -35,43 +36,44 @@ class _AddReceiptItemsScreenState extends ConsumerState<AddReceiptItemsScreen> {
       final repo = ref.read(transactionRepositoryProvider);
       final categoriesDao = ref.read(categoriesDaoProvider);
       final accountsDao = ref.read(accountsDaoProvider);
-      
+
       final categories = await categoriesDao.getAllCategories();
       final accounts = await accountsDao.getAllAccounts();
-      
+
       if (accounts.isEmpty) {
         throw Exception('No hay cuentas disponibles');
       }
-      
+
       final defaultAccountId = accounts.first.id;
 
       final now = DateTime.now();
 
       for (final item in _items) {
         String? catId;
-        
+
         // Match category
         if (item.category != null) {
-           for (final c in categories) {
-             if (c.type == 'expense' && c.name.toLowerCase() == item.category!.toLowerCase()) {
-               catId = c.id;
-               break;
-             }
-           }
+          for (final c in categories) {
+            if (c.type == 'expense' &&
+                c.name.toLowerCase() == item.category!.toLowerCase()) {
+              catId = c.id;
+              break;
+            }
+          }
         }
-        
+
         // Fallback cat
         if (catId == null) {
-           for (final c in categories) {
-             if (c.type == 'expense' && c.name.toLowerCase() == 'otro') {
-               catId = c.id;
-               break;
-             }
-           }
+          for (final c in categories) {
+            if (c.type == 'expense' && c.name.toLowerCase() == 'otro') {
+              catId = c.id;
+              break;
+            }
+          }
         }
 
         if (catId == null && categories.isNotEmpty) {
-           catId = categories.firstWhere((c) => c.type == 'expense').id;
+          catId = categories.firstWhere((c) => c.type == 'expense').id;
         }
 
         final txId = const Uuid().v4();
@@ -101,12 +103,11 @@ class _AddReceiptItemsScreenState extends ConsumerState<AddReceiptItemsScreen> {
         );
         Navigator.pop(context, true);
       }
-
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al guardar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al guardar: $e')));
       }
     } finally {
       if (mounted) {
@@ -123,7 +124,16 @@ class _AddReceiptItemsScreenState extends ConsumerState<AddReceiptItemsScreen> {
         actions: [
           if (_items.isNotEmpty)
             _isLoading
-                ? const Center(child: Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator())))
+                ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16),
+                      child: SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  )
                 : IconButton(
                     icon: const Icon(Icons.save),
                     tooltip: 'Guardar Todo',
@@ -145,7 +155,9 @@ class _AddReceiptItemsScreenState extends ConsumerState<AddReceiptItemsScreen> {
                       child: Icon(Icons.shopping_bag),
                     ),
                     title: Text(item.name),
-                    subtitle: Text('${item.category ?? "Sin categoría"} • Cantidad: ${item.quantity ?? 1}'),
+                    subtitle: Text(
+                      '${item.category ?? "Sin categoría"} • Cantidad: ${item.quantity ?? 1}',
+                    ),
                     trailing: Text(
                       'S/ ${item.price.toStringAsFixed(2)}',
                       style: const TextStyle(
@@ -155,7 +167,7 @@ class _AddReceiptItemsScreenState extends ConsumerState<AddReceiptItemsScreen> {
                     ),
                     onLongPress: () {
                       setState(() {
-                         _items.removeAt(index);
+                        _items.removeAt(index);
                       });
                     },
                   ),

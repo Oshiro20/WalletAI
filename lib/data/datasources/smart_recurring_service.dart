@@ -9,14 +9,14 @@ import '../database/drift_database.dart';
 
 /// Un patrón detectado de posible pago recurrente.
 class RecurringSuggestion {
-  final String name;           // Descripción limpia
-  final double amount;         // Monto promedio
-  final String frequency;      // 'monthly' | 'weekly' | 'biweekly'
-  final String? categoryId;    // Categoría más frecuente
-  final String? accountId;     // Cuenta más frecuente
-  final DateTime lastSeen;     // Última vez que apareció
-  final int occurrences;       // Cuántas veces se detectó
-  final double confidence;     // 0.0–1.0
+  final String name; // Descripción limpia
+  final double amount; // Monto promedio
+  final String frequency; // 'monthly' | 'weekly' | 'biweekly'
+  final String? categoryId; // Categoría más frecuente
+  final String? accountId; // Cuenta más frecuente
+  final DateTime lastSeen; // Última vez que apareció
+  final int occurrences; // Cuántas veces se detectó
+  final double confidence; // 0.0–1.0
 
   const RecurringSuggestion({
     required this.name,
@@ -31,11 +31,16 @@ class RecurringSuggestion {
 
   String get frequencyLabel {
     switch (frequency) {
-      case 'weekly':    return 'Semanal';
-      case 'biweekly':  return 'Quincenal';
-      case 'monthly':   return 'Mensual';
-      case 'yearly':    return 'Anual';
-      default:          return frequency;
+      case 'weekly':
+        return 'Semanal';
+      case 'biweekly':
+        return 'Quincenal';
+      case 'monthly':
+        return 'Mensual';
+      case 'yearly':
+        return 'Anual';
+      default:
+        return frequency;
     }
   }
 
@@ -61,20 +66,20 @@ class SmartRecurringService {
   ///  3. Para cada grupo con 2+ ocurrencias, calcula el intervalo promedio.
   ///  4. Si el intervalo encaja con weekly/biweekly/monthly, genera la sugerencia.
   ///  5. Excluye transacciones que ya están registradas como recurrentes.
-  Future<List<RecurringSuggestion>> detectSuggestions({int lookbackDays = 90}) async {
+  Future<List<RecurringSuggestion>> detectSuggestions({
+    int lookbackDays = 90,
+  }) async {
     try {
       final db = ref.read(databaseProvider);
 
       // 1. Leer transacciones recientes (solo gastos e ingresos, no transferencias)
       final since = DateTime.now().subtract(Duration(days: lookbackDays));
-      final allTxs = await (db.select(db.transactions)
-            ..where((t) => t.type.isNotIn(['transfer'])))
-          .get();
+      final allTxs = await (db.select(
+        db.transactions,
+      )..where((t) => t.type.isNotIn(['transfer']))).get();
 
       // Filtrar por fecha y ordenar en Dart (evitar limitaciones de API de columna DateTime)
-      final transactions = allTxs
-          .where((t) => t.date.isAfter(since))
-          .toList()
+      final transactions = allTxs.where((t) => t.date.isAfter(since)).toList()
         ..sort((a, b) => a.date.compareTo(b.date));
 
       // 2. Leer recurrentes existentes para excluirlos
@@ -124,7 +129,9 @@ class SmartRecurringService {
         amount: suggestion.amount,
         accountId: suggestion.accountId ?? '',
         categoryId: Value(suggestion.categoryId),
-        frequency: suggestion.frequency == 'biweekly' ? 'weekly' : suggestion.frequency,
+        frequency: suggestion.frequency == 'biweekly'
+            ? 'weekly'
+            : suggestion.frequency,
         nextDueDate: nextDue,
         createdAt: DateTime.now(),
       ),
@@ -133,7 +140,10 @@ class SmartRecurringService {
 
   // ─── Helpers Privados ───────────────────────────────────────────────────────
 
-  RecurringSuggestion? _analyzeGroup(String normalizedKey, List<Transaction> txs) {
+  RecurringSuggestion? _analyzeGroup(
+    String normalizedKey,
+    List<Transaction> txs,
+  ) {
     if (txs.length < 2) return null;
 
     // Calcular intervalos en días entre ocurrencias consecutivas
@@ -169,9 +179,12 @@ class SmartRecurringService {
     // Penalizar por variabilidad alta en el intervalo
     final variabilityPenalty = (stdDev / avgInterval).clamp(0.0, 0.5);
     final occurrenceBonus = ((txs.length - 2) * 0.05).clamp(0.0, 0.2);
-    final confidence = (baseConfidence - variabilityPenalty + occurrenceBonus).clamp(0.2, 1.0);
+    final confidence = (baseConfidence - variabilityPenalty + occurrenceBonus)
+        .clamp(0.2, 1.0);
 
-    if (confidence < 0.3) return null; // Descarta sugerencias de muy baja confianza
+    if (confidence < 0.3) {
+      return null; // Descarta sugerencias de muy baja confianza
+    }
 
     // Calcular monto promedio (excluir outliers simples)
     final amounts = txs.map((t) => t.amount.abs()).toList()..sort();
@@ -181,7 +194,9 @@ class SmartRecurringService {
     final catFreq = <String, int>{};
     final accFreq = <String, int>{};
     for (final t in txs) {
-      if (t.categoryId != null) catFreq[t.categoryId!] = (catFreq[t.categoryId!] ?? 0) + 1;
+      if (t.categoryId != null) {
+        catFreq[t.categoryId!] = (catFreq[t.categoryId!] ?? 0) + 1;
+      }
       accFreq[t.accountId] = (accFreq[t.accountId] ?? 0) + 1;
     }
 
@@ -223,26 +238,37 @@ class SmartRecurringService {
 
   double _stdDev(List<double> values, double mean) {
     if (values.length < 2) return 0;
-    final variance = values.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) / values.length;
+    final variance =
+        values.map((v) => (v - mean) * (v - mean)).reduce((a, b) => a + b) /
+        values.length;
     return variance <= 0 ? 0 : variance;
   }
 
   DateTime _inferNextDate(DateTime lastSeen, String frequency) {
     switch (frequency) {
-      case 'weekly':    return lastSeen.add(const Duration(days: 7));
-      case 'biweekly':  return lastSeen.add(const Duration(days: 14));
-      case 'monthly':   return DateTime(lastSeen.year, lastSeen.month + 1, lastSeen.day);
-      case 'yearly':    return DateTime(lastSeen.year + 1, lastSeen.month, lastSeen.day);
-      default:          return DateTime.now().add(const Duration(days: 30));
+      case 'weekly':
+        return lastSeen.add(const Duration(days: 7));
+      case 'biweekly':
+        return lastSeen.add(const Duration(days: 14));
+      case 'monthly':
+        return DateTime(lastSeen.year, lastSeen.month + 1, lastSeen.day);
+      case 'yearly':
+        return DateTime(lastSeen.year + 1, lastSeen.month, lastSeen.day);
+      default:
+        return DateTime.now().add(const Duration(days: 30));
     }
   }
 }
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
-final smartRecurringServiceProvider = Provider((ref) => SmartRecurringService(ref));
+final smartRecurringServiceProvider = Provider(
+  (ref) => SmartRecurringService(ref),
+);
 
-final recurringFromHistory = FutureProvider<List<RecurringSuggestion>>((ref) async {
+final recurringFromHistory = FutureProvider<List<RecurringSuggestion>>((
+  ref,
+) async {
   final service = ref.watch(smartRecurringServiceProvider);
   return service.detectSuggestions();
 });

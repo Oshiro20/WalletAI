@@ -17,7 +17,9 @@ class MapAnalyticsView extends ConsumerWidget {
     return transactionsAsync.when(
       data: (transactions) {
         // Filtran transacciones que tengan gps
-        final mappedTransactions = transactions.where((t) => t.latitude != null && t.longitude != null).toList();
+        final mappedTransactions = transactions
+            .where((t) => t.latitude != null && t.longitude != null)
+            .toList();
 
         if (mappedTransactions.isEmpty) {
           return const Center(
@@ -30,7 +32,11 @@ class MapAnalyticsView extends ConsumerWidget {
                   SizedBox(height: 16),
                   Text(
                     'No hay gastos con ubicación',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey,
+                    ),
                   ),
                   SizedBox(height: 8),
                   Text(
@@ -45,7 +51,10 @@ class MapAnalyticsView extends ConsumerWidget {
         }
 
         // Centro inicial: primera transacción o un centro por defecto (Lima, por ejemplo) si estuviera muy lejos
-        final initialCenter = LatLng(mappedTransactions.first.latitude!, mappedTransactions.first.longitude!);
+        final initialCenter = LatLng(
+          mappedTransactions.first.latitude!,
+          mappedTransactions.first.longitude!,
+        );
 
         final markers = mappedTransactions.map((t) {
           final isExpense = t.type == 'expense';
@@ -59,11 +68,7 @@ class MapAnalyticsView extends ConsumerWidget {
             height: 40,
             child: GestureDetector(
               onTap: () => _showLocationDetails(context, t),
-              child: Icon(
-                Icons.location_on,
-                color: markerColor,
-                size: 40,
-              ),
+              child: Icon(Icons.location_on, color: markerColor, size: 40),
             ),
           );
         }).toList();
@@ -78,7 +83,8 @@ class MapAnalyticsView extends ConsumerWidget {
                 ),
                 children: [
                   TileLayer(
-                    urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate:
+                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                     userAgentPackageName: 'com.walletai.app',
                   ),
                   MarkerLayer(markers: markers),
@@ -89,7 +95,8 @@ class MapAnalyticsView extends ConsumerWidget {
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error al cargar mapa: $error')),
+      error: (error, stack) =>
+          Center(child: Text('Error al cargar mapa: $error')),
     );
   }
 
@@ -114,7 +121,10 @@ class MapAnalyticsView extends ConsumerWidget {
                   Expanded(
                     child: Text(
                       transaction.locationName ?? 'Ubicación Desconocida',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -124,13 +134,24 @@ class MapAnalyticsView extends ConsumerWidget {
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
                   backgroundColor: AppColors.expense.withValues(alpha: 0.1),
-                  child: const Icon(Icons.arrow_upward, color: AppColors.expense),
+                  child: const Icon(
+                    Icons.arrow_upward,
+                    color: AppColors.expense,
+                  ),
                 ),
-                title: Text(transaction.productName ?? transaction.description ?? 'Gasto'),
-                subtitle: Text(DateFormat('dd MMM yyyy').format(transaction.date)),
+                title: Text(
+                  transaction.productName ?? transaction.description ?? 'Gasto',
+                ),
+                subtitle: Text(
+                  DateFormat('dd MMM yyyy').format(transaction.date),
+                ),
                 trailing: Text(
                   '$symbol ${transaction.amount.toStringAsFixed(2)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.expense),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppColors.expense,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),

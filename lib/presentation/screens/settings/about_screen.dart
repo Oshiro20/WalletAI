@@ -4,11 +4,11 @@ class AboutScreen extends StatelessWidget {
   const AboutScreen({super.key});
 
   static const _version = '1.15.0';
-  static const _build   = '3';
+  static const _build = '3';
 
   @override
   Widget build(BuildContext context) {
-    final cs  = Theme.of(context).colorScheme;
+    final cs = Theme.of(context).colorScheme;
     final txt = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -18,9 +18,7 @@ class AboutScreen extends StatelessWidget {
           SliverAppBar(
             expandedHeight: 240,
             pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: _HeroBanner(cs: cs),
-            ),
+            flexibleSpace: FlexibleSpaceBar(background: _HeroBanner(cs: cs)),
           ),
 
           SliverToBoxAdapter(
@@ -61,14 +59,24 @@ class AboutScreen extends StatelessWidget {
                 // ─── Funcionalidades ─────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                  child: Text('Funcionalidades', style: txt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Funcionalidades',
+                    style: txt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 _FeatureGrid(cs: cs),
 
                 // ─── IA & Tecnología ─────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
-                  child: Text('Tecnologías IA', style: txt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Tecnologías IA',
+                    style: txt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 _InfoCard(
                   children: [
@@ -98,16 +106,27 @@ class AboutScreen extends StatelessWidget {
                 // ─── Créditos ────────────────────────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
-                  child: Text('Créditos', style: txt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Créditos',
+                    style: txt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 _InfoCard(
                   children: [
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: cs.primaryContainer,
-                        child: const Text('JO', style: TextStyle(fontWeight: FontWeight.bold)),
+                        child: const Text(
+                          'JO',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
                       ),
-                      title: const Text('Oshiro Joel', style: TextStyle(fontWeight: FontWeight.w600)),
+                      title: const Text(
+                        'Oshiro Joel',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       subtitle: const Text('Desarrollador principal'),
                     ),
                     ListTile(
@@ -115,8 +134,13 @@ class AboutScreen extends StatelessWidget {
                         backgroundColor: cs.secondaryContainer,
                         child: Icon(Icons.smart_toy, color: cs.secondary),
                       ),
-                      title: const Text('Antigravity AI', style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text('Asistente de desarrollo (Google DeepMind)'),
+                      title: const Text(
+                        'Antigravity AI',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text(
+                        'Asistente de desarrollo (Google DeepMind)',
+                      ),
                     ),
                   ],
                 ),
@@ -124,7 +148,12 @@ class AboutScreen extends StatelessWidget {
                 // ─── Paquetes de código abierto ──────────────────────────────
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-                  child: Text('Código Abierto', style: txt.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  child: Text(
+                    'Código Abierto',
+                    style: txt.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
                 _InfoCard(
                   children: [
@@ -135,7 +164,11 @@ class AboutScreen extends StatelessWidget {
                         applicationVersion: '$_version+$_build',
                         applicationIcon: Padding(
                           padding: const EdgeInsets.all(8.0),
-                          child: Icon(Icons.account_balance_wallet, size: 48, color: cs.primary),
+                          child: Icon(
+                            Icons.account_balance_wallet,
+                            size: 48,
+                            color: cs.primary,
+                          ),
                         ),
                       ),
                       child: const ListTile(
@@ -154,7 +187,9 @@ class AboutScreen extends StatelessWidget {
                     ListTile(
                       leading: const Icon(Icons.privacy_tip_outlined),
                       title: const Text('Privacidad'),
-                      subtitle: const Text('Todos tus datos se almacenan localmente en tu dispositivo.\nWalletAI no envía información a ningún servidor externo.'),
+                      subtitle: const Text(
+                        'Todos tus datos se almacenan localmente en tu dispositivo.\nWalletAI no envía información a ningún servidor externo.',
+                      ),
                     ),
                   ],
                 ),
@@ -167,12 +202,16 @@ class AboutScreen extends StatelessWidget {
                     children: [
                       Text(
                         'Hecho con ❤️ en Perú',
-                        style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                        style: txt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         '© 2026 WalletAI · v$_version',
-                        style: txt.bodySmall?.copyWith(color: cs.onSurfaceVariant.withValues(alpha: 0.6)),
+                        style: txt.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant.withValues(alpha: 0.6),
+                        ),
                       ),
                     ],
                   ),
@@ -201,10 +240,7 @@ class _HeroBanner extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            cs.primary,
-            cs.tertiary,
-          ],
+          colors: [cs.primary, cs.tertiary],
         ),
       ),
       child: SafeArea(
@@ -219,16 +255,23 @@ class _HeroBanner extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.3), width: 1.5),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.3),
+                  width: 1.5,
+                ),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: 0.2),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
-                  )
+                  ),
                 ],
               ),
-              child: const Icon(Icons.account_balance_wallet, size: 44, color: Colors.white),
+              child: const Icon(
+                Icons.account_balance_wallet,
+                size: 44,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(height: 14),
             const Text(
@@ -297,11 +340,13 @@ class _FeatureGrid extends StatelessWidget {
               children: [
                 Text(f.$1, style: const TextStyle(fontSize: 14)),
                 const SizedBox(width: 5),
-                Text(f.$2,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    )),
+                Text(
+                  f.$2,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           );
@@ -330,7 +375,11 @@ class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String label;
   final String value;
-  const _InfoRow({required this.icon, required this.label, required this.value});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -338,7 +387,10 @@ class _InfoRow extends StatelessWidget {
     return ListTile(
       dense: true,
       leading: Icon(icon, size: 20, color: cs.primary),
-      title: Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
+      title: Text(
+        label,
+        style: const TextStyle(fontSize: 13, color: Colors.grey),
+      ),
       trailing: Text(
         value,
         style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
@@ -351,14 +403,21 @@ class _AiTechRow extends StatelessWidget {
   final String emoji;
   final String label;
   final String detail;
-  const _AiTechRow({required this.emoji, required this.label, required this.detail});
+  const _AiTechRow({
+    required this.emoji,
+    required this.label,
+    required this.detail,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
       dense: true,
       leading: Text(emoji, style: const TextStyle(fontSize: 22)),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+      title: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+      ),
       subtitle: Text(detail, style: const TextStyle(fontSize: 11)),
     );
   }

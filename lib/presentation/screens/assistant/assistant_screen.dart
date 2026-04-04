@@ -12,19 +12,23 @@ class ChatMessage {
   final String text;
   final bool isUser;
   final DateTime timestamp;
-  ChatMessage({required this.text, required this.isUser, required this.timestamp});
+  ChatMessage({
+    required this.text,
+    required this.isUser,
+    required this.timestamp,
+  });
 
   Map<String, dynamic> toJson() => {
-        'text': text,
-        'isUser': isUser,
-        'timestamp': timestamp.millisecondsSinceEpoch,
-      };
+    'text': text,
+    'isUser': isUser,
+    'timestamp': timestamp.millisecondsSinceEpoch,
+  };
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
-        text: json['text'] as String,
-        isUser: json['isUser'] as bool,
-        timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp'] as int),
-      );
+    text: json['text'] as String,
+    isUser: json['isUser'] as bool,
+    timestamp: DateTime.fromMillisecondsSinceEpoch(json['timestamp'] as int),
+  );
 }
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
@@ -37,7 +41,8 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   static const _kHistoryKey = 'chat_history_v1';
   static const _maxStoredMessages = 30;
 
-  static const _welcomeMessage = '👋 ¡Hola! Soy WalletAI, tu asistente financiero con IA. Puedes preguntarme cualquier cosa sobre tus finanzas, consejos de ahorro, análisis de gastos o lo que necesites. 💬';
+  static const _welcomeMessage =
+      '👋 ¡Hola! Soy WalletAI, tu asistente financiero con IA. Puedes preguntarme cualquier cosa sobre tus finanzas, consejos de ahorro, análisis de gastos o lo que necesites. 💬';
 
   ChatNotifier(this._ref) : super([]) {
     _loadHistory();
@@ -91,7 +96,6 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     } catch (_) {}
   }
 
-
   Future<String> _buildFinancialContext() async {
     try {
       final txDao = _ref.read(transactionsDaoProvider);
@@ -106,10 +110,15 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
       final accounts = await accDao.getAllAccounts();
       final categories = await catDao.getAllCategories();
       final budgets = await budDao.getActiveBudgets();
-      final monthlyTxs = await txDao.getTransactionsByDateRange(startMonth, endMonth);
+      final monthlyTxs = await txDao.getTransactionsByDateRange(
+        startMonth,
+        endMonth,
+      );
 
       double totalBalance = 0;
-      for (final acc in accounts) { totalBalance += acc.balance; }
+      for (final acc in accounts) {
+        totalBalance += acc.balance;
+      }
 
       double monthIncome = 0, monthExpense = 0;
       for (final tx in monthlyTxs) {
@@ -121,9 +130,13 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
       final sb = StringBuffer();
       sb.writeln('Fecha: ${DateFormat('dd/MM/yyyy').format(now)}');
       sb.writeln('Saldo total en cuentas: ${fmt.format(totalBalance)}');
-      sb.writeln('Ingresos este mes (${DateFormat('MMMM yyyy', 'es').format(now)}): ${fmt.format(monthIncome)}');
+      sb.writeln(
+        'Ingresos este mes (${DateFormat('MMMM yyyy', 'es').format(now)}): ${fmt.format(monthIncome)}',
+      );
       sb.writeln('Gastos este mes: ${fmt.format(monthExpense)}');
-      sb.writeln('Balance neto del mes: ${fmt.format(monthIncome - monthExpense)}');
+      sb.writeln(
+        'Balance neto del mes: ${fmt.format(monthIncome - monthExpense)}',
+      );
       sb.writeln('Número de transacciones este mes: ${monthlyTxs.length}');
 
       if (accounts.isNotEmpty) {
@@ -135,13 +148,17 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
 
       if (monthlyTxs.isNotEmpty) {
         sb.writeln('\nÚltimas transacciones del mes:');
-        final recentTxs = monthlyTxs.take(20).toList(); // Limitar para no saturar tokens
+        final recentTxs = monthlyTxs
+            .take(20)
+            .toList(); // Limitar para no saturar tokens
         final catMap = {for (final c in categories) c.id: c.name};
         for (final tx in recentTxs) {
           final catName = catMap[tx.categoryId] ?? "Varios";
           final sign = tx.type == 'expense' ? '-' : '+';
           final desc = tx.description ?? tx.productName ?? 'Sin detalle';
-          sb.writeln('  - ${DateFormat('dd/MM').format(tx.date)}: $sign${fmt.format(tx.amount)} [Cat: $catName] - $desc');
+          sb.writeln(
+            '  - ${DateFormat('dd/MM').format(tx.date)}: $sign${fmt.format(tx.amount)} [Cat: $catName] - $desc',
+          );
         }
       }
 
@@ -149,12 +166,16 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
         sb.writeln('\nPresupuestos activos:');
         final catMap = {for (final c in categories) c.id: c.name};
         for (final b in budgets) {
-          sb.writeln('  - ${catMap[b.categoryId] ?? "Sin categoría"}: ${fmt.format(b.amount)}/mes');
+          sb.writeln(
+            '  - ${catMap[b.categoryId] ?? "Sin categoría"}: ${fmt.format(b.amount)}/mes',
+          );
         }
       }
 
       if (categories.isNotEmpty) {
-        sb.writeln('\nCategorías de gastos registradas: ${categories.where((c) => c.type == "expense").map((c) => c.name).join(", ")}');
+        sb.writeln(
+          '\nCategorías de gastos registradas: ${categories.where((c) => c.type == "expense").map((c) => c.name).join(", ")}',
+        );
       }
 
       return sb.toString();
@@ -167,9 +188,16 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     if (text.trim().isEmpty || _isLoading) return;
 
     _isLoading = true;
-    state = [...state, ChatMessage(text: text.trim(), isUser: true, timestamp: DateTime.now())];
+    state = [
+      ...state,
+      ChatMessage(text: text.trim(), isUser: true, timestamp: DateTime.now()),
+    ];
 
-    final typing = ChatMessage(text: '...', isUser: false, timestamp: DateTime.now());
+    final typing = ChatMessage(
+      text: '...',
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
     state = [...state, typing];
 
     final context = await _buildFinancialContext();
@@ -178,7 +206,10 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
 
     final msgs = [...state];
     msgs.removeLast();
-    final finalMsgs = [...msgs, ChatMessage(text: response, isUser: false, timestamp: DateTime.now())];
+    final finalMsgs = [
+      ...msgs,
+      ChatMessage(text: response, isUser: false, timestamp: DateTime.now()),
+    ];
     state = finalMsgs;
     _isLoading = false;
     await _saveHistory(finalMsgs);
@@ -198,9 +229,10 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
   }
 }
 
-final chatNotifierProvider = StateNotifierProvider<ChatNotifier, List<ChatMessage>>(
-  (ref) => ChatNotifier(ref),
-);
+final chatNotifierProvider =
+    StateNotifierProvider<ChatNotifier, List<ChatMessage>>(
+      (ref) => ChatNotifier(ref),
+    );
 
 // ─── Pantalla ─────────────────────────────────────────────────────────────────
 
@@ -268,14 +300,18 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
               child: Icon(Icons.auto_awesome, size: 18, color: cs.primary),
             ),
             const SizedBox(width: 10),
-            const Text('Asistente IA', style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text(
+              'Asistente IA',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Nuevo chat',
-            onPressed: () => ref.read(chatNotifierProvider.notifier).clearMessages(),
+            onPressed: () =>
+                ref.read(chatNotifierProvider.notifier).clearMessages(),
           ),
         ],
       ),
@@ -326,7 +362,9 @@ class _MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        mainAxisAlignment: message.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!message.isUser) ...[
@@ -383,8 +421,10 @@ class _TypingIndicatorState extends State<_TypingIndicator>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 800))
-      ..repeat(reverse: true);
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    )..repeat(reverse: true);
   }
 
   @override
@@ -399,16 +439,23 @@ class _TypingIndicatorState extends State<_TypingIndicator>
       animation: _ctrl,
       builder: (_, __) => Row(
         mainAxisSize: MainAxisSize.min,
-        children: List.generate(3, (i) => Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Opacity(
-            opacity: ((_ctrl.value + i * 0.3) % 1.0).clamp(0.3, 1.0),
-            child: Container(
-              width: 6, height: 6,
-              decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+        children: List.generate(
+          3,
+          (i) => Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Opacity(
+              opacity: ((_ctrl.value + i * 0.3) % 1.0).clamp(0.3, 1.0),
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: widget.color,
+                  shape: BoxShape.circle,
+                ),
+              ),
             ),
           ),
-        )),
+        ),
       ),
     );
   }
@@ -466,8 +513,13 @@ class _ChatInput extends StatelessWidget {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
                   hintText: 'Pregunta lo que quieras...',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 10,
+                  ),
                   filled: true,
                 ),
                 onSubmitted: (_) => onSend(),
@@ -478,10 +530,13 @@ class _ChatInput extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               child: FloatingActionButton.small(
                 onPressed: isLoading ? null : () => onSend(),
-                backgroundColor: isLoading ? cs.surfaceContainerHighest : cs.primary,
+                backgroundColor: isLoading
+                    ? cs.surfaceContainerHighest
+                    : cs.primary,
                 child: isLoading
                     ? SizedBox(
-                        width: 18, height: 18,
+                        width: 18,
+                        height: 18,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: cs.onSurfaceVariant,

@@ -110,12 +110,10 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final modeStr = prefs.getString(_kThemeMode) ?? 'system';
-    final colorVal = prefs.getInt(_kSeedColor) ?? const Color(0xFF6366F1).toARGB32();
+    final colorVal =
+        prefs.getInt(_kSeedColor) ?? const Color(0xFF6366F1).toARGB32();
 
-    state = ThemeState(
-      mode: _parseMode(modeStr),
-      seedColor: Color(colorVal),
-    );
+    state = ThemeState(mode: _parseMode(modeStr), seedColor: Color(colorVal));
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {

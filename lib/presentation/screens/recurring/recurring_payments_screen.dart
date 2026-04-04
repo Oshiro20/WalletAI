@@ -68,12 +68,17 @@ class _RecurringPaymentTile extends StatelessWidget {
           backgroundColor: Colors.blue.withValues(alpha: 0.1),
           child: const Icon(Icons.loop, color: Colors.blue),
         ),
-        title: Text(payment.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          payment.name,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Monto: \$${payment.amount.toStringAsFixed(2)}'),
-            Text('Próximo: ${DateFormat('dd/MM/yyyy').format(payment.nextDueDate)}'),
+            Text(
+              'Próximo: ${DateFormat('dd/MM/yyyy').format(payment.nextDueDate)}',
+            ),
             Text('Frecuencia: ${_translateFrequency(payment.frequency)}'),
           ],
         ),
@@ -113,18 +118,28 @@ class _RecurringPaymentTile extends StatelessWidget {
               return TextButton(
                 onPressed: () async {
                   try {
-                    await ref.read(recurringPaymentsDaoProvider).deactivateRecurringPayment(id);
+                    await ref
+                        .read(recurringPaymentsDaoProvider)
+                        .deactivateRecurringPayment(id);
                     if (context.mounted) Navigator.pop(ctx);
                   } catch (e) {
                     if (context.mounted) {
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al eliminar pago recurrente: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text(
+                            'Error al eliminar pago recurrente: $e',
+                          ),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
                   }
                 },
-                child: const Text('Eliminar', style: TextStyle(color: Colors.red)),
+                child: const Text(
+                  'Eliminar',
+                  style: TextStyle(color: Colors.red),
+                ),
               );
             },
           ),

@@ -29,17 +29,26 @@ class VoiceInputButton extends ConsumerWidget {
 
           try {
             final groq = ref.read(groqServiceProvider);
-            final categories = await ref.read(allCategoriesFutureProvider.future);
-            
+            final categories = await ref.read(
+              allCategoriesFutureProvider.future,
+            );
+
             final aiData = await groq.parseVoiceTransaction(result, categories);
-            
-            if (context.mounted) Navigator.of(context, rootNavigator: true).pop(); // cerrar loading
+
+            if (context.mounted) {
+              Navigator.of(
+                context,
+                rootNavigator: true,
+              ).pop(); // cerrar loading
+            }
 
             if (aiData != null && context.mounted) {
               // Buscar categoría
               String? catId;
               if (aiData['categoria_sugerida'] != null) {
-                final matchName = aiData['categoria_sugerida'].toString().toLowerCase();
+                final matchName = aiData['categoria_sugerida']
+                    .toString()
+                    .toLowerCase();
                 try {
                   final match = categories.firstWhere(
                     (c) => (c as dynamic).name.toLowerCase() == matchName,
@@ -53,13 +62,15 @@ class VoiceInputButton extends ConsumerWidget {
               // OVERRIDE DE APRENDIZAJE PERSISTENTE
               final parsedProductName = aiData['producto']?.toString();
               if (parsedProductName != null && parsedProductName.isNotEmpty) {
-                 final db = ref.read(databaseProvider);
-                 final rule = await db.learningRulesDao.getRuleForProduct(parsedProductName);
-                 if (rule != null) {
-                   catId = rule.categoryId; // Sobrescribir con lo aprendido
-                 }
+                final db = ref.read(databaseProvider);
+                final rule = await db.learningRulesDao.getRuleForProduct(
+                  parsedProductName,
+                );
+                if (rule != null) {
+                  catId = rule.categoryId; // Sobrescribir con lo aprendido
+                }
               }
-              
+
               if (!context.mounted) return;
 
               context.push(
@@ -77,7 +88,10 @@ class VoiceInputButton extends ConsumerWidget {
             }
           } catch (e) {
             if (context.mounted) {
-              Navigator.of(context, rootNavigator: true).pop(); // cerrar loading en caso de error
+              Navigator.of(
+                context,
+                rootNavigator: true,
+              ).pop(); // cerrar loading en caso de error
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('Error AI: ${e.toString()}'),
@@ -144,19 +158,16 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
           ),
           const SizedBox(height: 16),
           Text(
-            _text.isEmpty
-                ? 'Ej: "Gasto de 20 soles en cena con BCP"'
-                : _text,
+            _text.isEmpty ? 'Ej: "Gasto de 20 soles en cena con BCP"' : _text,
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge,
           ),
           const SizedBox(height: 8),
           Text(
             _status,
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.grey),
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: Colors.grey),
           ),
         ],
       ),

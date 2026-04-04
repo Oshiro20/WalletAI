@@ -19,7 +19,9 @@ final legacyImportServiceProvider = Provider<LegacyImportService>((ref) {
   return LegacyImportService(db);
 });
 
-final transactionParserServiceProvider = Provider<TransactionParserService>((ref) {
+final transactionParserServiceProvider = Provider<TransactionParserService>((
+  ref,
+) {
   return TransactionParserService();
 });
 

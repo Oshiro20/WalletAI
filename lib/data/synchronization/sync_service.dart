@@ -31,7 +31,9 @@ class SyncService {
   Future<void> _processItem(SyncQueueItem item) async {
     // Simular delay de red
     await Future.delayed(const Duration(milliseconds: 500));
-    debugPrint('Synced item: ${item.targetTable} - ${item.operation} - ${item.recordId}');
+    debugPrint(
+      'Synced item: ${item.targetTable} - ${item.operation} - ${item.recordId}',
+    );
   }
 }
 

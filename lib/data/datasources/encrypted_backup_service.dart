@@ -16,7 +16,11 @@ class EncryptResult {
   final bool success;
   final String message;
   final String? filePath;
-  const EncryptResult({required this.success, required this.message, this.filePath});
+  const EncryptResult({
+    required this.success,
+    required this.message,
+    this.filePath,
+  });
 
   factory EncryptResult.error(String msg) =>
       EncryptResult(success: false, message: msg);
@@ -59,7 +63,9 @@ class EncryptedBackupService {
   static Future<EncryptResult> encryptAndSave(String password) async {
     try {
       if (password.length < 4) {
-        return EncryptResult.error('La contraseña debe tener al menos 4 caracteres');
+        return EncryptResult.error(
+          'La contraseña debe tener al menos 4 caracteres',
+        );
       }
 
       final dbFile = await _getDbFile();
@@ -75,15 +81,21 @@ class EncryptedBackupService {
 
       // Construir archivo: magic + iv + ciphertext
       final header = Uint8List.fromList(_magicHeader.codeUnits);
-      final output = Uint8List(header.length + iv.bytes.length + encrypted.bytes.length)
-        ..setRange(0, header.length, header)
-        ..setRange(header.length, header.length + 16, iv.bytes)
-        ..setRange(header.length + 16, header.length + 16 + encrypted.bytes.length,
-            encrypted.bytes);
+      final output =
+          Uint8List(header.length + iv.bytes.length + encrypted.bytes.length)
+            ..setRange(0, header.length, header)
+            ..setRange(header.length, header.length + 16, iv.bytes)
+            ..setRange(
+              header.length + 16,
+              header.length + 16 + encrypted.bytes.length,
+              encrypted.bytes,
+            );
 
       final docsDir = await getApplicationDocumentsDirectory();
-      final timestamp =
-          DateTime.now().toIso8601String().replaceAll(':', '-').substring(0, 19);
+      final timestamp = DateTime.now()
+          .toIso8601String()
+          .replaceAll(':', '-')
+          .substring(0, 19);
       final outPath = p.join(docsDir.path, 'backup_$timestamp$_encExtension');
 
       await File(outPath).writeAsBytes(output);
@@ -115,7 +127,9 @@ class EncryptedBackupService {
             '🔒 Backup cifrado de WalletAI. Necesitas la contraseña para restaurarlo.',
       );
       return const EncryptResult(
-          success: true, message: 'Backup cifrado compartido exitosamente');
+        success: true,
+        message: 'Backup cifrado compartido exitosamente',
+      );
     } catch (e) {
       return EncryptResult.error('Error al compartir: $e');
     }
@@ -125,7 +139,9 @@ class EncryptedBackupService {
 
   /// Restaura un archivo `.walletai` dado su path y la contraseña correcta.
   static Future<EncryptResult> decryptAndRestore(
-      String filePath, String password) async {
+    String filePath,
+    String password,
+  ) async {
     try {
       final encFile = File(filePath);
       if (!await encFile.exists()) {
@@ -143,28 +159,35 @@ class EncryptedBackupService {
       final headerStr = String.fromCharCodes(headerBytes);
       if (headerStr != _magicHeader) {
         return EncryptResult.error(
-            'Archivo inválido. Asegúrate de seleccionar un backup .walletai de WalletAI');
+          'Archivo inválido. Asegúrate de seleccionar un backup .walletai de WalletAI',
+        );
       }
 
-      final ivBytes = Uint8List.fromList(raw.sublist(_magicHeader.length, _magicHeader.length + 16));
+      final ivBytes = Uint8List.fromList(
+        raw.sublist(_magicHeader.length, _magicHeader.length + 16),
+      );
       final iv = enc.IV(ivBytes);
       final key = _deriveKey(password, ivBytes);
       final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
 
-      final cipherBytes = Uint8List.fromList(raw.sublist(_magicHeader.length + 16));
+      final cipherBytes = Uint8List.fromList(
+        raw.sublist(_magicHeader.length + 16),
+      );
       List<int> plainBytes;
       try {
         plainBytes = encrypter.decryptBytes(enc.Encrypted(cipherBytes), iv: iv);
       } catch (_) {
         return EncryptResult.error(
-            '❌ Contraseña incorrecta. No se puede abrir el backup.');
+          '❌ Contraseña incorrecta. No se puede abrir el backup.',
+        );
       }
 
       // Verificar que el resultado parece un SQLite válido
       if (plainBytes.length < 16 ||
           String.fromCharCodes(plainBytes.sublist(0, 6)) != 'SQLite') {
         return EncryptResult.error(
-            '❌ Contraseña incorrecta o archivo corrupto.');
+          '❌ Contraseña incorrecta o archivo corrupto.',
+        );
       }
 
       final dbFile = await _getDbFile();
@@ -197,16 +220,25 @@ class EncryptedBackupService {
       final raw = await File(filePath).readAsBytes();
       if (raw.length < _magicHeader.length + 16 + 16) return false;
 
-      final headerStr = String.fromCharCodes(raw.sublist(0, _magicHeader.length));
+      final headerStr = String.fromCharCodes(
+        raw.sublist(0, _magicHeader.length),
+      );
       if (headerStr != _magicHeader) return false;
 
-      final ivBytes = Uint8List.fromList(raw.sublist(_magicHeader.length, _magicHeader.length + 16));
+      final ivBytes = Uint8List.fromList(
+        raw.sublist(_magicHeader.length, _magicHeader.length + 16),
+      );
       final iv = enc.IV(ivBytes);
       final key = _deriveKey(password, ivBytes);
       final encrypter = enc.Encrypter(enc.AES(key, mode: enc.AESMode.cbc));
-      final cipherBytes = Uint8List.fromList(raw.sublist(_magicHeader.length + 16));
+      final cipherBytes = Uint8List.fromList(
+        raw.sublist(_magicHeader.length + 16),
+      );
 
-      final plainBytes = encrypter.decryptBytes(enc.Encrypted(cipherBytes), iv: iv);
+      final plainBytes = encrypter.decryptBytes(
+        enc.Encrypted(cipherBytes),
+        iv: iv,
+      );
       return plainBytes.length >= 6 &&
           String.fromCharCodes(plainBytes.sublist(0, 6)) == 'SQLite';
     } catch (_) {

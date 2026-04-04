@@ -46,34 +46,35 @@ class EmptyStateWidget extends StatefulWidget {
       EmptyStateWidget(
         icon: Icons.savings,
         title: 'Sin presupuestos',
-        subtitle: 'Define límites de gasto por categoría\npara mantener el control.',
+        subtitle:
+            'Define límites de gasto por categoría\npara mantener el control.',
         actionLabel: 'Nuevo presupuesto',
         onAction: onCreate,
         iconColor: Colors.orange,
       );
 
-  factory EmptyStateWidget.goals({VoidCallback? onCreate}) =>
-      EmptyStateWidget(
-        icon: Icons.flag,
-        title: 'Sin metas de ahorro',
-        subtitle: 'Establece objetivos financieros y\nsigue tu progreso mes a mes.',
-        actionLabel: 'Nueva meta',
-        onAction: onCreate,
-        iconColor: Colors.green,
-      );
+  factory EmptyStateWidget.goals({VoidCallback? onCreate}) => EmptyStateWidget(
+    icon: Icons.flag,
+    title: 'Sin metas de ahorro',
+    subtitle: 'Establece objetivos financieros y\nsigue tu progreso mes a mes.',
+    actionLabel: 'Nueva meta',
+    onAction: onCreate,
+    iconColor: Colors.green,
+  );
 
   factory EmptyStateWidget.search() => const EmptyStateWidget(
-        icon: Icons.search_off,
-        title: 'Sin resultados',
-        subtitle: 'Prueba con otro término\no revisa los filtros aplicados.',
-        iconColor: Colors.grey,
-      );
+    icon: Icons.search_off,
+    title: 'Sin resultados',
+    subtitle: 'Prueba con otro término\no revisa los filtros aplicados.',
+    iconColor: Colors.grey,
+  );
 
   factory EmptyStateWidget.recurring({VoidCallback? onCreate}) =>
       EmptyStateWidget(
         icon: Icons.loop,
         title: 'Sin pagos recurrentes',
-        subtitle: 'Registra suscripciones, alquileres u\notros pagos que se repiten.',
+        subtitle:
+            'Registra suscripciones, alquileres u\notros pagos que se repiten.',
         actionLabel: 'Nuevo pago',
         onAction: onCreate,
         iconColor: Colors.teal,
@@ -98,9 +99,10 @@ class _EmptyStateWidgetState extends State<EmptyStateWidget>
     )..forward();
 
     _fadeAnim = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
-    _scaleAnim = Tween<double>(begin: 0.7, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut),
-    );
+    _scaleAnim = Tween<double>(
+      begin: 0.7,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
   }
 
   @override

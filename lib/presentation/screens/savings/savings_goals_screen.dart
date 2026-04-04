@@ -30,18 +30,27 @@ class SavingsGoalsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.flag_outlined, size: 64,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  Icon(
+                    Icons.flag_outlined,
+                    size: 64,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                   const SizedBox(height: 16),
-                  Text('No tienes metas de ahorro',
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 16)),
+                  Text(
+                    'No tienes metas de ahorro',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 16,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  Text('Define cuánto quieres ahorrar',
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                          fontSize: 13)),
+                  Text(
+                    'Define cuánto quieres ahorrar',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 13,
+                    ),
+                  ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     onPressed: () => _showCreateGoalDialog(context, ref),
@@ -61,8 +70,10 @@ class SavingsGoalsScreen extends ConsumerWidget {
                 final dao = ref.read(savingsGoalsDaoProvider);
                 await dao.deleteGoal(goals[i].id);
               },
-              onEdit: () => _showCreateGoalDialog(context, ref, existing: goals[i]),
-              onAddProgress: () => _showAddProgressDialog(context, ref, goals[i]),
+              onEdit: () =>
+                  _showCreateGoalDialog(context, ref, existing: goals[i]),
+              onAddProgress: () =>
+                  _showAddProgressDialog(context, ref, goals[i]),
             ),
           );
         },
@@ -72,17 +83,26 @@ class SavingsGoalsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCreateGoalDialog(BuildContext context, WidgetRef ref, {SavingsGoal? existing}) {
+  void _showCreateGoalDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    SavingsGoal? existing,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => _CreateGoalSheet(existing: existing),
     );
   }
 
-  void _showAddProgressDialog(BuildContext context, WidgetRef ref, SavingsGoal goal) {
+  void _showAddProgressDialog(
+    BuildContext context,
+    WidgetRef ref,
+    SavingsGoal goal,
+  ) {
     showDialog(
       context: context,
       builder: (_) => _AddProgressDialog(goal: goal),
@@ -146,22 +166,35 @@ class _GoalCard extends StatelessWidget {
                     color: goalColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Text(goal.icon ?? '🎯', style: const TextStyle(fontSize: 22)),
+                  child: Text(
+                    goal.icon ?? '🎯',
+                    style: const TextStyle(fontSize: 22),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(goal.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(
+                        goal.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                       if (daysText != null)
-                        Text(daysText,
-                            style: TextStyle(
-                                fontSize: 12,
-                                color: daysText.contains('vencida')
-                                    ? Colors.red
-                                    : Theme.of(context).colorScheme.onSurfaceVariant)),
+                        Text(
+                          daysText,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: daysText.contains('vencida')
+                                ? Colors.red
+                                : Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -178,9 +211,15 @@ class _GoalCard extends StatelessWidget {
                       if (v == 'delete') onDelete();
                     },
                     itemBuilder: (_) => [
-                      const PopupMenuItem(value: 'add', child: Text('➕ Agregar ahorro')),
+                      const PopupMenuItem(
+                        value: 'add',
+                        child: Text('➕ Agregar ahorro'),
+                      ),
                       const PopupMenuItem(value: 'edit', child: Text('Editar')),
-                      const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Eliminar'),
+                      ),
                     ],
                   ),
               ],
@@ -196,8 +235,9 @@ class _GoalCard extends StatelessWidget {
                 Text(
                   '${(pct * 100).toStringAsFixed(0)}%',
                   style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isCompleted ? Colors.green : goalColor),
+                    fontWeight: FontWeight.bold,
+                    color: isCompleted ? Colors.green : goalColor,
+                  ),
                 ),
               ],
             ),
@@ -207,9 +247,12 @@ class _GoalCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: pct,
                 minHeight: 10,
-                backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                backgroundColor: Theme.of(
+                  context,
+                ).colorScheme.surfaceContainerHighest,
                 valueColor: AlwaysStoppedAnimation<Color>(
-                    isCompleted ? Colors.green : goalColor),
+                  isCompleted ? Colors.green : goalColor,
+                ),
               ),
             ),
             if (!isCompleted && remaining > 0)
@@ -218,8 +261,9 @@ class _GoalCard extends StatelessWidget {
                 child: Text(
                   'Faltan S/ ${remaining.toStringAsFixed(2)} para tu meta',
                   style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant),
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
             if (!isCompleted)
@@ -321,7 +365,20 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
   String _icon = '🎯';
   DateTime? _deadline;
 
-  static const _icons = ['🎯', '🏠', '✈️', '🚗', '💻', '📱', '👶', '🎓', '💍', '🏖️', '🏋️', '🎸'];
+  static const _icons = [
+    '🎯',
+    '🏠',
+    '✈️',
+    '🚗',
+    '💻',
+    '📱',
+    '👶',
+    '🎓',
+    '💍',
+    '🏖️',
+    '🏋️',
+    '🎸',
+  ];
 
   @override
   void initState() {
@@ -347,7 +404,9 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
+        left: 20,
+        right: 20,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: SingleChildScrollView(
@@ -355,8 +414,10 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(isEdit ? 'Editar Meta' : 'Nueva Meta de Ahorro',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              isEdit ? 'Editar Meta' : 'Nueva Meta de Ahorro',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 20),
 
             // Icon picker
@@ -364,22 +425,33 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
-              children: _icons.map((ic) => GestureDetector(
-                onTap: () => setState(() => _icon = ic),
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _icon == ic
-                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.2)
-                        : Theme.of(context).colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(8),
-                    border: _icon == ic
-                        ? Border.all(color: Theme.of(context).colorScheme.primary, width: 2)
-                        : null,
-                  ),
-                  child: Text(ic, style: const TextStyle(fontSize: 22)),
-                ),
-              )).toList(),
+              children: _icons
+                  .map(
+                    (ic) => GestureDetector(
+                      onTap: () => setState(() => _icon = ic),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _icon == ic
+                              ? Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.2)
+                              : Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(8),
+                          border: _icon == ic
+                              ? Border.all(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  width: 2,
+                                )
+                              : null,
+                        ),
+                        child: Text(ic, style: const TextStyle(fontSize: 22)),
+                      ),
+                    ),
+                  )
+                  .toList(),
             ),
             const SizedBox(height: 16),
 
@@ -397,7 +469,9 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
             // Target amount
             TextFormField(
               controller: _targetCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
                 labelText: 'Meta (S/)',
                 border: OutlineInputBorder(),
@@ -410,9 +484,11 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.calendar_today),
-              title: Text(_deadline != null
-                  ? 'Fecha límite: ${DateFormat('dd/MM/yyyy').format(_deadline!)}'
-                  : 'Sin fecha límite (opcional)'),
+              title: Text(
+                _deadline != null
+                    ? 'Fecha límite: ${DateFormat('dd/MM/yyyy').format(_deadline!)}'
+                    : 'Sin fecha límite (opcional)',
+              ),
               trailing: _deadline != null
                   ? IconButton(
                       icon: const Icon(Icons.clear),
@@ -435,9 +511,13 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _save,
-                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                child: Text(isEdit ? 'Guardar Cambios' : 'Crear Meta',
-                    style: const TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(
+                  isEdit ? 'Guardar Cambios' : 'Crear Meta',
+                  style: const TextStyle(fontSize: 16),
+                ),
               ),
             ),
           ],
@@ -461,23 +541,27 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
     final now = DateTime.now();
 
     if (widget.existing != null) {
-      await dao.updateGoal(widget.existing!.copyWith(
-        name: name,
-        targetAmount: target,
-        icon: drift.Value(_icon),
-        deadline: drift.Value(_deadline),
-        updatedAt: now,
-      ));
+      await dao.updateGoal(
+        widget.existing!.copyWith(
+          name: name,
+          targetAmount: target,
+          icon: drift.Value(_icon),
+          deadline: drift.Value(_deadline),
+          updatedAt: now,
+        ),
+      );
     } else {
-      await dao.createGoal(SavingsGoalsCompanion.insert(
-        id: const Uuid().v4(),
-        name: name,
-        targetAmount: target,
-        icon: drift.Value(_icon),
-        deadline: drift.Value(_deadline),
-        createdAt: now,
-        updatedAt: now,
-      ));
+      await dao.createGoal(
+        SavingsGoalsCompanion.insert(
+          id: const Uuid().v4(),
+          name: name,
+          targetAmount: target,
+          icon: drift.Value(_icon),
+          deadline: drift.Value(_deadline),
+          createdAt: now,
+          updatedAt: now,
+        ),
+      );
     }
 
     if (!mounted) return;

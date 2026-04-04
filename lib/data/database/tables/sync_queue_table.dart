@@ -13,7 +13,7 @@ class SyncQueue extends Table {
   DateTimeColumn get createdAt => dateTime()();
   BoolColumn get synced => boolean().withDefault(const Constant(false))();
   DateTimeColumn get syncedAt => dateTime().nullable()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

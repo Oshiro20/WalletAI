@@ -52,7 +52,7 @@ class DashboardCustomizeScreen extends ConsumerWidget {
             child: ReorderableListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: layout.length,
-              onReorder: (oldIndex, newIndex) {
+              onReorderItem: (oldIndex, newIndex) {
                 notifier.reorder(oldIndex, newIndex);
               },
               proxyDecorator: (child, index, animation) {
@@ -82,8 +82,7 @@ class DashboardCustomizeScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Restablecer dashboard'),
-        content: const Text(
-            '¿Volver al orden y visibilidad predeterminados?'),
+        content: const Text('¿Volver al orden y visibilidad predeterminados?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -125,14 +124,11 @@ class _WidgetConfigTile extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: isVisible
-                ? cs.primaryContainer
-                : cs.surfaceContainerHighest,
+            color: isVisible ? cs.primaryContainer : cs.surfaceContainerHighest,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
@@ -173,10 +169,12 @@ class _WidgetConfigTile extends StatelessWidget {
             ),
             // Handle de reordenamiento
             ReorderableDragStartListener(
-              index: context
-                  .findAncestorWidgetOfExactType<ReorderableListView>()
-                  ?.key
-                  .hashCode ?? 0,
+              index:
+                  context
+                      .findAncestorWidgetOfExactType<ReorderableListView>()
+                      ?.key
+                      .hashCode ??
+                  0,
               child: const Icon(Icons.drag_handle, color: Colors.grey),
             ),
           ],

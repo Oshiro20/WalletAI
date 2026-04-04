@@ -62,7 +62,8 @@ class AccountsScreen extends ConsumerWidget {
                 );
               },
               loading: () => const LoadingWidget(),
-              error: (error, stack) => ErrorDisplayWidget(message: error.toString()),
+              error: (error, stack) =>
+                  ErrorDisplayWidget(message: error.toString()),
             ),
           ),
         ],
@@ -78,7 +79,10 @@ class AccountsScreen extends ConsumerWidget {
   }
 
   Widget _buildTotalBalanceCard(BuildContext context, double balance) {
-    final currencyFormat = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: 'S/ ',
+      decimalDigits: 2,
+    );
 
     return Container(
       width: double.infinity,
@@ -101,16 +105,16 @@ class AccountsScreen extends ConsumerWidget {
           Text(
             'Patrimonio Total',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white.withValues(alpha: 0.9),
-                ),
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
           ),
           const SizedBox(height: 8),
           Text(
             currencyFormat.format(balance),
             style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
@@ -132,16 +136,16 @@ class AccountsScreen extends ConsumerWidget {
             const SizedBox(height: 24),
             Text(
               'No hay cuentas',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             Text(
               'Crea tu primera cuenta para comenzar a registrar transacciones',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[500],
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
@@ -223,7 +227,10 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: 'S/ ',
+      decimalDigits: 2,
+    );
     final typeColor = _getTypeColor(account.type);
     final typeIcon = _getTypeIcon(account.type);
 
@@ -280,16 +287,15 @@ class _AccountCard extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
-                      color: account.balance >= 0 ? AppColors.income : AppColors.expense,
+                      color: account.balance >= 0
+                          ? AppColors.income
+                          : AppColors.expense,
                     ),
                   ),
                   if (account.currency != 'PEN')
                     Text(
                       account.currency,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey[600],
-                      ),
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                 ],
               ),
@@ -338,7 +344,9 @@ class _AccountCard extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eliminar cuenta'),
-        content: Text('¿Estás seguro de eliminar la cuenta "${account.name}"? Esta acción no se puede deshacer.'),
+        content: Text(
+          '¿Estás seguro de eliminar la cuenta "${account.name}"? Esta acción no se puede deshacer.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -349,13 +357,18 @@ class _AccountCard extends StatelessWidget {
               return TextButton(
                 onPressed: () async {
                   try {
-                    await ref.read(accountsDaoProvider).deleteAccount(account.id);
+                    await ref
+                        .read(accountsDaoProvider)
+                        .deleteAccount(account.id);
                     if (context.mounted) Navigator.pop(context);
                   } catch (e) {
                     if (context.mounted) {
                       Navigator.pop(context); // Close dialog first
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error al eliminar cuenta: $e'), backgroundColor: Colors.red),
+                        SnackBar(
+                          content: Text('Error al eliminar cuenta: $e'),
+                          backgroundColor: Colors.red,
+                        ),
                       );
                     }
                   }

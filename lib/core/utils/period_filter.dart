@@ -1,14 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-enum TimePeriod {
-  day,
-  week,
-  month,
-  quarter,
-  semester,
-  year,
-}
+enum TimePeriod { day, week, month, quarter, semester, year }
 
 extension TimePeriodExtension on TimePeriod {
   String get label {
@@ -38,8 +31,14 @@ extension TimePeriodExtension on TimePeriod {
       case TimePeriod.week:
         // Assuming week starts on Monday
         final daysToSubtract = date.weekday - 1;
-        final start = DateTime(date.year, date.month, date.day - daysToSubtract);
-        final end = start.add(const Duration(days: 6, hours: 23, minutes: 59, seconds: 59));
+        final start = DateTime(
+          date.year,
+          date.month,
+          date.day - daysToSubtract,
+        );
+        final end = start.add(
+          const Duration(days: 6, hours: 23, minutes: 59, seconds: 59),
+        );
         return DateTimeRange(start: start, end: end);
 
       case TimePeriod.month:
@@ -69,8 +68,8 @@ extension TimePeriodExtension on TimePeriod {
   }
 
   String format(DateTime date) {
-     const locale = 'es_PE'; // Or 'es'
-     switch (this) {
+    const locale = 'es_PE'; // Or 'es'
+    switch (this) {
       case TimePeriod.day:
         return DateFormat('dd/MM/yyyy', locale).format(date);
       case TimePeriod.week:
@@ -78,7 +77,7 @@ extension TimePeriodExtension on TimePeriod {
         return '${DateFormat('dd/MM/yyyy', locale).format(range.start)} - ${DateFormat('dd/MM/yyyy', locale).format(range.end)}';
       case TimePeriod.month:
         final formatted = DateFormat('MMMM yyyy', locale).format(date);
-        return formatted[0].toUpperCase() + formatted.substring(1); 
+        return formatted[0].toUpperCase() + formatted.substring(1);
       case TimePeriod.quarter:
         final quarter = (date.month - 1) ~/ 3 + 1;
         String suffix;

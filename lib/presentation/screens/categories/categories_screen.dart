@@ -15,7 +15,8 @@ class CategoriesScreen extends ConsumerStatefulWidget {
   ConsumerState<CategoriesScreen> createState() => _CategoriesScreenState();
 }
 
-class _CategoriesScreenState extends ConsumerState<CategoriesScreen> with SingleTickerProviderStateMixin {
+class _CategoriesScreenState extends ConsumerState<CategoriesScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
@@ -37,18 +38,18 @@ class _CategoriesScreenState extends ConsumerState<CategoriesScreen> with Single
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: _isSearching 
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () {
-                 setState(() {
-                   _isSearching = false;
-                   _searchController.clear();
-                   ref.read(categorySearchProvider.notifier).state = '';
-                 });
-              },
-            )
-          : null,
+        leading: _isSearching
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  setState(() {
+                    _isSearching = false;
+                    _searchController.clear();
+                    ref.read(categorySearchProvider.notifier).state = '';
+                  });
+                },
+              )
+            : null,
         title: _isSearching
             ? TextField(
                 controller: _searchController,
@@ -105,10 +106,10 @@ class _CategoryList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final categoriesAsync = type == 'expense' 
-        ? ref.watch(expenseCategoriesStreamProvider) 
+    final categoriesAsync = type == 'expense'
+        ? ref.watch(expenseCategoriesStreamProvider)
         : ref.watch(incomeCategoriesStreamProvider);
-    
+
     final searchQuery = ref.watch(categorySearchProvider).toLowerCase();
 
     return categoriesAsync.when(
@@ -120,13 +121,17 @@ class _CategoryList extends ConsumerWidget {
 
         if (filteredCategories.isEmpty) {
           if (searchQuery.isNotEmpty) {
-             return Center(child: Text('No se encontraron resultados para "$searchQuery"'));
+            return Center(
+              child: Text('No se encontraron resultados para "$searchQuery"'),
+            );
           }
           return Center(
-            child: Text('No hay categorías de ${type == 'expense' ? 'gastos' : 'ingresos'}'),
+            child: Text(
+              'No hay categorías de ${type == 'expense' ? 'gastos' : 'ingresos'}',
+            ),
           );
         }
-        
+
         return ListView.builder(
           itemCount: filteredCategories.length,
           itemBuilder: (context, index) {
@@ -148,7 +153,9 @@ class CategoryTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final subcategoriesAsync = ref.watch(subcategoriesStreamProvider(category.id));
+    final subcategoriesAsync = ref.watch(
+      subcategoriesStreamProvider(category.id),
+    );
 
     return subcategoriesAsync.when(
       data: (subcategories) {
@@ -156,29 +163,43 @@ class CategoryTile extends ConsumerWidget {
           leading: Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (category.color != null 
-                  ? Color(int.tryParse(category.color!.replaceFirst('#', '0xff')) ?? 0xFFEEEEEE)
-                  : Colors.grey).withValues(alpha: 0.2),
+              color:
+                  (category.color != null
+                          ? Color(
+                              int.tryParse(
+                                    category.color!.replaceFirst('#', '0xff'),
+                                  ) ??
+                                  0xFFEEEEEE,
+                            )
+                          : Colors.grey)
+                      .withValues(alpha: 0.2),
               shape: BoxShape.circle,
             ),
-            child: AppIcons.getIcon(category.icon ?? '?', size: 24, color: Theme.of(context).primaryColor),
+            child: AppIcons.getIcon(
+              category.icon ?? '?',
+              size: 24,
+              color: Theme.of(context).primaryColor,
+            ),
           ),
           title: Text(category.name),
-          subtitle: Text('${subcategories.length} ${subcategories.length == 1 ? "subcategoría" : "subcategorías"}'),
+          subtitle: Text(
+            '${subcategories.length} ${subcategories.length == 1 ? "subcategoría" : "subcategorías"}',
+          ),
           trailing: PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert),
             onSelected: (value) {
-               if (value == 'edit') {
-                 context.push('/categories/edit/${category.id}');
-               } else if (value == 'delete') {
-                 _confirmDeleteCategory(context, ref, category);
-               } else if (value == 'add_sub') {
-                 showModalBottomSheet(
-                   context: context,
-                   isScrollControlled: true,
-                   builder: (_) => CreateSubcategoryScreen(categoryId: category.id),
-                 );
-               }
+              if (value == 'edit') {
+                context.push('/categories/edit/${category.id}');
+              } else if (value == 'delete') {
+                _confirmDeleteCategory(context, ref, category);
+              } else if (value == 'add_sub') {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  builder: (_) =>
+                      CreateSubcategoryScreen(categoryId: category.id),
+                );
+              }
             },
             itemBuilder: (context) {
               final textColor = Theme.of(context).colorScheme.onSurface;
@@ -187,9 +208,16 @@ class CategoryTile extends ConsumerWidget {
                   value: 'add_sub',
                   child: Row(
                     children: [
-                      Icon(Icons.add_circle_outline, size: 18, color: textColor),
+                      Icon(
+                        Icons.add_circle_outline,
+                        size: 18,
+                        color: textColor,
+                      ),
                       const SizedBox(width: 8),
-                      Text('Agregar Subcategoría', style: TextStyle(color: textColor)),
+                      Text(
+                        'Agregar Subcategoría',
+                        style: TextStyle(color: textColor),
+                      ),
                     ],
                   ),
                 ),
@@ -199,7 +227,10 @@ class CategoryTile extends ConsumerWidget {
                     children: [
                       Icon(Icons.edit_outlined, size: 18, color: textColor),
                       const SizedBox(width: 8),
-                      Text('Editar Categoría', style: TextStyle(color: textColor)),
+                      Text(
+                        'Editar Categoría',
+                        style: TextStyle(color: textColor),
+                      ),
                     ],
                   ),
                 ),
@@ -208,9 +239,16 @@ class CategoryTile extends ConsumerWidget {
                     value: 'delete',
                     child: Row(
                       children: [
-                        const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                        const Icon(
+                          Icons.delete_outline,
+                          size: 18,
+                          color: Colors.red,
+                        ),
                         const SizedBox(width: 8),
-                        const Text('Eliminar Categoría', style: TextStyle(color: Colors.red)),
+                        const Text(
+                          'Eliminar Categoría',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ],
                     ),
                   ),
@@ -218,39 +256,50 @@ class CategoryTile extends ConsumerWidget {
             },
           ),
           children: [
-            ...subcategories.map((sub) => ListTile(
-              leading: const SizedBox(width: 24), // Indent
-              title: Row(
-                children: [
-                   AppIcons.getIcon(sub.icon ?? 'label_outline', size: 20,
-                       color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 8),
-                  Text(sub.name),
-                ],
-              ),
-              trailing: PopupMenuButton<String>(
-                icon: const Icon(Icons.more_vert, size: 20),
-                onSelected: (value) {
-                 if (value == 'edit') {
-                     Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => CreateSubcategoryScreen(
-                          categoryId: sub.categoryId,
-                          existingSubcategory: sub,
+            ...subcategories.map(
+              (sub) => ListTile(
+                leading: const SizedBox(width: 24), // Indent
+                title: Row(
+                  children: [
+                    AppIcons.getIcon(
+                      sub.icon ?? 'label_outline',
+                      size: 20,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(sub.name),
+                  ],
+                ),
+                trailing: PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert, size: 20),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CreateSubcategoryScreen(
+                            categoryId: sub.categoryId,
+                            existingSubcategory: sub,
+                          ),
                         ),
+                      );
+                    } else if (value == 'delete') {
+                      _confirmDeleteSubcategory(context, ref, sub);
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text(
+                        'Eliminar',
+                        style: TextStyle(color: Colors.red),
                       ),
-                    );
-                   } else if (value == 'delete') {
-                     _confirmDeleteSubcategory(context, ref, sub);
-                   }
-                },
-                itemBuilder: (context) => [
-                  const PopupMenuItem(value: 'edit', child: Text('Editar')),
-                  const PopupMenuItem(value: 'delete', child: Text('Eliminar', style: TextStyle(color: Colors.red))),
-                ],
+                    ),
+                  ],
+                ),
               ),
-            )),
+            ),
             ListTile(
               leading: const SizedBox(width: 24),
               title: Text(
@@ -261,7 +310,10 @@ class CategoryTile extends ConsumerWidget {
                   fontSize: 13,
                 ),
               ),
-              trailing: Icon(Icons.add, color: Theme.of(context).colorScheme.primary),
+              trailing: Icon(
+                Icons.add,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               onTap: () {
                 context.push('/categories/${category.id}/subcategories/create');
               },
@@ -274,14 +326,21 @@ class CategoryTile extends ConsumerWidget {
     );
   }
 
-  void _confirmDeleteCategory(BuildContext context, WidgetRef ref, Category cat) {
-     showDialog(
+  void _confirmDeleteCategory(
+    BuildContext context,
+    WidgetRef ref,
+    Category cat,
+  ) {
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eliminar categoría'),
         content: Text('¿Eliminar "${cat.name}" y todas sus subcategorías?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () {
               ref.read(categoriesDaoProvider).deleteCategory(cat.id);
@@ -295,14 +354,21 @@ class CategoryTile extends ConsumerWidget {
     );
   }
 
-  void _confirmDeleteSubcategory(BuildContext context, WidgetRef ref, Subcategory sub) {
-     showDialog(
+  void _confirmDeleteSubcategory(
+    BuildContext context,
+    WidgetRef ref,
+    Subcategory sub,
+  ) {
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Eliminar subcategoría'),
         content: Text('¿Eliminar "${sub.name}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
           TextButton(
             onPressed: () {
               ref.read(subcategoriesDaoProvider).deleteSubcategory(sub.id);

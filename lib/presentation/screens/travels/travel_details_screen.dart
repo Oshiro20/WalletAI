@@ -29,7 +29,10 @@ class TravelDetailsScreen extends ConsumerWidget {
                   padding: EdgeInsets.symmetric(horizontal: 16.0),
                   child: Center(
                     child: Chip(
-                      label: Text('Activo', style: TextStyle(color: Colors.white, fontSize: 10)),
+                      label: Text(
+                        'Activo',
+                        style: TextStyle(color: Colors.white, fontSize: 10),
+                      ),
                       backgroundColor: Colors.green,
                     ),
                   ),
@@ -47,7 +50,10 @@ class TravelDetailsScreen extends ConsumerWidget {
               }
 
               final transactions = snapshot.data ?? [];
-              final totalSpent = transactions.fold<double>(0, (sum, t) => sum + (t.type == 'expense' ? t.amount : 0));
+              final totalSpent = transactions.fold<double>(
+                0,
+                (sum, t) => sum + (t.type == 'expense' ? t.amount : 0),
+              );
 
               return ListView(
                 padding: const EdgeInsets.all(16),
@@ -57,48 +63,75 @@ class TravelDetailsScreen extends ConsumerWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Transacciones', style: Theme.of(context).textTheme.titleLarge),
-                      Text('${transactions.length} items', style: TextStyle(color: Colors.grey.shade600)),
+                      Text(
+                        'Transacciones',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      Text(
+                        '${transactions.length} items',
+                        style: TextStyle(color: Colors.grey.shade600),
+                      ),
                     ],
                   ),
                   const Divider(),
                   if (transactions.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32.0),
-                      child: Center(child: Text('No hay transacciones registradas en este viaje.')),
+                      child: Center(
+                        child: Text(
+                          'No hay transacciones registradas en este viaje.',
+                        ),
+                      ),
                     )
                   else
-                    ...transactions.map((t) => ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: t.type == 'expense' ? Colors.red.shade100 : Colors.green.shade100,
-                            child: Icon(
-                              t.type == 'expense' ? Icons.arrow_downward : Icons.arrow_upward,
-                              color: t.type == 'expense' ? Colors.red : Colors.green,
-                              size: 16,
-                            ),
+                    ...transactions.map(
+                      (t) => ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: t.type == 'expense'
+                              ? Colors.red.shade100
+                              : Colors.green.shade100,
+                          child: Icon(
+                            t.type == 'expense'
+                                ? Icons.arrow_downward
+                                : Icons.arrow_upward,
+                            color: t.type == 'expense'
+                                ? Colors.red
+                                : Colors.green,
+                            size: 16,
                           ),
-                          title: Text(t.description ?? t.productName ?? 'Sin descripción'),
-                          subtitle: Text(DateFormat('dd MMM').format(t.date)),
-                          trailing: Text(
-                            '${t.type == 'expense' ? '-' : '+'} ${t.amount.toStringAsFixed(2)} ${t.currency}',
-                            style: TextStyle(
-                              color: t.type == 'expense' ? Colors.red : Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        ),
+                        title: Text(
+                          t.description ?? t.productName ?? 'Sin descripción',
+                        ),
+                        subtitle: Text(DateFormat('dd MMM').format(t.date)),
+                        trailing: Text(
+                          '${t.type == 'expense' ? '-' : '+'} ${t.amount.toStringAsFixed(2)} ${t.currency}',
+                          style: TextStyle(
+                            color: t.type == 'expense'
+                                ? Colors.red
+                                : Colors.green,
+                            fontWeight: FontWeight.bold,
                           ),
-                        )),
+                        ),
+                      ),
+                    ),
                 ],
               );
             },
           ),
         );
       },
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('Error: $e'))),
     );
   }
 
-  Widget _buildBudgetCard(BuildContext context, Travel travel, double totalSpent) {
+  Widget _buildBudgetCard(
+    BuildContext context,
+    Travel travel,
+    double totalSpent,
+  ) {
     if (travel.budget <= 0) {
       return Card(
         child: Padding(
@@ -106,10 +139,18 @@ class TravelDetailsScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Total Gastado', style: TextStyle(fontSize: 16, color: Colors.grey)),
+              const Text(
+                'Total Gastado',
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
               const SizedBox(height: 8),
-              Text('${totalSpent.toStringAsFixed(2)} ${travel.baseCurrency}', 
-                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+              Text(
+                '${totalSpent.toStringAsFixed(2)} ${travel.baseCurrency}',
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ),
@@ -129,9 +170,14 @@ class TravelDetailsScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Presupuesto del Viaje', style: TextStyle(fontSize: 16)),
-                Text('${travel.budget.toStringAsFixed(2)} ${travel.baseCurrency}', 
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Presupuesto del Viaje',
+                  style: TextStyle(fontSize: 16),
+                ),
+                Text(
+                  '${travel.budget.toStringAsFixed(2)} ${travel.baseCurrency}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -146,11 +192,14 @@ class TravelDetailsScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Gastado: ${totalSpent.toStringAsFixed(2)}', style: TextStyle(color: Colors.grey.shade700)),
                 Text(
-                  isOverBudget 
-                    ? 'Excedido por: ${remaining.abs().toStringAsFixed(2)}' 
-                    : 'Disponible: ${remaining.toStringAsFixed(2)}',
+                  'Gastado: ${totalSpent.toStringAsFixed(2)}',
+                  style: TextStyle(color: Colors.grey.shade700),
+                ),
+                Text(
+                  isOverBudget
+                      ? 'Excedido por: ${remaining.abs().toStringAsFixed(2)}'
+                      : 'Disponible: ${remaining.toStringAsFixed(2)}',
                   style: TextStyle(
                     color: isOverBudget ? Colors.red : Colors.green,
                     fontWeight: FontWeight.bold,
@@ -164,9 +213,15 @@ class TravelDetailsScreen extends ConsumerWidget {
     );
   }
 
-  Future<List<Transaction>> _getTravelTransactions(WidgetRef ref, String contextId) async {
+  Future<List<Transaction>> _getTravelTransactions(
+    WidgetRef ref,
+    String contextId,
+  ) async {
     final dao = ref.read(transactionsDaoProvider);
     // Hacemos una simple consulta acá para obtener las transacciones de este viaje.
-    return (dao.select(dao.transactions)..where((t) => t.contextId.equals(contextId))..orderBy([(t) => drift.OrderingTerm.desc(t.date)])).get();
+    return (dao.select(dao.transactions)
+          ..where((t) => t.contextId.equals(contextId))
+          ..orderBy([(t) => drift.OrderingTerm.desc(t.date)]))
+        .get();
   }
 }

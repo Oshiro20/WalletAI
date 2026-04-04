@@ -8,10 +8,7 @@ import '../../../core/theme/app_colors.dart';
 class EditAccountScreen extends ConsumerStatefulWidget {
   final String accountId;
 
-  const EditAccountScreen({
-    super.key,
-    required this.accountId,
-  });
+  const EditAccountScreen({super.key, required this.accountId});
 
   @override
   ConsumerState<EditAccountScreen> createState() => _EditAccountScreenState();
@@ -22,7 +19,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
   final _nameController = TextEditingController();
   final _balanceController = TextEditingController();
   final _descriptionController = TextEditingController();
-  
+
   // Controles para tarjeta de crédito
   final _creditLimitController = TextEditingController();
   final _closingDayController = TextEditingController();
@@ -52,7 +49,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
           _balanceController.text = account.balance.toString();
           _accountType = account.type;
           _currency = account.currency;
-          
+
           if (account.creditLimit != null) {
             _creditLimitController.text = account.creditLimit.toString();
           }
@@ -62,24 +59,24 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
           if (account.paymentDueDay != null) {
             _paymentDayController.text = account.paymentDueDay.toString();
           }
-          
+
           _isLoading = false;
         });
       } else {
         // Cuenta no encontrada
         if (mounted) {
           Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Cuenta no encontrada')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Cuenta no encontrada')));
         }
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al cargar cuenta: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al cargar cuenta: $e')));
       }
     }
   }
@@ -109,7 +106,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
       final balance = double.parse(_balanceController.text);
 
       // Crear objeto Account actualizado
-      // Nota: Usamos copyWith si estuviera disponible en la clase generada, 
+      // Nota: Usamos copyWith si estuviera disponible en la clase generada,
       // pero Drift genera clases inmutables, así que creamos una nueva instancia.
       final updatedAccount = Account(
         id: widget.accountId,
@@ -119,8 +116,8 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
         currency: _currency,
         isActive: true,
         sortOrder: _originalAccount?.sortOrder ?? 0,
-        creditLimit: _accountType == 'credit_card' 
-            ? double.tryParse(_creditLimitController.text) 
+        creditLimit: _accountType == 'credit_card'
+            ? double.tryParse(_creditLimitController.text)
             : null,
         closingDay: _accountType == 'credit_card'
             ? int.tryParse(_closingDayController.text)
@@ -142,9 +139,9 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error al actualizar: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error al actualizar: $e')));
       }
     } finally {
       if (mounted) {
@@ -158,9 +155,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     return Scaffold(
@@ -179,10 +174,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
               ),
             )
           else
-            IconButton(
-              icon: const Icon(Icons.check),
-              onPressed: _saveAccount,
-            ),
+            IconButton(icon: const Icon(Icons.check), onPressed: _saveAccount),
         ],
       ),
       body: Form(
@@ -224,9 +216,12 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.credit_score),
                 ),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 validator: (value) {
-                  if (_accountType == 'credit_card' && (value == null || value.isEmpty)) {
+                  if (_accountType == 'credit_card' &&
+                      (value == null || value.isEmpty)) {
                     return 'Ingresa la línea de crédito';
                   }
                   return null;
@@ -249,9 +244,13 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (_accountType == 'credit_card') {
-                          if (value == null || value.isEmpty) return 'Requerido';
+                          if (value == null || value.isEmpty) {
+                            return 'Requerido';
+                          }
                           final day = int.tryParse(value);
-                          if (day == null || day < 1 || day > 31) return 'Día inválido';
+                          if (day == null || day < 1 || day > 31) {
+                            return 'Día inválido';
+                          }
                         }
                         return null;
                       },
@@ -272,9 +271,13 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
                       keyboardType: TextInputType.number,
                       validator: (value) {
                         if (_accountType == 'credit_card') {
-                          if (value == null || value.isEmpty) return 'Requerido';
+                          if (value == null || value.isEmpty) {
+                            return 'Requerido';
+                          }
                           final day = int.tryParse(value);
-                          if (day == null || day < 1 || day > 31) return 'Día inválido';
+                          if (day == null || day < 1 || day > 31) {
+                            return 'Día inválido';
+                          }
                         }
                         return null;
                       },
@@ -289,8 +292,8 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
             TextFormField(
               controller: _balanceController,
               decoration: InputDecoration(
-                labelText: _accountType == 'credit_card' 
-                    ? 'Saldo Actual' 
+                labelText: _accountType == 'credit_card'
+                    ? 'Saldo Actual'
                     : 'Saldo Actual',
                 helperText: _accountType == 'credit_card'
                     ? 'Si ya tienes consumos, ingresa el monto con signo menos (ej: -500)'
@@ -299,7 +302,10 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
                 border: const OutlineInputBorder(),
                 prefixIcon: const Icon(Icons.attach_money),
               ),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+                signed: true,
+              ),
               inputFormatters: [
                 FilteringTextInputFormatter.allow(RegExp(r'^\-?\d*\.?\d{0,2}')),
               ],
@@ -352,9 +358,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
                     )
                   : const Icon(Icons.save),
               label: Text(_isSaving ? 'Guardando...' : 'Guardar Cambios'),
-              style: FilledButton.styleFrom(
-                padding: const EdgeInsets.all(16),
-              ),
+              style: FilledButton.styleFrom(padding: const EdgeInsets.all(16)),
             ),
           ],
         ),
@@ -368,9 +372,9 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
       children: [
         Text(
           'Tipo de cuenta',
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[700],
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: Colors.grey[700]),
         ),
         const SizedBox(height: 12),
         Row(
@@ -432,7 +436,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
                 onTap: () => setState(() => _accountType = 'savings'),
               ),
             ),
-             const Spacer(),
+            const Spacer(),
           ],
         ),
       ],
@@ -463,7 +467,9 @@ class _AccountTypeButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected ? color.withValues(alpha: 0.15) : Colors.transparent,
+          color: isSelected
+              ? color.withValues(alpha: 0.15)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? color : Colors.grey.withValues(alpha: 0.3),
@@ -472,11 +478,7 @@ class _AccountTypeButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: isSelected ? color : Colors.grey,
-              size: 32,
-            ),
+            Icon(icon, color: isSelected ? color : Colors.grey, size: 32),
             const SizedBox(height: 8),
             Text(
               label,

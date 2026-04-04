@@ -50,15 +50,15 @@ class RecentTransactionsList extends ConsumerWidget {
             Text(
               'No hay transacciones',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Comienza agregando tu primera transacción',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -75,7 +75,10 @@ class _TransactionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currencyFormat = NumberFormat.currency(symbol: 'S/ ', decimalDigits: 2);
+    final currencyFormat = NumberFormat.currency(
+      symbol: 'S/ ',
+      decimalDigits: 2,
+    );
     final dateFormat = DateFormat('dd MMM', 'es');
 
     final isExpense = transaction.type == 'expense';
@@ -126,8 +129,7 @@ class _TransactionTile extends StatelessWidget {
           fontSize: 16,
         ),
       ),
-      onTap: () {
-      },
+      onTap: () {},
     );
   }
 }

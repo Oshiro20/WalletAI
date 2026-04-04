@@ -17,7 +17,12 @@ class ThemeSettingsScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(20),
         children: [
           // ─── Modo ───────────────────────────────────────────────────────
-          Text('Modo', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Modo',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 12),
           _ThemeModeSelector(
             current: themeState.mode,
@@ -29,11 +34,18 @@ class ThemeSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 20),
 
           // ─── Color ──────────────────────────────────────────────────────
-          Text('Color de acento', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Color de acento',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 4),
           Text(
             'El color primario afecta botones, activos y la barra de navegación',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 16),
           _ColorThemeGrid(
@@ -46,7 +58,12 @@ class ThemeSettingsScreen extends ConsumerWidget {
           const SizedBox(height: 20),
 
           // ─── Vista previa ────────────────────────────────────────────────
-          Text('Vista previa', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            'Vista previa',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 16),
           _PreviewCard(),
         ],
@@ -68,8 +85,8 @@ class _ThemeModeSelector extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final modes = [
       (ThemeMode.system, Icons.brightness_auto, 'Sistema'),
-      (ThemeMode.light,  Icons.light_mode,       'Claro'),
-      (ThemeMode.dark,   Icons.dark_mode,         'Oscuro'),
+      (ThemeMode.light, Icons.light_mode, 'Claro'),
+      (ThemeMode.dark, Icons.dark_mode, 'Oscuro'),
     ];
 
     return Row(
@@ -84,7 +101,9 @@ class _ThemeModeSelector extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
-                color: isSelected ? cs.primaryContainer : cs.surfaceContainerLow,
+                color: isSelected
+                    ? cs.primaryContainer
+                    : cs.surfaceContainerLow,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: isSelected ? cs.primary : Colors.transparent,
@@ -94,7 +113,8 @@ class _ThemeModeSelector extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon,
+                  Icon(
+                    icon,
                     size: 26,
                     color: isSelected ? cs.primary : cs.onSurfaceVariant,
                   ),
@@ -103,7 +123,9 @@ class _ThemeModeSelector extends StatelessWidget {
                     label,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: isSelected ? cs.primary : cs.onSurfaceVariant,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -158,7 +180,13 @@ class _ColorThemeGrid extends StatelessWidget {
                       width: 3,
                     ),
                     boxShadow: isSelected
-                        ? [BoxShadow(color: t.seed.withValues(alpha: 0.5), blurRadius: 12, spreadRadius: 2)]
+                        ? [
+                            BoxShadow(
+                              color: t.seed.withValues(alpha: 0.5),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                            ),
+                          ]
                         : [],
                   ),
                   child: isSelected
@@ -169,7 +197,9 @@ class _ColorThemeGrid extends StatelessWidget {
                 Text(
                   t.name,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight: isSelected
+                        ? FontWeight.bold
+                        : FontWeight.normal,
                   ),
                   textAlign: TextAlign.center,
                   maxLines: 1,
@@ -201,12 +231,18 @@ class _PreviewCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Balance Total', style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
+                Text(
+                  'Balance Total',
+                  style: text.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                ),
                 Icon(Icons.account_balance_wallet, color: cs.primary, size: 20),
               ],
             ),
             const SizedBox(height: 4),
-            Text('S/ 4,250.00', style: text.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
+            Text(
+              'S/ 4,250.00',
+              style: text.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -275,9 +311,14 @@ class _StatChip extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(label, style: TextStyle(fontSize: 10, color: color)),
-                Text(value,
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 12, color: color)),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: color,
+                  ),
+                ),
               ],
             ),
           ),

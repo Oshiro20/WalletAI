@@ -9,10 +9,7 @@ import '../../providers/database_providers.dart';
 class MainNavigation extends StatefulWidget {
   final Widget child;
 
-  const MainNavigation({
-    super.key,
-    required this.child,
-  });
+  const MainNavigation({super.key, required this.child});
 
   @override
   State<MainNavigation> createState() => _MainNavigationState();
@@ -68,7 +65,10 @@ class _MainNavigationState extends State<MainNavigation> {
                   if (travel == null) return const SizedBox.shrink();
                   return Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 8,
+                      horizontal: 16,
+                    ),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
                       border: Border(
@@ -83,7 +83,11 @@ class _MainNavigationState extends State<MainNavigation> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.flight_takeoff, color: AppColors.primarySoft, size: 20),
+                            const Icon(
+                              Icons.flight_takeoff,
+                              color: AppColors.primarySoft,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Viaje: ${travel.name}',
@@ -137,10 +141,7 @@ class _IndigoVaultNavBar extends StatelessWidget {
   final int currentIndex;
   final ValueChanged<int> onTap;
 
-  const _IndigoVaultNavBar({
-    required this.currentIndex,
-    required this.onTap,
-  });
+  const _IndigoVaultNavBar({required this.currentIndex, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -249,12 +250,16 @@ class _NavItem extends StatelessWidget {
               duration: const Duration(milliseconds: 200),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               decoration: BoxDecoration(
-                color: isActive ? AppColors.primary.withValues(alpha: 0.12) : Colors.transparent,
+                color: isActive
+                    ? AppColors.primary.withValues(alpha: 0.12)
+                    : Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
                 isActive ? activeIcon : icon,
-                color: isActive ? AppColors.primarySoft : AppColors.onSurfaceVariant,
+                color: isActive
+                    ? AppColors.primarySoft
+                    : AppColors.onSurfaceVariant,
                 size: 22,
               ),
             ),
@@ -264,7 +269,9 @@ class _NavItem extends StatelessWidget {
               style: GoogleFonts.manrope(
                 fontSize: 10,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                color: isActive ? AppColors.primarySoft : AppColors.onSurfaceVariant,
+                color: isActive
+                    ? AppColors.primarySoft
+                    : AppColors.onSurfaceVariant,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

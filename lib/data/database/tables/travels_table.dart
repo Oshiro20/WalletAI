@@ -9,9 +9,9 @@ class Travels extends Table {
   DateTimeColumn get startDate => dateTime()();
   DateTimeColumn get endDate => dateTime()();
   BoolColumn get isActive => boolean().withDefault(const Constant(false))();
-  
+
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

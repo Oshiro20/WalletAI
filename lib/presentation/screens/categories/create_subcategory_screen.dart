@@ -8,6 +8,7 @@ import '../../../core/utils/app_icons.dart';
 
 class CreateSubcategoryScreen extends ConsumerStatefulWidget {
   final String categoryId;
+
   /// Si no es null, estamos en modo edición
   final Subcategory? existingSubcategory;
 
@@ -18,10 +19,12 @@ class CreateSubcategoryScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<CreateSubcategoryScreen> createState() => _CreateSubcategoryScreenState();
+  ConsumerState<CreateSubcategoryScreen> createState() =>
+      _CreateSubcategoryScreenState();
 }
 
-class _CreateSubcategoryScreenState extends ConsumerState<CreateSubcategoryScreen>
+class _CreateSubcategoryScreenState
+    extends ConsumerState<CreateSubcategoryScreen>
     with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -34,10 +37,46 @@ class _CreateSubcategoryScreenState extends ConsumerState<CreateSubcategoryScree
 
   final List<String> _materialIcons = AppIcons.materialIcons.keys.toList();
   final List<String> _emojis = [
-    '🏷️', '🏠', '🍔', '🚗', '💊', '🎬', '✈️', '🛒', '🐾', '📚',
-    '🎓', '💼', '💡', '🔧', '🎁', '🎉', '🏋️', '🧘', '💸', '💰',
-    '💳', '🏦', '📈', '📉', '🔒', '🔑', '📱', '💻', '📷', '🎵',
-    '🎨', '🖌️', '👶', '🧸', '🍺', '🍷', '🍕', '🌮', '🍦', '🍩'
+    '🏷️',
+    '🏠',
+    '🍔',
+    '🚗',
+    '💊',
+    '🎬',
+    '✈️',
+    '🛒',
+    '🐾',
+    '📚',
+    '🎓',
+    '💼',
+    '💡',
+    '🔧',
+    '🎁',
+    '🎉',
+    '🏋️',
+    '🧘',
+    '💸',
+    '💰',
+    '💳',
+    '🏦',
+    '📈',
+    '📉',
+    '🔒',
+    '🔑',
+    '📱',
+    '💻',
+    '📷',
+    '🎵',
+    '🎨',
+    '🖌️',
+    '👶',
+    '🧸',
+    '🍺',
+    '🍷',
+    '🍕',
+    '🌮',
+    '🍦',
+    '🍩',
   ];
 
   @override
@@ -100,9 +139,9 @@ class _CreateSubcategoryScreenState extends ConsumerState<CreateSubcategoryScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

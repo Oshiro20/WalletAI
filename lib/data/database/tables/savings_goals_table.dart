@@ -14,7 +14,7 @@ class SavingsGoals extends Table {
   BoolColumn get isCompleted => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

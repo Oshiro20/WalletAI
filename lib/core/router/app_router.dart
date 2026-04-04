@@ -5,6 +5,7 @@ import '../../presentation/screens/accounts/account_detail_screen.dart';
 import '../../presentation/screens/accounts/create_account_screen.dart';
 import '../../presentation/screens/accounts/edit_account_screen.dart';
 import '../../presentation/screens/settings/settings_screen.dart';
+import '../../presentation/screens/settings/mylifeos_integration_screen.dart';
 import '../../presentation/screens/categories/categories_screen.dart';
 import '../../presentation/screens/categories/create_category_screen.dart';
 import '../../presentation/screens/categories/create_subcategory_screen.dart';
@@ -37,15 +38,38 @@ import '../../presentation/screens/net_worth/net_worth_screen.dart';
 import '../../presentation/screens/debt_payoff/debt_payoff_screen.dart';
 import '../../presentation/screens/onboarding/onboarding_screen.dart';
 
+// ─── Onboarding check (cache síncrona) ───────────────────────────────────────
+bool? _onboardingCache;
+
+/// Verifica síncronamente si el onboarding fue completado
+/// Usa cache para evitar llamadas async en el redirect
+String? _checkOnboarding() {
+  // Si ya está en caché, usar valor cacheado
+  if (_onboardingCache == true) return null;
+  // Si no está en caché, asumir que no está completado
+  // Se verificará async después y se actualizará el caché
+  if (_onboardingCache == null) {
+    // Verificar async y actualizar caché
+    hasCompletedOnboarding().then((done) {
+      _onboardingCache = done;
+      // Forzar rebuild del router si es necesario
+      appRouter.refresh();
+    });
+    return null; // Permitir navegación inicial
+  }
+  // Si es false, redirigir a onboarding
+  return '/onboarding';
+}
+
 /// Configuración de rutas de la aplicación usando go_router
 final appRouter = GoRouter(
   initialLocation: '/',
-  redirect: (context, state) async {
+  redirect: (context, state) {
     // Solo verificar en la ruta inicial — evitar bucles en /onboarding
     if (state.uri.path == '/onboarding') return null;
-    final done = await hasCompletedOnboarding();
-    if (!done) return '/onboarding';
-    return null;
+    // Usar Future synchronously — GoRouter handles this via refreshListenable
+    // pero como fallback, verificamos de forma síncrona con un valor cacheado
+    return _checkOnboarding();
   },
   routes: [
     // Shell route para mantener el bottom navigation bar
@@ -301,6 +325,11 @@ final appRouter = GoRouter(
       path: '/about',
       name: 'about',
       builder: (context, state) => const AboutScreen(),
+    ),
+    GoRoute(
+      path: '/settings/mylifeos',
+      name: 'settings-mylifeos',
+      builder: (context, state) => const MyLifeOSIntegrationScreen(),
     ),
     GoRoute(
       path: '/settings/notifications',

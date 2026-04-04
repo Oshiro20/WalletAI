@@ -33,7 +33,7 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
               // Si hay datos, centraremos aquí
               // Por ahora, recargar
             },
-          )
+          ),
         ],
       ),
       body: transactionsAsync.when(
@@ -48,11 +48,18 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.map_outlined, size: 64, color: theme.colorScheme.primary.withValues(alpha: 0.5)),
+                  Icon(
+                    Icons.map_outlined,
+                    size: 64,
+                    color: theme.colorScheme.primary.withValues(alpha: 0.5),
+                  ),
                   const SizedBox(height: 16),
                   const Text('No hay transacciones con ubicación 📍'),
                   const SizedBox(height: 8),
-                  const Text('Recuerda usar el botón "GPS" al crear transacciones.', style: TextStyle(color: Colors.grey)),
+                  const Text(
+                    'Recuerda usar el botón "GPS" al crear transacciones.',
+                    style: TextStyle(color: Colors.grey),
+                  ),
                 ],
               ),
             );
@@ -88,7 +95,9 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
                     child: GestureDetector(
                       onTap: () => _showTransactionPopup(tx),
                       child: Icon(
-                        tx.type == 'expense' ? Icons.location_on : Icons.location_on,
+                        tx.type == 'expense'
+                            ? Icons.location_on
+                            : Icons.location_on,
                         color: tx.type == 'expense' ? Colors.red : Colors.green,
                         size: 40,
                       ),
@@ -106,9 +115,12 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
   }
 
   void _showTransactionPopup(Transaction tx) {
-    final formatCurrency = NumberFormat.currency(symbol: '${tx.currency} ', decimalDigits: 2);
+    final formatCurrency = NumberFormat.currency(
+      symbol: '${tx.currency} ',
+      decimalDigits: 2,
+    );
     final theme = Theme.of(context);
-    
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -124,11 +136,13 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
               Row(
                 children: [
                   CircleAvatar(
-                    backgroundColor: tx.type == 'expense' 
-                      ? Colors.red.withValues(alpha: 0.1) 
-                      : Colors.green.withValues(alpha: 0.1),
+                    backgroundColor: tx.type == 'expense'
+                        ? Colors.red.withValues(alpha: 0.1)
+                        : Colors.green.withValues(alpha: 0.1),
                     child: Icon(
-                      tx.type == 'expense' ? Icons.trending_down : Icons.trending_up,
+                      tx.type == 'expense'
+                          ? Icons.trending_down
+                          : Icons.trending_up,
                       color: tx.type == 'expense' ? Colors.red : Colors.green,
                     ),
                   ),
@@ -139,13 +153,17 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
                       children: [
                         Text(
                           tx.description ?? tx.productName ?? 'Transacción',
-                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           DateFormat("dd MMM yyyy").format(tx.date),
-                          style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.grey,
+                          ),
                         ),
                       ],
                     ),
@@ -181,7 +199,7 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Cerrar'),
                 ),
-              )
+              ),
             ],
           ),
         );

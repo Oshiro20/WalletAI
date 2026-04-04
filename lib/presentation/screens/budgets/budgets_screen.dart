@@ -29,13 +29,21 @@ class BudgetsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.savings_outlined, size: 64, color: Colors.grey),
+                  const Icon(
+                    Icons.savings_outlined,
+                    size: 64,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(height: 16),
-                  const Text('No tienes presupuestos configurados',
-                      style: TextStyle(color: Colors.grey, fontSize: 16)),
+                  const Text(
+                    'No tienes presupuestos configurados',
+                    style: TextStyle(color: Colors.grey, fontSize: 16),
+                  ),
                   const SizedBox(height: 8),
-                  const Text('Toca + para crear uno',
-                      style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Text(
+                    'Toca + para crear uno',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
                   const SizedBox(height: 24),
                   ElevatedButton.icon(
                     onPressed: () => _showCreateBudgetDialog(context, ref),
@@ -58,7 +66,11 @@ class BudgetsScreen extends ConsumerWidget {
                     final dao = ref.read(budgetsDaoProvider);
                     await dao.deleteBudget(budgets[i].id);
                   },
-                  onEdit: () => _showCreateBudgetDialog(context, ref, existing: budgets[i]),
+                  onEdit: () => _showCreateBudgetDialog(
+                    context,
+                    ref,
+                    existing: budgets[i],
+                  ),
                 );
               },
             ),
@@ -72,12 +84,17 @@ class BudgetsScreen extends ConsumerWidget {
     );
   }
 
-  void _showCreateBudgetDialog(BuildContext context, WidgetRef ref, {Budget? existing}) {
+  void _showCreateBudgetDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    Budget? existing,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => _CreateBudgetSheet(existing: existing),
     );
   }
@@ -100,13 +117,17 @@ class _BudgetCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final category = categories.where((c) => c.id == budget.categoryId).firstOrNull;
+    final category = categories
+        .where((c) => c.id == budget.categoryId)
+        .firstOrNull;
     final spentAsync = ref.watch(budgetSpentProvider(budget.categoryId));
 
     Color categoryColor = Colors.blue;
     try {
       if (category?.color != null) {
-        categoryColor = Color(int.parse(category!.color!.replaceFirst('#', '0xFF')));
+        categoryColor = Color(
+          int.parse(category!.color!.replaceFirst('#', '0xFF')),
+        );
       }
     } catch (_) {}
 
@@ -127,18 +148,29 @@ class _BudgetCard extends ConsumerWidget {
                     color: categoryColor.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Text(category?.icon ?? '💰', style: const TextStyle(fontSize: 20)),
+                  child: Text(
+                    category?.icon ?? '💰',
+                    style: const TextStyle(fontSize: 20),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(category?.name ?? 'Categoría',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(
+                        category?.name ?? 'Categoría',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                       Text(
                         _periodLabel(budget.period),
-                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
                       ),
                     ],
                   ),
@@ -150,7 +182,10 @@ class _BudgetCard extends ConsumerWidget {
                   },
                   itemBuilder: (_) => [
                     const PopupMenuItem(value: 'edit', child: Text('Editar')),
-                    const PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+                    const PopupMenuItem(
+                      value: 'delete',
+                      child: Text('Eliminar'),
+                    ),
                   ],
                 ),
               ],
@@ -163,8 +198,8 @@ class _BudgetCard extends ConsumerWidget {
                 final barColor = isOver
                     ? Colors.red
                     : pct >= 0.8
-                        ? Colors.orange
-                        : categoryColor;
+                    ? Colors.orange
+                    : categoryColor;
 
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -175,15 +210,17 @@ class _BudgetCard extends ConsumerWidget {
                         Text(
                           'S/ ${spent.toStringAsFixed(2)} / S/ ${budget.amount.toStringAsFixed(2)}',
                           style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: isOver ? Colors.red : null),
+                            fontWeight: FontWeight.w600,
+                            color: isOver ? Colors.red : null,
+                          ),
                         ),
                         Text(
                           '${(pct * 100).toStringAsFixed(0)}%',
                           style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: barColor,
-                              fontSize: 13),
+                            fontWeight: FontWeight.bold,
+                            color: barColor,
+                            fontSize: 13,
+                          ),
                         ),
                       ],
                     ),
@@ -202,7 +239,10 @@ class _BudgetCard extends ConsumerWidget {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           '⚠️ Superaste el límite por S/ ${(spent - budget.amount).toStringAsFixed(2)}',
-                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 12,
+                          ),
                         ),
                       )
                     else if (pct >= 0.8)
@@ -210,7 +250,10 @@ class _BudgetCard extends ConsumerWidget {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           '⚡ Cerca del límite — te quedan S/ ${(budget.amount - spent).toStringAsFixed(2)}',
-                          style: const TextStyle(color: Colors.orange, fontSize: 12),
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 12,
+                          ),
                         ),
                       ),
                   ],
@@ -227,10 +270,14 @@ class _BudgetCard extends ConsumerWidget {
 
   String _periodLabel(String period) {
     switch (period) {
-      case 'monthly': return 'Mensual';
-      case 'weekly': return 'Semanal';
-      case 'yearly': return 'Anual';
-      default: return period;
+      case 'monthly':
+        return 'Mensual';
+      case 'weekly':
+        return 'Semanal';
+      case 'yearly':
+        return 'Anual';
+      default:
+        return period;
     }
   }
 }
@@ -273,15 +320,19 @@ class _CreateBudgetSheetState extends ConsumerState<_CreateBudgetSheet> {
 
     return Padding(
       padding: EdgeInsets.only(
-        left: 20, right: 20, top: 20,
+        left: 20,
+        right: 20,
+        top: 20,
         bottom: MediaQuery.of(context).viewInsets.bottom + 20,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(isEdit ? 'Editar Presupuesto' : 'Nuevo Presupuesto',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(
+            isEdit ? 'Editar Presupuesto' : 'Nuevo Presupuesto',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 20),
 
           // Category selector
@@ -293,14 +344,20 @@ class _CreateBudgetSheetState extends ConsumerState<_CreateBudgetSheet> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.category),
               ),
-              items: cats.map((c) => DropdownMenuItem(
-                value: c.id,
-                child: Row(children: [
-                  Text(c.icon ?? '📦'),
-                  const SizedBox(width: 8),
-                  Text(c.name),
-                ]),
-              )).toList(),
+              items: cats
+                  .map(
+                    (c) => DropdownMenuItem(
+                      value: c.id,
+                      child: Row(
+                        children: [
+                          Text(c.icon ?? '📦'),
+                          const SizedBox(width: 8),
+                          Text(c.name),
+                        ],
+                      ),
+                    ),
+                  )
+                  .toList(),
               onChanged: (v) => setState(() => _selectedCategoryId = v),
             ),
             loading: () => const CircularProgressIndicator(),
@@ -341,9 +398,13 @@ class _CreateBudgetSheetState extends ConsumerState<_CreateBudgetSheet> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: _save,
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-              child: Text(isEdit ? 'Guardar Cambios' : 'Crear Presupuesto',
-                  style: const TextStyle(fontSize: 16)),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text(
+                isEdit ? 'Guardar Cambios' : 'Crear Presupuesto',
+                style: const TextStyle(fontSize: 16),
+              ),
             ),
           ),
         ],
@@ -364,20 +425,24 @@ class _CreateBudgetSheetState extends ConsumerState<_CreateBudgetSheet> {
     final now = DateTime.now();
 
     if (widget.existing != null) {
-      await dao.updateBudget(widget.existing!.copyWith(
-        amount: amount,
-        period: _period,
-        categoryId: _selectedCategoryId!,
-      ));
+      await dao.updateBudget(
+        widget.existing!.copyWith(
+          amount: amount,
+          period: _period,
+          categoryId: _selectedCategoryId!,
+        ),
+      );
     } else {
-      await dao.createBudget(BudgetsCompanion.insert(
-        id: const Uuid().v4(),
-        categoryId: _selectedCategoryId!,
-        amount: amount,
-        period: _period,
-        startDate: DateTime(now.year, now.month, 1),
-        createdAt: now,
-      ));
+      await dao.createBudget(
+        BudgetsCompanion.insert(
+          id: const Uuid().v4(),
+          categoryId: _selectedCategoryId!,
+          amount: amount,
+          period: _period,
+          startDate: DateTime(now.year, now.month, 1),
+          createdAt: now,
+        ),
+      );
     }
 
     if (mounted) Navigator.of(context).pop();
@@ -391,7 +456,10 @@ final budgetsStreamProvider = StreamProvider<List<Budget>>((ref) {
   return dao.watchActiveBudgets();
 });
 
-final budgetSpentProvider = FutureProvider.autoDispose.family<double, String>((ref, categoryId) async {
+final budgetSpentProvider = FutureProvider.autoDispose.family<double, String>((
+  ref,
+  categoryId,
+) async {
   final dao = ref.watch(transactionsDaoProvider);
   final now = DateTime.now();
   final start = DateTime(now.year, now.month, 1);

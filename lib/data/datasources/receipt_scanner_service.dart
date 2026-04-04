@@ -12,7 +12,14 @@ class ReceiptItem {
   double? quantity;
   String? unit;
 
-  ReceiptItem({required this.name, required this.price, this.category, this.subcategory, this.quantity, this.unit});
+  ReceiptItem({
+    required this.name,
+    required this.price,
+    this.category,
+    this.subcategory,
+    this.quantity,
+    this.unit,
+  });
 }
 
 /// Resultado del escaneo de factura
@@ -26,11 +33,12 @@ class ScannedReceipt {
   final String? category;
   final String? subcategory;
   final List<ReceiptItem>? items; // Para el escaneo múltiple
-  final String? currency;   // Siempre 'PEN' para boletas peruanas
+  final String? currency; // Siempre 'PEN' para boletas peruanas
   final String rawText;
   final String? imagePath; // Added for image preview
   final bool success;
   final String? errorMessage;
+
   /// Confianza de clasificación de la IA (0.0–1.0)
   final double? confidence;
 
@@ -53,11 +61,11 @@ class ScannedReceipt {
   });
 
   factory ScannedReceipt.error(String message) => ScannedReceipt(
-        rawText: '',
-        imagePath: null,
-        success: false,
-        errorMessage: message,
-      );
+    rawText: '',
+    imagePath: null,
+    success: false,
+    errorMessage: message,
+  );
 
   @override
   String toString() =>
@@ -69,18 +77,29 @@ class ScannedReceipt {
 /// nombre del producto y texto raw.
 class ReceiptScannerService {
   final ImagePicker _picker = ImagePicker();
-  final TextRecognizer _textRecognizer =
-      TextRecognizer(script: TextRecognitionScript.latin);
+  final TextRecognizer _textRecognizer = TextRecognizer(
+    script: TextRecognitionScript.latin,
+  );
 
   // ─── Captura de imagen ────────────────────────────────────────────────────
 
   /// Abre la cámara y escanea la factura
-  Future<ScannedReceipt?> scanFromCamera({bool isMultiple = false, LearningRulesDao? dao}) => _scan(ImageSource.camera, isMultiple: isMultiple, dao: dao);
+  Future<ScannedReceipt?> scanFromCamera({
+    bool isMultiple = false,
+    LearningRulesDao? dao,
+  }) => _scan(ImageSource.camera, isMultiple: isMultiple, dao: dao);
 
   /// Abre la galería y escanea la imagen seleccionada
-  Future<ScannedReceipt?> scanFromGallery({bool isMultiple = false, LearningRulesDao? dao}) => _scan(ImageSource.gallery, isMultiple: isMultiple, dao: dao);
+  Future<ScannedReceipt?> scanFromGallery({
+    bool isMultiple = false,
+    LearningRulesDao? dao,
+  }) => _scan(ImageSource.gallery, isMultiple: isMultiple, dao: dao);
 
-  Future<ScannedReceipt?> _scan(ImageSource source, {bool isMultiple = false, LearningRulesDao? dao}) async {
+  Future<ScannedReceipt?> _scan(
+    ImageSource source, {
+    bool isMultiple = false,
+    LearningRulesDao? dao,
+  }) async {
     // Importación dentro del scope para usar el servicio de Groq
     try {
       final XFile? image = await _picker.pickImage(
@@ -91,8 +110,9 @@ class ReceiptScannerService {
       if (image == null) return null;
 
       final inputImage = InputImage.fromFilePath(image.path);
-      final RecognizedText recognizedText =
-          await _textRecognizer.processImage(inputImage);
+      final RecognizedText recognizedText = await _textRecognizer.processImage(
+        inputImage,
+      );
 
       if (recognizedText.text.isEmpty) {
         return ScannedReceipt.error(
@@ -109,126 +129,153 @@ class ReceiptScannerService {
 
   // ─── Parsing ──────────────────────────────────────────────────────────────
 
-  Future<ScannedReceipt> _processTextWithGroq(RecognizedText recognizedText, bool isMultiple, String imagePath, LearningRulesDao? dao) async {
-      final String raw = recognizedText.text;
+  Future<ScannedReceipt> _processTextWithGroq(
+    RecognizedText recognizedText,
+    bool isMultiple,
+    String imagePath,
+    LearningRulesDao? dao,
+  ) async {
+    final String raw = recognizedText.text;
 
-      final groq = GroqService();
-      final data = await groq.parseReceipt(raw, isMultiple: isMultiple);
+    final groq = GroqService();
+    final data = await groq.parseReceipt(raw, isMultiple: isMultiple);
 
-      if (data != null) {
-          // Parse amount safely
-          double? amount;
-          if (data['total_boleta'] != null) {
-             amount = double.tryParse(data['total_boleta'].toString());
-          }
-
-          // Parse date safely
-          DateTime? date;
-          if (data['fecha'] != null) {
-             date = DateTime.tryParse(data['fecha'].toString());
-          }
-
-          String? productName;
-          String? category;
-          String? subcategory;
-          double? quantity;
-          String? unit;
-          List<ReceiptItem>? items;
-
-          if (isMultiple && data['productos'] != null && data['productos'] is List) {
-             items = (data['productos'] as List).map((p) {
-                return ReceiptItem(
-                  name: p['nombre_producto']?.toString() ?? 'Producto',
-                  price: double.tryParse(p['importe_total']?.toString() ?? '0') ?? 0.0,
-                  category: p['categoria']?.toString(),
-                  subcategory: p['subcategoria']?.toString(),
-                  quantity: double.tryParse(p['cantidad']?.toString() ?? '1'),
-                  unit: p['unidad']?.toString(),
-                );
-             }).toList();
-             
-             // 🧠 APRENDIZAJE PERSISTENTE: Sobrescribir con reglas locales si existen
-             if (dao != null) {
-                for (var item in items) {
-                   final rule = await dao.getRuleForProduct(item.name);
-                   if (rule != null && rule.usageCount >= 1) { // Sobrescritura directa
-                      item.category = rule.categoryId;
-                      debugPrint('🧠 AI Interceptada: Cambiando categoría de ${item.name} a ${rule.categoryId}');
-                   }
-                }
-             }
-
-          } else {
-             if (data['productos'] != null && data['productos'] is List && (data['productos'] as List).isNotEmpty) {
-                productName = data['productos'][0]['nombre_producto']?.toString();
-                category = data['productos'][0]['categoria']?.toString();
-                subcategory = data['productos'][0]['subcategoria']?.toString();
-                quantity = double.tryParse(data['productos'][0]['cantidad']?.toString() ?? '1');
-                unit = data['productos'][0]['unidad']?.toString();
-                
-                // 🧠 APRENDIZAJE PERSISTENTE
-                if (dao != null && productName != null) {
-                   final rule = await dao.getRuleForProduct(productName);
-                   if (rule != null && rule.usageCount >= 1) {
-                      category = rule.categoryId;
-                      debugPrint('🧠 AI Interceptada: Cambiando categoría de $productName a ${rule.categoryId}');
-                   }
-                }
-             }
-          }
-
-          return ScannedReceipt(
-            amount: amount ?? _extractBestAmount(raw),
-            date: date ?? _extractDate(raw),
-            merchant: data['comercio']?.toString() ?? _extractMerchant(recognizedText),
-            productName: productName ?? _extractProductName(raw),
-            quantity: quantity,
-            unit: unit,
-            category: category,
-            subcategory: subcategory,
-            items: items,
-            rawText: raw,
-            imagePath: imagePath,
-            confidence: double.tryParse(data['confianza_clasificacion']?.toString() ?? ''),
-          );
+    if (data != null) {
+      // Parse amount safely
+      double? amount;
+      if (data['total_boleta'] != null) {
+        amount = double.tryParse(data['total_boleta'].toString());
       }
 
-      // Si Groq falla o devuelve null, usamos el fallback Regex
-      return _parseReceiptFallback(recognizedText, isMultiple: isMultiple, imagePath: imagePath);
-  }
-
-  ScannedReceipt _parseReceiptFallback(RecognizedText recognizedText, {bool isMultiple = false, String? imagePath}) {
-      final String recognizedTextStr = recognizedText.text;
-
-      final merchant = _extractMerchant(recognizedText);
-      final date = _extractDate(recognizedTextStr);
-      final amount = _extractBestAmount(recognizedTextStr);
+      // Parse date safely
+      DateTime? date;
+      if (data['fecha'] != null) {
+        date = DateTime.tryParse(data['fecha'].toString());
+      }
 
       String? productName;
+      String? category;
+      String? subcategory;
+      double? quantity;
+      String? unit;
       List<ReceiptItem>? items;
 
-      if (isMultiple) {
-        items = _extractMultipleItems(recognizedTextStr);
+      if (isMultiple &&
+          data['productos'] != null &&
+          data['productos'] is List) {
+        items = (data['productos'] as List).map((p) {
+          return ReceiptItem(
+            name: p['nombre_producto']?.toString() ?? 'Producto',
+            price:
+                double.tryParse(p['importe_total']?.toString() ?? '0') ?? 0.0,
+            category: p['categoria']?.toString(),
+            subcategory: p['subcategoria']?.toString(),
+            quantity: double.tryParse(p['cantidad']?.toString() ?? '1'),
+            unit: p['unidad']?.toString(),
+          );
+        }).toList();
+
+        // 🧠 APRENDIZAJE PERSISTENTE: Sobrescribir con reglas locales si existen
+        if (dao != null) {
+          for (var item in items) {
+            final rule = await dao.getRuleForProduct(item.name);
+            if (rule != null && rule.usageCount >= 1) {
+              // Sobrescritura directa
+              item.category = rule.categoryId;
+              debugPrint(
+                '🧠 AI Interceptada: Cambiando categoría de ${item.name} a ${rule.categoryId}',
+              );
+            }
+          }
+        }
       } else {
-        productName = _extractProductName(recognizedTextStr);
+        if (data['productos'] != null &&
+            data['productos'] is List &&
+            (data['productos'] as List).isNotEmpty) {
+          productName = data['productos'][0]['nombre_producto']?.toString();
+          category = data['productos'][0]['categoria']?.toString();
+          subcategory = data['productos'][0]['subcategoria']?.toString();
+          quantity = double.tryParse(
+            data['productos'][0]['cantidad']?.toString() ?? '1',
+          );
+          unit = data['productos'][0]['unidad']?.toString();
+
+          // 🧠 APRENDIZAJE PERSISTENTE
+          if (dao != null && productName != null) {
+            final rule = await dao.getRuleForProduct(productName);
+            if (rule != null && rule.usageCount >= 1) {
+              category = rule.categoryId;
+              debugPrint(
+                '🧠 AI Interceptada: Cambiando categoría de $productName a ${rule.categoryId}',
+              );
+            }
+          }
+        }
       }
 
       return ScannedReceipt(
-        amount: amount,
-        date: date,
-        merchant: merchant,
-        productName: productName,
+        amount: amount ?? _extractBestAmount(raw),
+        date: date ?? _extractDate(raw),
+        merchant:
+            data['comercio']?.toString() ?? _extractMerchant(recognizedText),
+        productName: productName ?? _extractProductName(raw),
+        quantity: quantity,
+        unit: unit,
+        category: category,
+        subcategory: subcategory,
         items: items,
-        rawText: recognizedTextStr,
-        imagePath: imagePath,  // Siempre preservado
+        rawText: raw,
+        imagePath: imagePath,
+        confidence: double.tryParse(
+          data['confianza_clasificacion']?.toString() ?? '',
+        ),
       );
+    }
+
+    // Si Groq falla o devuelve null, usamos el fallback Regex
+    return _parseReceiptFallback(
+      recognizedText,
+      isMultiple: isMultiple,
+      imagePath: imagePath,
+    );
+  }
+
+  ScannedReceipt _parseReceiptFallback(
+    RecognizedText recognizedText, {
+    bool isMultiple = false,
+    String? imagePath,
+  }) {
+    final String recognizedTextStr = recognizedText.text;
+
+    final merchant = _extractMerchant(recognizedText);
+    final date = _extractDate(recognizedTextStr);
+    final amount = _extractBestAmount(recognizedTextStr);
+
+    String? productName;
+    List<ReceiptItem>? items;
+
+    if (isMultiple) {
+      items = _extractMultipleItems(recognizedTextStr);
+    } else {
+      productName = _extractProductName(recognizedTextStr);
+    }
+
+    return ScannedReceipt(
+      amount: amount,
+      date: date,
+      merchant: merchant,
+      productName: productName,
+      items: items,
+      rawText: recognizedTextStr,
+      imagePath: imagePath, // Siempre preservado
+    );
   }
 
   // ─── Extracción de monto ──────────────────────────────────────────────────
 
   /// Extrae el monto total de la factura con prioridad estricta:
   /// 1. "Importe Total" / "Total a pagar" (prioridad máxima)
-  /// 2. "Total" sin calificadores (prioridad media)  
+  /// 2. "Total" sin calificadores (prioridad media)
   /// 3. Mayor monto con decimales en últimas 15 líneas (fallback)
   /// NOTA: "subtotal" NO se usa como keyword de total — puede ser previo a descuentos.
   /// NOTA: Líneas de puntos/fidelidad (ej: "Puntos » 230 S/2.30") son ignoradas.
@@ -249,9 +296,7 @@ class ReceiptScannerService {
     ];
 
     // Prioridad 2: Líneas que contienen solo "total" (pero NO "subtotal" ni "puntos")
-    const mediumPriorityKeywords = [
-      'total',
-    ];
+    const mediumPriorityKeywords = ['total'];
 
     // Líneas a IGNORAR aunque contengan "total"
     const ignorePatterns = [
@@ -291,7 +336,10 @@ class ReceiptScannerService {
         if (highPriorityAmount == null || lineMax > highPriorityAmount) {
           highPriorityAmount = lineMax;
         }
-      } else if (mediumPriorityKeywords.any((kw) => lower == kw || lower.startsWith('$kw ') || lower.endsWith(' $kw'))) {
+      } else if (mediumPriorityKeywords.any(
+        (kw) =>
+            lower == kw || lower.startsWith('$kw ') || lower.endsWith(' $kw'),
+      )) {
         if (mediumPriorityAmount == null || lineMax > mediumPriorityAmount) {
           mediumPriorityAmount = lineMax;
         }
@@ -303,7 +351,9 @@ class ReceiptScannerService {
 
     // Fallback: el mayor número con decimales de las últimas 15 líneas
     // (excluyendo líneas de puntos/fidelidad)
-    final lastLines = lines.length > 15 ? lines.sublist(lines.length - 15) : lines;
+    final lastLines = lines.length > 15
+        ? lines.sublist(lines.length - 15)
+        : lines;
     double? largest;
     for (final line in lastLines) {
       final lower = line.toLowerCase();
@@ -326,11 +376,18 @@ class ReceiptScannerService {
   DateTime? _extractDate(String text) {
     // Palabras clave de fecha en boletas peruanas (buscar fecha de emisión preferentemente)
     final lines = text.split('\n');
-    
+
     // Primero buscar líneas con keywords de fecha principal
-    const dateKeywords = ['fecha', 'emision', 'emisión', 'f.pago', 'fpago', 'fecha de'];
+    const dateKeywords = [
+      'fecha',
+      'emision',
+      'emisión',
+      'f.pago',
+      'fpago',
+      'fecha de',
+    ];
     final numericDate = RegExp(r'\b(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})\b');
-    
+
     for (final line in lines) {
       final lower = line.toLowerCase();
       if (dateKeywords.any((kw) => lower.contains(kw))) {
@@ -345,14 +402,33 @@ class ReceiptScannerService {
     // Fallback: primera fecha numérica encontrada
     final numMatch = numericDate.firstMatch(text);
     if (numMatch != null) {
-      return _tryParseDate(numMatch.group(1)!, numMatch.group(2)!, numMatch.group(3)!);
+      return _tryParseDate(
+        numMatch.group(1)!,
+        numMatch.group(2)!,
+        numMatch.group(3)!,
+      );
     }
 
     // Textual: "14 FEB 2026" o "FEB 14 2026" o "FEBR 14 2026"
     const months = {
-      'ENE': 1, 'FEB': 2, 'FEBR': 2, 'MAR': 3, 'ABR': 4, 'MAY': 5, 'JUN': 6,
-      'JUL': 7, 'AGO': 8, 'SEP': 9, 'SET': 9, 'OCT': 10, 'NOV': 11, 'DIC': 12,
-      'JAN': 1, 'APR': 4, 'AUG': 8, 'DEC': 12,
+      'ENE': 1,
+      'FEB': 2,
+      'FEBR': 2,
+      'MAR': 3,
+      'ABR': 4,
+      'MAY': 5,
+      'JUN': 6,
+      'JUL': 7,
+      'AGO': 8,
+      'SEP': 9,
+      'SET': 9,
+      'OCT': 10,
+      'NOV': 11,
+      'DIC': 12,
+      'JAN': 1,
+      'APR': 4,
+      'AUG': 8,
+      'DEC': 12,
     };
 
     final textDate = RegExp(
@@ -399,7 +475,8 @@ class ReceiptScannerService {
       final firstLine = block.text.trim().split('\n').first.trim();
       if (firstLine.length >= 4 && !ignoredPatterns.hasMatch(firstLine)) {
         return _toTitleCase(
-            firstLine.replaceAll(RegExp(r'[^\w\sáéíóúÁÉÍÓÚñÑ&.-]'), '').trim());
+          firstLine.replaceAll(RegExp(r'[^\w\sáéíóúÁÉÍÓÚñÑ&.-]'), '').trim(),
+        );
       }
     }
     return null;
@@ -428,13 +505,18 @@ class ReceiptScannerService {
       final line = rawLine.trim();
       if (line.isEmpty) continue;
 
-      if (!skipPatterns.hasMatch(line) && line.length > 3 && !RegExp(r'^\d+[\.,]\d{2}$').hasMatch(line)) {
+      if (!skipPatterns.hasMatch(line) &&
+          line.length > 3 &&
+          !RegExp(r'^\d+[\.,]\d{2}$').hasMatch(line)) {
         // Eliminar cabeceras obvias de la tienda
-        if (!line.toUpperCase().contains('MAYORISTA') && !line.toUpperCase().contains('EIRL')) {
-            final strippedLine = line.replaceFirst(quantityStripPattern, '').trim();
-            if (strippedLine.isNotEmpty && strippedLine.length >= 3) {
-              candidates.add(strippedLine);
-            }
+        if (!line.toUpperCase().contains('MAYORISTA') &&
+            !line.toUpperCase().contains('EIRL')) {
+          final strippedLine = line
+              .replaceFirst(quantityStripPattern, '')
+              .trim();
+          if (strippedLine.isNotEmpty && strippedLine.length >= 3) {
+            candidates.add(strippedLine);
+          }
         }
       }
     }
@@ -452,19 +534,20 @@ class ReceiptScannerService {
 
       int letterCount = clean.replaceAll(RegExp(r'[^a-zA-Z]'), '').length;
       int numCount = clean.replaceAll(RegExp(r'[^0-9]'), '').length;
-      
+
       // Fórmula heurística
       double score = letterCount.toDouble();
       if (numCount > letterCount && numCount > 5) score -= (numCount * 0.5);
-      
-      // Penalizar descripciones que parecen ser códigos de bolsa 
-      if (clean.toUpperCase().contains('MONFER') || clean.toUpperCase().contains('UNI')) {
-         score -= 20.0;
+
+      // Penalizar descripciones que parecen ser códigos de bolsa
+      if (clean.toUpperCase().contains('MONFER') ||
+          clean.toUpperCase().contains('UNI')) {
+        score -= 20.0;
       }
-      
+
       // Bonus para modelos de productos técnicos comunes (letras mayusculas + numeros)
       if (RegExp(r'[A-Z]+ \d+[A-Za-z]*').hasMatch(clean)) {
-         score += 15.0; 
+        score += 15.0;
       }
 
       if (score > bestScore) {
@@ -478,14 +561,34 @@ class ReceiptScannerService {
   }
 
   // ─── Extracción de ítems múltiples ───────────────────────────────────────
-  
+
   List<ReceiptItem> _extractMultipleItems(String text) {
     final lines = text.split('\n');
     bool inItemsSection = false;
 
-    const headerMarkers = ['cant', 'cantidad', 'descripcion', 'descripción', 'detalle', 'producto'];
-    const endMarkers = ['total', 'subtotal', 'importe', 'inporte', 'son:', 'vendedor', 'cajero', 'openpay', 'visa', 'mastercard', 'efectivo', 'vuelto'];
-    
+    const headerMarkers = [
+      'cant',
+      'cantidad',
+      'descripcion',
+      'descripción',
+      'detalle',
+      'producto',
+    ];
+    const endMarkers = [
+      'total',
+      'subtotal',
+      'importe',
+      'inporte',
+      'son:',
+      'vendedor',
+      'cajero',
+      'openpay',
+      'visa',
+      'mastercard',
+      'efectivo',
+      'vuelto',
+    ];
+
     final skipPatterns = RegExp(
       r'^(\d+\s*@|\d+\s*x)|\bRUC\b|www\.|^\d{6,}|^[a-zA-Z0-9]{2,4}-\d+|^\d{2}/\d{2}/\d{2,4}|Venta mostrador|Cliente|Fecha|DNI|Hora:|Ticket|Cajero|Des[ce]r.*pci[oó]n|Cant\b',
       caseSensitive: false,
@@ -496,7 +599,10 @@ class ReceiptScannerService {
     );
 
     // Regex para nombre seguido de precio al final: "LECHE 3.40"
-    final priceAtEndMatches = RegExp(r'(.*?)(?:S/|PEN|\$)?\s*(\d+[.,]\d{2})$', caseSensitive: false);
+    final priceAtEndMatches = RegExp(
+      r'(.*?)(?:S/|PEN|\$)?\s*(\d+[.,]\d{2})$',
+      caseSensitive: false,
+    );
 
     final List<ReceiptItem> items = [];
     String pendingName = "";
@@ -511,44 +617,52 @@ class ReceiptScannerService {
         inItemsSection = true;
         continue;
       }
-      if (inItemsSection && endMarkers.any((m) => lower.startsWith(m) || lower == m)) {
+      if (inItemsSection &&
+          endMarkers.any((m) => lower.startsWith(m) || lower == m)) {
         break;
       }
 
       if (inItemsSection) {
         if (skipPatterns.hasMatch(line)) continue;
-        final processedLine = line.replaceFirst(quantityStripPattern, '').trim();
+        final processedLine = line
+            .replaceFirst(quantityStripPattern, '')
+            .trim();
         if (processedLine.isEmpty) continue;
 
         final match = priceAtEndMatches.firstMatch(processedLine);
         if (match != null) {
           String name = match.group(1)!.trim();
           double price = double.parse(match.group(2)!.replaceAll(',', '.'));
-          
+
           if (name.isEmpty) {
-             // Línea solo tenía el precio, usamos el pendingName recolectado previamente
-             if (pendingName.isNotEmpty && price > 0) {
-                items.add(ReceiptItem(name: _toTitleCase(pendingName), price: price));
-                pendingName = "";
-             }
+            // Línea solo tenía el precio, usamos el pendingName recolectado previamente
+            if (pendingName.isNotEmpty && price > 0) {
+              items.add(
+                ReceiptItem(name: _toTitleCase(pendingName), price: price),
+              );
+              pendingName = "";
+            }
           } else {
-             // Limpiar códigos largos
-             name = name.replaceAll(RegExp(r'\d{6,}'), '').trim();
-             if (name.length >= 2 && price > 0) {
-                 if (pendingName.isNotEmpty) {
-                     name = "$pendingName $name".trim();
-                     pendingName = "";
-                 }
-                 items.add(ReceiptItem(name: _toTitleCase(name), price: price));
-             }
+            // Limpiar códigos largos
+            name = name.replaceAll(RegExp(r'\d{6,}'), '').trim();
+            if (name.length >= 2 && price > 0) {
+              if (pendingName.isNotEmpty) {
+                name = "$pendingName $name".trim();
+                pendingName = "";
+              }
+              items.add(ReceiptItem(name: _toTitleCase(name), price: price));
+            }
           }
         } else {
-           // No hay precio al final, podría ser un producto mutilínea
-           String nameOnly = processedLine.replaceAll(RegExp(r'\d{6,}'), '').trim();
-           if (nameOnly.length >= 3 && !RegExp(r'^\d+[\.,]\d{2}$').hasMatch(processedLine)) {
-               pendingName += " $nameOnly";
-               pendingName = pendingName.trim();
-           }
+          // No hay precio al final, podría ser un producto mutilínea
+          String nameOnly = processedLine
+              .replaceAll(RegExp(r'\d{6,}'), '')
+              .trim();
+          if (nameOnly.length >= 3 &&
+              !RegExp(r'^\d+[\.,]\d{2}$').hasMatch(processedLine)) {
+            pendingName += " $nameOnly";
+            pendingName = pendingName.trim();
+          }
         }
       }
     }
@@ -558,9 +672,11 @@ class ReceiptScannerService {
   static String _toTitleCase(String text) {
     return text
         .split(' ')
-        .map((w) => w.isEmpty
-            ? ''
-            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .map(
+          (w) => w.isEmpty
+              ? ''
+              : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}',
+        )
         .join(' ');
   }
 

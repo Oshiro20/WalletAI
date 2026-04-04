@@ -9,7 +9,7 @@ class Subcategories extends Table {
   TextColumn get icon => text().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }

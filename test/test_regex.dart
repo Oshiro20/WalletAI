@@ -1,4 +1,4 @@
-﻿// ignore_for_file: avoid_print
+// ignore_for_file: avoid_print
 void main() {
   final lines = [
     'MAYORISTA DON PEDRITO EIRL',
@@ -20,12 +20,30 @@ void main() {
     'Hash: XslHeikql SewTUmGWnoFqlHBXZeN=-',
     'Hora: 16: 58:14',
     'Importe',
-    '5.90'
+    '5.90',
   ];
 
   bool inItemsSection = false;
-  const headerMarkers = ['cant', 'cantidad', 'descripcion', 'descripciÃ³n', 'detalle', 'producto', 'descnpciÃ³n'];
-  const endMarkers = ['total', 'subtotal', 'importe', 'son:', 'vendedor', 'cajero', 'openpay', 'visa', 'mastercard'];
+  const headerMarkers = [
+    'cant',
+    'cantidad',
+    'descripcion',
+    'descripciÃ³n',
+    'detalle',
+    'producto',
+    'descnpciÃ³n',
+  ];
+  const endMarkers = [
+    'total',
+    'subtotal',
+    'importe',
+    'son:',
+    'vendedor',
+    'cajero',
+    'openpay',
+    'visa',
+    'mastercard',
+  ];
 
   final skipPatterns = RegExp(
     r'^(\d+\s*@|\d+\s*x)|\bRUC\b|www\.|^\d{6,}|^[A-Z]\d{2,3}-\d+|POCO X|Venta mostrador|Cliente|Fecha|DNI|Hora:|Ticket|Cajero',
@@ -49,18 +67,21 @@ void main() {
       continue;
     }
 
-    if (inItemsSection && endMarkers.any((m) => lower.startsWith(m) || lower == m)) {
+    if (inItemsSection &&
+        endMarkers.any((m) => lower.startsWith(m) || lower == m)) {
       print('Exited items section at: $line');
       break;
     }
 
     if (inItemsSection) {
       print('Checking line: $line');
-      if (!skipPatterns.hasMatch(line) && line.length > 4 && !RegExp(r'^\d+[\.,]\d{2}$').hasMatch(line)) {
+      if (!skipPatterns.hasMatch(line) &&
+          line.length > 4 &&
+          !RegExp(r'^\d+[\.,]\d{2}$').hasMatch(line)) {
         final strippedLine = line.replaceFirst(quantityStripPattern, '').trim();
         print('  Stripped line: $strippedLine');
         if (strippedLine.isNotEmpty && strippedLine.length >= 3) {
-           candidates.add(strippedLine);
+          candidates.add(strippedLine);
         }
       } else {
         print('  Skipped line: $line');
@@ -73,4 +94,3 @@ void main() {
 
   print('Candidates: $candidates');
 }
-

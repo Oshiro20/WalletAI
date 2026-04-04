@@ -134,7 +134,10 @@ class _DebtSummary extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.expense.withValues(alpha: 0.2), width: 1),
+        border: Border.all(
+          color: AppColors.expense.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -556,7 +559,10 @@ class _DebtFreeProjection extends StatelessWidget {
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.income.withValues(alpha: 0.2), width: 1),
+        border: Border.all(
+          color: AppColors.income.withValues(alpha: 0.2),
+          width: 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

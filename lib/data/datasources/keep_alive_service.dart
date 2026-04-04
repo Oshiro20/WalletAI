@@ -15,7 +15,7 @@ class KeepAliveService {
   void start() {
     // Ping inmediato al arrancar la app
     _ping();
-    
+
     // Ping periódico cada 10 minutos
     _timer = Timer.periodic(const Duration(minutes: 10), (_) => _ping());
   }
@@ -29,19 +29,27 @@ class KeepAliveService {
   Future<void> _ping() async {
     try {
       if (kDebugMode) {
-        print('🕒 KeepAliveService: Enviando ping a Render.com para evitar cold-start...');
+        print(
+          '🕒 KeepAliveService: Enviando ping a Render.com para evitar cold-start...',
+        );
       }
-      
+
       // Llamada "fire-and-forget" con timeout largo (el cold start puede durar ~50s)
       // Usamos el endpoint raíz para no procesar nada pesado
-      final response = await http.get(Uri.parse(_url)).timeout(const Duration(seconds: 60));
-      
+      final response = await http
+          .get(Uri.parse(_url))
+          .timeout(const Duration(seconds: 60));
+
       if (kDebugMode) {
-        print('✅ KeepAliveService: Backend respondió con código ${response.statusCode}');
+        print(
+          '✅ KeepAliveService: Backend respondió con código ${response.statusCode}',
+        );
       }
     } catch (e) {
       if (kDebugMode) {
-        print('⚠️ KeepAliveService: Fallo en el ping (probablemente timeout, pero el backend igual despertará): $e');
+        print(
+          '⚠️ KeepAliveService: Fallo en el ping (probablemente timeout, pero el backend igual despertará): $e',
+        );
       }
     }
   }

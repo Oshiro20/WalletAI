@@ -27,7 +27,10 @@ class _AnalyticsPieChartState extends ConsumerState<AnalyticsPieChart> {
       return const SizedBox(
         height: 250,
         child: Center(
-            child: Text('No hay datos para mostrar', style: TextStyle(color: Colors.grey))
+          child: Text(
+            'No hay datos para mostrar',
+            style: TextStyle(color: Colors.grey),
+          ),
         ),
       );
     }
@@ -39,48 +42,57 @@ class _AnalyticsPieChartState extends ConsumerState<AnalyticsPieChart> {
     return categoriesAsync.when(
       data: (categories) {
         final total = widget.dataMap.values.fold(0.0, (sum, val) => sum + val);
-        
+
         return SizedBox(
-            height: 250,
-            child: Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: PieChart(
-                    PieChartData(
-                      pieTouchData: PieTouchData(
-                        touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                          setState(() {
-                            if (!event.isInterestedForInteractions ||
-                                pieTouchResponse == null ||
-                                pieTouchResponse.touchedSection == null) {
-                              touchedIndex = -1;
-                              return;
-                            }
-                            touchedIndex = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                          });
-                        },
-                      ),
-                      borderData: FlBorderData(show: false),
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 40,
-                      sections: _showingSections(widget.dataMap, categories, total),
+          height: 250,
+          child: Row(
+            children: [
+              Expanded(
+                flex: 3,
+                child: PieChart(
+                  PieChartData(
+                    pieTouchData: PieTouchData(
+                      touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                        setState(() {
+                          if (!event.isInterestedForInteractions ||
+                              pieTouchResponse == null ||
+                              pieTouchResponse.touchedSection == null) {
+                            touchedIndex = -1;
+                            return;
+                          }
+                          touchedIndex = pieTouchResponse
+                              .touchedSection!
+                              .touchedSectionIndex;
+                        });
+                      },
+                    ),
+                    borderData: FlBorderData(show: false),
+                    sectionsSpace: 2,
+                    centerSpaceRadius: 40,
+                    sections: _showingSections(
+                      widget.dataMap,
+                      categories,
+                      total,
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: _Indicators(
-                      dataMap: widget.dataMap,
-                      categories: categories,
-                  ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                flex: 2,
+                child: _Indicators(
+                  dataMap: widget.dataMap,
+                  categories: categories,
                 ),
-              ],
-            ),
+              ),
+            ],
+          ),
         );
       },
-      loading: () => const SizedBox(height: 250, child: Center(child: CircularProgressIndicator())),
+      loading: () => const SizedBox(
+        height: 250,
+        child: Center(child: CircularProgressIndicator()),
+      ),
       error: (_, __) => const SizedBox(height: 250),
     );
   }
@@ -104,14 +116,15 @@ class _AnalyticsPieChartState extends ConsumerState<AnalyticsPieChart> {
       final category = categories.firstWhere(
         (c) => c.id == categoryId,
         orElse: () => Category(
-            id: 'unknown',
-            name: 'Desconocido',
-            type: widget.isExpense ? 'expense' : 'income',
-            icon: '?',
-            color: '#9E9E9E',
-            isSystem: true,
-            sortOrder: 0,
-            createdAt: DateTime.now()),
+          id: 'unknown',
+          name: 'Desconocido',
+          type: widget.isExpense ? 'expense' : 'income',
+          icon: '?',
+          color: '#9E9E9E',
+          isSystem: true,
+          sortOrder: 0,
+          createdAt: DateTime.now(),
+        ),
       );
 
       Color color;
@@ -144,11 +157,7 @@ class _AnalyticsPieChartState extends ConsumerState<AnalyticsPieChart> {
 }
 
 class _Badge extends StatelessWidget {
-  const _Badge(
-    this.text, {
-    required this.size,
-    required this.borderColor,
-  });
+  const _Badge(this.text, {required this.size, required this.borderColor});
   final String text;
   final double size;
   final Color borderColor;
@@ -162,10 +171,7 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         shape: BoxShape.circle,
-        border: Border.all(
-          color: borderColor,
-          width: 2,
-        ),
+        border: Border.all(color: borderColor, width: 2),
         boxShadow: <BoxShadow>[
           BoxShadow(
             color: Colors.black.withValues(alpha: .5),
@@ -176,10 +182,7 @@ class _Badge extends StatelessWidget {
       ),
       padding: const EdgeInsets.all(2),
       child: Center(
-        child: Text(
-          text,
-          style: TextStyle(fontSize: size * 0.5),
-        ),
+        child: Text(text, style: TextStyle(fontSize: size * 0.5)),
       ),
     );
   }
@@ -189,10 +192,7 @@ class _Indicators extends StatelessWidget {
   final Map<String, double> dataMap;
   final List<Category> categories;
 
-  const _Indicators({
-    required this.dataMap,
-    required this.categories,
-  });
+  const _Indicators({required this.dataMap, required this.categories});
 
   @override
   Widget build(BuildContext context) {
@@ -206,16 +206,18 @@ class _Indicators extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: topKeys.map((categoryId) {
         final category = categories.firstWhere(
-            (c) => c.id == categoryId,
-            orElse: () => Category(
-                id: 'unknown',
-                name: '?',
-                type: 'expense',
-                color: '#9E9E9E',
-                isSystem: true,
-                sortOrder: 0,
-                createdAt: DateTime.now()));
-        
+          (c) => c.id == categoryId,
+          orElse: () => Category(
+            id: 'unknown',
+            name: '?',
+            type: 'expense',
+            color: '#9E9E9E',
+            isSystem: true,
+            sortOrder: 0,
+            createdAt: DateTime.now(),
+          ),
+        );
+
         Color color;
         try {
           final colorString = category.color ?? '#9E9E9E';
@@ -231,10 +233,7 @@ class _Indicators extends StatelessWidget {
               Container(
                 width: 12,
                 height: 12,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color,
-                ),
+                decoration: BoxDecoration(shape: BoxShape.circle, color: color),
               ),
               const SizedBox(width: 8),
               Expanded(

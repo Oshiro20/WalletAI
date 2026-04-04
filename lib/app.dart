@@ -39,7 +39,7 @@ class _MyAppState extends ConsumerState<MyApp> {
   Widget build(BuildContext context) {
     final themeState = ref.watch(themeProvider);
     final lightTheme = ref.watch(lightThemeProvider);
-    final darkTheme  = ref.watch(darkThemeProvider);
+    final darkTheme = ref.watch(darkThemeProvider);
 
     return MaterialApp.router(
       title: 'WalletAI',
@@ -50,9 +50,7 @@ class _MyAppState extends ConsumerState<MyApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('es'),
-      ],
+      supportedLocales: const [Locale('es')],
       theme: lightTheme,
       darkTheme: darkTheme,
       themeMode: themeState.mode,

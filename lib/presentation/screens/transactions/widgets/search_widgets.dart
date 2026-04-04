@@ -28,17 +28,17 @@ class SearchSummaryCard extends StatelessWidget {
           children: [
             Text(
               'Resultados para "$query"',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 8),
             Text(
               'S/ ${totalAmount.toStringAsFixed(2)}',
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.expense, // Assuming mostly expense search
-                  ),
+                fontWeight: FontWeight.bold,
+                color: AppColors.expense, // Assuming mostly expense search
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -61,7 +61,7 @@ class SearchTrendChart extends StatelessWidget {
   Widget build(BuildContext context) {
     // 1. Group by Month (YYYY-MM)
     final Map<String, double> monthlyTotals = {};
-    
+
     // Sort transactions by date ascending for the chart
     final sortedTx = List<Transaction>.from(transactions)
       ..sort((a, b) => a.date.compareTo(b.date));
@@ -69,7 +69,8 @@ class SearchTrendChart extends StatelessWidget {
     if (sortedTx.isEmpty) return const SizedBox.shrink();
 
     for (var tx in sortedTx) {
-      if (tx.type == 'expense') { // Only chart expenses for now
+      if (tx.type == 'expense') {
+        // Only chart expenses for now
         final key = DateFormat('yyyy-MM').format(tx.date);
         monthlyTotals[key] = (monthlyTotals[key] ?? 0) + tx.amount;
       }
@@ -80,12 +81,12 @@ class SearchTrendChart extends StatelessWidget {
     // 2. Prepare Spot Data
     final List<BarChartGroupData> barGroups = [];
     final List<String> monthLabels = [];
-    
+
     int index = 0;
     monthlyTotals.forEach((key, value) {
       final date = DateFormat('yyyy-MM').parse(key);
       monthLabels.add(DateFormat('MMM').format(date)); // Jan, Feb...
-      
+
       barGroups.add(
         BarChartGroupData(
           x: index,
@@ -94,7 +95,9 @@ class SearchTrendChart extends StatelessWidget {
               toY: value,
               color: AppColors.expense,
               width: 16,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(4),
+              ),
             ),
           ],
         ),
@@ -111,7 +114,7 @@ class SearchTrendChart extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-             Text(
+            Text(
               'Tendencia Mensual',
               style: Theme.of(context).textTheme.titleMedium,
             ),
@@ -121,14 +124,19 @@ class SearchTrendChart extends StatelessWidget {
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY: monthlyTotals.values.reduce((a, b) => a > b ? a : b) * 1.2,
+                  maxY:
+                      monthlyTotals.values.reduce((a, b) => a > b ? a : b) *
+                      1.2,
                   barTouchData: BarTouchData(
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipColor: (_) => Colors.blueGrey,
                       getTooltipItem: (group, groupIndex, rod, rodIndex) {
                         return BarTooltipItem(
                           'S/ ${rod.toY.toStringAsFixed(2)}',
-                          const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
                         );
                       },
                     ),
@@ -139,22 +147,29 @@ class SearchTrendChart extends StatelessWidget {
                       sideTitles: SideTitles(
                         showTitles: true,
                         getTitlesWidget: (value, meta) {
-                          if (value.toInt() >= 0 && value.toInt() < monthLabels.length) {
-                             return Padding(
-                               padding: const EdgeInsets.only(top: 8.0),
-                               child: Text(
-                                 monthLabels[value.toInt()],
-                                 style: const TextStyle(fontSize: 10),
-                               ),
-                             );
+                          if (value.toInt() >= 0 &&
+                              value.toInt() < monthLabels.length) {
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                monthLabels[value.toInt()],
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            );
                           }
                           return const SizedBox.shrink();
                         },
                       ),
                     ),
-                    leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
                   ),
                   gridData: const FlGridData(show: false),
                   borderData: FlBorderData(show: false),

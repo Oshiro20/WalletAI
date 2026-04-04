@@ -5,13 +5,15 @@ import 'package:drift/drift.dart';
 class Transactions extends Table {
   TextColumn get id => text()();
   TextColumn get accountId => text()();
-  TextColumn get destinationAccountId => text().nullable()(); // para transferencias
+  TextColumn get destinationAccountId =>
+      text().nullable()(); // para transferencias
   TextColumn get type => text()(); // 'income', 'expense', 'transfer'
   TextColumn get currency => text().withDefault(const Constant('PEN'))();
   RealColumn get amount => real()();
   TextColumn get categoryId => text().nullable()();
   TextColumn get subcategoryId => text().nullable()();
-  TextColumn get productName => text().nullable()(); // nombre del producto/item comprado
+  TextColumn get productName =>
+      text().nullable()(); // nombre del producto/item comprado
   TextColumn get description => text().nullable()();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get date => dateTime()();
@@ -27,8 +29,7 @@ class Transactions extends Table {
   // ─────────────────────────────────────────────────────────────────────
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
-  
+
   @override
   Set<Column> get primaryKey => {id};
 }
-
