@@ -187,7 +187,9 @@ class _AboutScreenState extends State<AboutScreen> {
                       onTap: () => showLicensePage(
                         context: context,
                         applicationName: 'WalletAI',
-                        applicationVersion: '$_version+$_build',
+                        applicationVersion: _fullVersion.isNotEmpty
+                            ? _fullVersion
+                            : _version,
                         applicationIcon: Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Icon(
@@ -234,7 +236,7 @@ class _AboutScreenState extends State<AboutScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '© 2026 WalletAI · v$_version',
+                        '© 2026 WalletAI · v$_fullVersion',
                         style: txt.bodySmall?.copyWith(
                           color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                         ),
