@@ -1,10 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
 
-  static const _version = '1.15.0';
-  static const _build = '3';
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  String _version = 'Cargando...';
+  String _fullVersion = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          _version = info.version;
+          _fullVersion = '${info.version}+${info.buildNumber}';
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _version = '1.3.1');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +57,7 @@ class AboutScreen extends StatelessWidget {
                     _InfoRow(
                       icon: Icons.info_outline,
                       label: 'Versión',
-                      value: '1.15.0',
+                      value: _fullVersion.isNotEmpty ? _fullVersion : _version,
                     ),
                     _InfoRow(
                       icon: Icons.phone_android,
