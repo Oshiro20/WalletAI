@@ -55,30 +55,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// Exporta el resumen mensual para MyLifeOS.
   Future<void> _exportMyLifeOSSummary() async {
     try {
-      final accounts = await ref.read(accountsStreamProvider.future);
-      final transactions = accounts.expand((a) => a.transactions).toList();
+      final incomeVal = ref.read(currentMonthIncomeProvider);
+      final expensesVal = ref.read(currentMonthExpensesProvider);
+
+      final income = incomeVal.when(
+        data: (v) => v,
+        loading: () => 0.0,
+        error: (_, __) => 0.0,
+      );
+
+      final expenses = expensesVal.when(
+        data: (v) => v,
+        loading: () => 0.0,
+        error: (_, __) => 0.0,
+      );
 
       final now = DateTime.now();
-      final monthTxns = transactions
-          .where((t) => t.date.year == now.year && t.date.month == now.month)
-          .toList();
-
-      double income = 0, expenses = 0;
-      for (final t in monthTxns) {
-        final amount = t.amount.toDouble();
-        if (amount > 0) {
-          income += amount;
-        } else {
-          expenses += amount.abs();
-        }
-      }
-
-      final currency = ref.read(currencyProvider);
       final summary = {
         'balance': income - expenses,
         'income': income,
         'expenses': expenses,
-        'currency': currency ?? 'PEN',
+        'currency': 'PEN',
         'month': '${now.year}-${now.month.toString().padLeft(2, '0')}',
       };
 
