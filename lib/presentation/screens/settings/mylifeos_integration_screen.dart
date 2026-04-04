@@ -10,8 +10,7 @@ class MyLifeOSIntegrationScreen extends StatefulWidget {
       _MyLifeOSIntegrationScreenState();
 }
 
-class _MyLifeOSIntegrationScreenState
-    extends State<MyLifeOSIntegrationScreen> {
+class _MyLifeOSIntegrationScreenState extends State<MyLifeOSIntegrationScreen> {
   String? _projectId;
   bool _loading = true;
   final _controller = TextEditingController();
@@ -71,24 +70,10 @@ class _MyLifeOSIntegrationScreenState
     }
   }
 
-  Future<void> _exportSummary() async {
-    // Trigger re-export from home screen
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Resumen exportado automáticamente al abrir la app'),
-          backgroundColor: Color(0xFF00C896),
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Integración MyLifeOS'),
-      ),
+      appBar: AppBar(title: const Text('Integración MyLifeOS')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -249,8 +234,7 @@ class _MyLifeOSIntegrationScreenState
                         _Step(
                           number: 2,
                           title: 'Pega el ID aquí y guarda',
-                          description:
-                              'O usa el ID autogenerado de MyLifeOS.',
+                          description: 'O usa el ID autogenerado de MyLifeOS.',
                         ),
                         const SizedBox(height: 8),
                         _Step(
@@ -317,10 +301,7 @@ class _Step extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 description,
-                style: TextStyle(
-                  color: Colors.grey.shade600,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
               ),
             ],
           ),

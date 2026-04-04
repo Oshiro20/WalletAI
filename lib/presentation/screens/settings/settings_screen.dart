@@ -7,7 +7,6 @@ import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import '../../../data/datasources/excel_service.dart';
 import '../../providers/database_providers.dart';
-import 'mylifeos_integration_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});

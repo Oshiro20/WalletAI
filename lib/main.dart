@@ -5,7 +5,6 @@ import 'package:showcaseview/showcaseview.dart';
 import 'package:home_widget/home_widget.dart';
 import 'data/datasources/notification_service.dart';
 import 'data/datasources/auto_sync_service.dart';
-import 'core/services/mylifeos_integration_service.dart';
 import 'app.dart';
 
 // Callback de background para refrescar widgets desde el sistema
