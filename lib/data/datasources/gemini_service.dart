@@ -1,19 +1,22 @@
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Servicio que se conecta a Gemini Flash para responder preguntas financieras.
 /// Obtén tu API key gratis en https://aistudio.google.com/apikey
 class GeminiService {
-  static const String _defaultApiKey =
-      'AIzaSyALEvE5k4Da3QKOrFLDonQdEiDj-X_MJ9o';
+  static String? get _envApiKey => dotenv.env['GEMINI_API_KEY'];
+  static const String _defaultApiKey = 'YOUR_GEMINI_API_KEY';
 
   /// True si el usuario ya configuró su API key
-  static bool get isConfigured => _defaultApiKey != 'YOUR_GEMINI_API_KEY';
+  static bool get isConfigured =>
+      (_envApiKey ?? _defaultApiKey) != 'YOUR_GEMINI_API_KEY';
 
   final String _apiKey;
   late final GenerativeModel _model;
   late ChatSession _chat;
 
-  GeminiService({String? apiKey}) : _apiKey = apiKey ?? _defaultApiKey {
+  GeminiService({String? apiKey})
+    : _apiKey = apiKey ?? _envApiKey ?? _defaultApiKey {
     _model = GenerativeModel(
       model: 'gemini-1.5-flash',
       apiKey: _apiKey,

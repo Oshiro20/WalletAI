@@ -78,6 +78,7 @@ dependencies:
   excel: ^4.0.6
   sqlite3: ^2.9.4
   speech_to_text: ^7.3.0
+  flutter_dotenv: ^5.1.0
   
   # PDF
   pdf: ^3.11.3
