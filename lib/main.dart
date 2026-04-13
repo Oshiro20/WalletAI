@@ -18,8 +18,13 @@ Future<void> _homeWidgetBackgroundCallback(Uri? uri) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Cargar variables de entorno
-  await dotenv.load(fileName: '.env');
+  // Cargar variables de entorno (opcional, solo en desarrollo)
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    // Si no encuentra el .env, continúa normalmente
+    // Las API keys pueden estar configuradas por el usuario en ajustes
+  }
 
   await initializeDateFormatting('es_PE', null);
 
