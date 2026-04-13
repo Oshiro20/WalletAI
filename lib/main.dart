@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'data/datasources/notification_service.dart';
 import 'data/datasources/auto_sync_service.dart';
 import 'app.dart';
@@ -16,6 +17,10 @@ Future<void> _homeWidgetBackgroundCallback(Uri? uri) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Cargar variables de entorno
+  await dotenv.load(fileName: '.env');
+
   await initializeDateFormatting('es_PE', null);
 
   // Registrar callback de background para home_widget
