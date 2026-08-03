@@ -71,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 12;
+  int get schemaVersion => 13;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -156,6 +156,14 @@ class AppDatabase extends _$AppDatabase {
         } catch (_) {}
         await _insertDefaultSubcategories();
       }
+      if (from < 13) {
+        // v13: Re-mapeo limpio de subcategorías por defecto a categorías correctas y purga de duplicados
+        try {
+          await customStatement("DELETE FROM subcategories WHERE id LIKE 'sub_%'");
+        } catch (_) {}
+        await _insertDefaultCategories();
+        await _insertDefaultSubcategories();
+      }
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -170,6 +178,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// Repoblar y restablecer las categorías y subcategorías por defecto del sistema
   Future<void> reseedDefaults() async {
+    try {
+      await customStatement("DELETE FROM subcategories WHERE id LIKE 'sub_%'");
+    } catch (_) {}
     await _insertDefaultCategories();
     await _insertDefaultSubcategories();
   }
