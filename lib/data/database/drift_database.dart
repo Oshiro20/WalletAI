@@ -771,7 +771,7 @@ class AppDatabase extends _$AppDatabase {
     ];
 
     await batch((batch) {
-      batch.insertAllOnConflictUpdate(subcategories, subcategoriesList);
+      batch.insertAll(subcategories, subcategoriesList, mode: InsertMode.insertOrReplace);
     });
   }
 
@@ -1099,8 +1099,8 @@ class AppDatabase extends _$AppDatabase {
 
     // Insertar todas las categorías evitando conflictos de IDs existentes
     await batch((batch) {
-      batch.insertAllOnConflictUpdate(categories, expenseCategories);
-      batch.insertAllOnConflictUpdate(categories, incomeCategories);
+      batch.insertAll(categories, expenseCategories, mode: InsertMode.insertOrReplace);
+      batch.insertAll(categories, incomeCategories, mode: InsertMode.insertOrReplace);
     });
   }
 }
