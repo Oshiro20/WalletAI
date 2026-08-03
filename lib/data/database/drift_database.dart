@@ -206,6 +206,8 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(3),
         createdAt: now,
       ),
+
+      // ── ANTOJOS ───────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_snacks',
         categoryId: 'cat_antojos',
@@ -215,6 +217,7 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(1),
         createdAt: now,
       ),
+
       // ── TRANSPORTE ────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_publico',
@@ -252,48 +255,88 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(4),
         createdAt: now,
       ),
-      // ── ENTRETENIMIENTO ───────────────────────────────────
+
+      // ── SERVICIOS DIGITALES ──────────────────────────────
       SubcategoriesCompanion.insert(
-        id: 'sub_streaming',
-        categoryId: 'cat_entretenimiento',
-        name: 'Streaming',
-        icon: const Value('🎬'),
-        description: const Value('Suscripciones a servicios de video o música (Netflix, Spotify, YouTube, Disney+).'),
+        id: 'sub_servicios_hogar',
+        categoryId: 'cat_servicios_digitales',
+        name: 'Servicios Básicos (Luz/Agua/Gas)',
+        icon: const Value('💡'),
+        description: const Value('Pagos de suministro de luz, agua potable, gas natural y servicios básicos.'),
         sortOrder: const Value(1),
         createdAt: now,
       ),
       SubcategoriesCompanion.insert(
-        id: 'sub_salidas',
-        categoryId: 'cat_entretenimiento',
-        name: 'Cine/Salidas',
-        icon: const Value('🍿'),
-        description: const Value('Entradas a cine, teatro, conciertos, eventos y salidas recreativas.'),
+        id: 'sub_internet',
+        categoryId: 'cat_servicios_digitales',
+        name: 'Internet/Cable',
+        icon: const Value('🌐'),
+        description: const Value('Servicio mensual de internet de hogar, fibra óptica y televisión por cable.'),
         sortOrder: const Value(2),
         createdAt: now,
       ),
       SubcategoriesCompanion.insert(
-        id: 'sub_juegos',
-        categoryId: 'cat_entretenimiento',
-        name: 'Videojuegos',
-        icon: const Value('🎮'),
-        description: const Value('Juegos de consola, PC o celular, suscripciones gamer y microtransacciones.'),
+        id: 'sub_telefonia',
+        categoryId: 'cat_servicios_digitales',
+        name: 'Celular/Telefonía',
+        icon: const Value('📱'),
+        description: const Value('Planes postpago de celular, recargas de saldo y telefonía móvil.'),
         sortOrder: const Value(3),
         createdAt: now,
       ),
       SubcategoriesCompanion.insert(
-        id: 'sub_libros_revistas',
-        categoryId: 'cat_entretenimiento',
-        name: 'Libros/Revistas',
-        icon: const Value('📚'),
-        description: const Value('Compra de libros físicos o digitales, historietas y suscripciones de lectura.'),
+        id: 'sub_streaming',
+        categoryId: 'cat_servicios_digitales',
+        name: 'Streaming/Suscripciones',
+        icon: const Value('📺'),
+        description: const Value('Suscripciones digitales a películas, música y servicios (Netflix, Spotify, YouTube).'),
         sortOrder: const Value(4),
         createdAt: now,
       ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_software',
+        categoryId: 'cat_servicios_digitales',
+        name: 'Juegos/Apps/Software',
+        icon: const Value('🎮'),
+        description: const Value('Compra de aplicaciones, almacenamiento en la nube, licencias de software y juegos.'),
+        sortOrder: const Value(5),
+        createdAt: now,
+      ),
+
+      // ── EDUCACIÓN ─────────────────────────────────────────
+      SubcategoriesCompanion.insert(
+        id: 'sub_pension',
+        categoryId: 'cat_educacion',
+        name: 'Pensión/Matrícula',
+        icon: const Value('🎓'),
+        description: const Value('Pensiones educativas, matrículas de colegios, institutos o universidades.'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_cursos',
+        categoryId: 'cat_educacion',
+        name: 'Cursos/Talleres',
+        icon: const Value('💻'),
+        description: const Value('Cursos online, capacitaciones, diplomados y talleres de especialización.'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_libros_estudio',
+        categoryId: 'cat_educacion',
+        name: 'Libros/Materiales',
+        icon: const Value('📚'),
+        description: const Value('Libros de estudio, cuadernos, fotocopias y útiles académicos.'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+
       // ── SALUD ─────────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_farmacia',
         categoryId: 'cat_salud',
-        name: 'Farmacia/Botica',
+        name: 'Farmacia/Medicamentos',
         icon: const Value('💊'),
         description: const Value('Medicamentos, remedios con o sin receta e insumos médicos básicos.'),
         sortOrder: const Value(1),
@@ -309,14 +352,15 @@ class AppDatabase extends _$AppDatabase {
         createdAt: now,
       ),
       SubcategoriesCompanion.insert(
-        id: 'sub_gym',
+        id: 'sub_seguro_medico',
         categoryId: 'cat_salud',
-        name: 'Gimnasio',
-        icon: const Value('🏋️'),
-        description: const Value('Membresías de gimnasios, centros deportivos o entrenamiento guiado.'),
+        name: 'Seguro Médico/EPS',
+        icon: const Value('🛡️'),
+        description: const Value('Pago de seguro de salud, EPS, seguro oncológico o de clínica particular.'),
         sortOrder: const Value(3),
         createdAt: now,
       ),
+
       // ── CUIDADO PERSONAL ──────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_peluqueria',
@@ -339,12 +383,13 @@ class AppDatabase extends _$AppDatabase {
       SubcategoriesCompanion.insert(
         id: 'sub_estetica',
         categoryId: 'cat_cuidado_personal',
-        name: 'Estética',
+        name: 'Estética/Spa',
         icon: const Value('💅'),
         description: const Value('Servicios de spa, manicure, pedicure y cuidado corporal especializado.'),
         sortOrder: const Value(3),
         createdAt: now,
       ),
+
       // ── ROPA ──────────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_ropa',
@@ -365,30 +410,22 @@ class AppDatabase extends _$AppDatabase {
         createdAt: now,
       ),
       SubcategoriesCompanion.insert(
-        id: 'sub_ropa_deportiva',
-        categoryId: 'cat_ropa',
-        name: 'Ropa Deportiva',
-        icon: const Value('🎽'),
-        description: const Value('Prendas especializadas para hacer ejercicio o entrenar.'),
-        sortOrder: const Value(3),
-        createdAt: now,
-      ),
-      SubcategoriesCompanion.insert(
         id: 'sub_accesorios_moda',
         categoryId: 'cat_ropa',
         name: 'Accesorios de Moda',
         icon: const Value('💍'),
         description: const Value('Joyas, relojes, correas, carteras, lentes de sol y accesorios.'),
-        sortOrder: const Value(4),
+        sortOrder: const Value(3),
         createdAt: now,
       ),
-      // ── ALOJAMIENTO/HOGAR ─────────────────────────────────
+
+      // ── ALOJAMIENTO ───────────────────────────────────────
       SubcategoriesCompanion.insert(
-        id: 'sub_servicios_hogar',
+        id: 'sub_alquiler',
         categoryId: 'cat_alojamiento',
-        name: 'Servicios del Hogar',
-        icon: const Value('💡'),
-        description: const Value('Pagos de luz, agua, gas doméstico, internet, teléfono fijo y cable.'),
+        name: 'Alquiler/Hipoteca',
+        icon: const Value('🏠'),
+        description: const Value('Pago mensual de renta, alquiler de vivienda o cuotas hipotecarias.'),
         sortOrder: const Value(1),
         createdAt: now,
       ),
@@ -404,9 +441,9 @@ class AppDatabase extends _$AppDatabase {
       SubcategoriesCompanion.insert(
         id: 'sub_mantenimiento_hogar',
         categoryId: 'cat_alojamiento',
-        name: 'Mantenimiento',
+        name: 'Mantenimiento/Condominio',
         icon: const Value('🔧'),
-        description: const Value('Gasfitería, electricidad, reparaciones domésticas y pintura.'),
+        description: const Value('Cuota de mantenimiento del edificio, gasfitería, pintura y reparaciones.'),
         sortOrder: const Value(3),
         createdAt: now,
       ),
@@ -415,7 +452,7 @@ class AppDatabase extends _$AppDatabase {
         categoryId: 'cat_alojamiento',
         name: 'Electrodomésticos',
         icon: const Value('🔌'),
-        description: const Value('Compra o arreglo de refrigeradoras, cocinas, lavadoras y aparatos del hogar.'),
+        description: const Value('Compra o arreglo de electrodomésticos y tecnología para la casa.'),
         sortOrder: const Value(4),
         createdAt: now,
       ),
@@ -428,6 +465,56 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(5),
         createdAt: now,
       ),
+
+      // ── TRABAJO ───────────────────────────────────────────
+      SubcategoriesCompanion.insert(
+        id: 'sub_herramientas_trabajo',
+        categoryId: 'cat_trabajo',
+        name: 'Herramientas/Equipos',
+        icon: const Value('🛠️'),
+        description: const Value('Laptops, periféricos, software profesional y herramientas laborales.'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_oficina',
+        categoryId: 'cat_trabajo',
+        name: 'Útiles de Oficina',
+        icon: const Value('📄'),
+        description: const Value('Hojas, lapiceros, cuadernos de trabajo e insumos de escritorio.'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+
+      // ── ENTRETENIMIENTO ───────────────────────────────────
+      SubcategoriesCompanion.insert(
+        id: 'sub_salidas',
+        categoryId: 'cat_entretenimiento',
+        name: 'Cine/Teatro/Eventos',
+        icon: const Value('🍿'),
+        description: const Value('Entradas a cine, teatro, conciertos, eventos y espectáculos.'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_juegos',
+        categoryId: 'cat_entretenimiento',
+        name: 'Hobbies/Juegos',
+        icon: const Value('🎲'),
+        description: const Value('Juegos de mesa, pasatiempos, coleccionables y actividades recreativas.'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_eventos_sociales',
+        categoryId: 'cat_entretenimiento',
+        name: 'Bares/Discotecas',
+        icon: const Value('🍹'),
+        description: const Value('Salidas nocturnas, bares, discotecas y reuniones con amigos.'),
+        sortOrder: const Value(3),
+        createdAt: now,
+      ),
+
       // ── DEPORTE/FITNESS ───────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_membresia_gym',
@@ -465,6 +552,7 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(4),
         createdAt: now,
       ),
+
       // ── VEHÍCULO ──────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_lavado_auto',
@@ -493,6 +581,7 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(3),
         createdAt: now,
       ),
+
       // ── VIAJES ────────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_pasajes',
@@ -521,6 +610,7 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(3),
         createdAt: now,
       ),
+
       // ── REGALOS/DONACIONES ────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_regalos',
@@ -540,6 +630,7 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(2),
         createdAt: now,
       ),
+
       // ── MASCOTAS ──────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_alimento_mascota',
@@ -568,6 +659,7 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(3),
         createdAt: now,
       ),
+
       // ── PAREJA ────────────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_salida_romantica',
@@ -605,6 +697,27 @@ class AppDatabase extends _$AppDatabase {
         sortOrder: const Value(4),
         createdAt: now,
       ),
+
+      // ── FAMILIA ───────────────────────────────────────────
+      SubcategoriesCompanion.insert(
+        id: 'sub_apoyo_familiar',
+        categoryId: 'cat_familia',
+        name: 'Apoyo Familiar',
+        icon: const Value('🤝'),
+        description: const Value('Ayuda económica a padres, manutención o gastos familiares compartidos.'),
+        sortOrder: const Value(1),
+        createdAt: now,
+      ),
+      SubcategoriesCompanion.insert(
+        id: 'sub_eventos_familiares',
+        categoryId: 'cat_familia',
+        name: 'Eventos Familiares',
+        icon: const Value('🎉'),
+        description: const Value('Almuerzos familiares, cumpleaños, reuniones y celebraciones de casa.'),
+        sortOrder: const Value(2),
+        createdAt: now,
+      ),
+
       // ── INVERSIONES ───────────────────────────────────────
       SubcategoriesCompanion.insert(
         id: 'sub_fondo_ahorro',
@@ -631,6 +744,17 @@ class AppDatabase extends _$AppDatabase {
         icon: const Value('₿'),
         description: const Value('Compra, intercambio e inversión en activos digitales y criptomonedas.'),
         sortOrder: const Value(3),
+        createdAt: now,
+      ),
+
+      // ── OTRO GASTO ────────────────────────────────────────
+      SubcategoriesCompanion.insert(
+        id: 'sub_varios_gasto',
+        categoryId: 'cat_otro_gasto',
+        name: 'Gastos Varios',
+        icon: const Value('📦'),
+        description: const Value('Gastos diversos no clasificados en otras categorías específicas.'),
+        sortOrder: const Value(1),
         createdAt: now,
       ),
     ];
