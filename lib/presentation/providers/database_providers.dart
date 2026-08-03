@@ -11,6 +11,7 @@ class TransactionFilters {
   final String? type;
   final String? accountId;
   final String? categoryId;
+  final String? subcategoryId;
   final TimePeriod period;
 
   TransactionFilters({
@@ -19,6 +20,7 @@ class TransactionFilters {
     this.type,
     this.accountId,
     this.categoryId,
+    this.subcategoryId,
     this.period = TimePeriod.month,
   });
 
@@ -28,6 +30,7 @@ class TransactionFilters {
     String? type,
     String? accountId,
     String? categoryId,
+    String? subcategoryId,
     TimePeriod? period,
   }) {
     return TransactionFilters(
@@ -36,6 +39,7 @@ class TransactionFilters {
       type: type,
       accountId: accountId ?? this.accountId,
       categoryId: categoryId ?? this.categoryId,
+      subcategoryId: subcategoryId,
       period: period ?? this.period,
     );
   }
@@ -50,6 +54,7 @@ class TransactionFilters {
         other.type == type &&
         other.accountId == accountId &&
         other.categoryId == categoryId &&
+        other.subcategoryId == subcategoryId &&
         other.period == period;
   }
 
@@ -60,6 +65,7 @@ class TransactionFilters {
         type.hashCode ^
         accountId.hashCode ^
         categoryId.hashCode ^
+        subcategoryId.hashCode ^
         period.hashCode;
   }
 }
@@ -88,6 +94,7 @@ final filteredTransactionsProvider =
             type: filters.type,
             accountId: filters.accountId,
             categoryId: filters.categoryId,
+            subcategoryId: filters.subcategoryId,
           )
           .handleError((error) {
             return <Transaction>[];
@@ -104,6 +111,7 @@ final categoricalTransactionsProvider = StreamProvider.autoDispose
         type: filters.type,
         accountId: filters.accountId,
         categoryId: filters.categoryId,
+        subcategoryId: filters.subcategoryId,
       );
     });
 
@@ -306,6 +314,12 @@ final expenseCategoriesStreamProvider = StreamProvider((ref) {
 final incomeCategoriesStreamProvider = StreamProvider((ref) {
   final dao = ref.watch(categoriesDaoProvider);
   return dao.watchCategoriesByType('income');
+});
+
+/// Provider de stream de TODAS las categorías
+final allCategoriesStreamProvider = StreamProvider<List<Category>>((ref) {
+  final dao = ref.watch(categoriesDaoProvider);
+  return dao.watchAllCategories();
 });
 
 /// Provider de todas las categorías (Future)

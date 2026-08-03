@@ -392,16 +392,22 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
               ],
 
               // Category (only for non-transfer)
-              if (_transactionType != 'transfer')
+              if (_transactionType != 'transfer') ...[
                 CategorySelector(
                   transactionType: _transactionType,
                   selectedCategoryId: _selectedCategoryId,
                   onCategorySelected: (catId) {
                     setState(() {
-                      _selectedCategoryId = catId;
+                      if (_selectedCategoryId != catId) {
+                        _selectedCategoryId = catId;
+                        _selectedSubcategoryId = null; // Reset subcategory when category changes
+                      }
                     });
                   },
                 ),
+                if (_selectedCategoryId != null)
+                  _buildSubcategorySelector(_selectedCategoryId!),
+              ],
 
               const SizedBox(height: 32),
 
@@ -434,6 +440,54 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildSubcategorySelector(String categoryId) {
+    final subcategoriesAsync = ref.watch(
+      subcategoriesStreamProvider(categoryId),
+    );
+
+    return subcategoriesAsync.when(
+      data: (subcategories) {
+        if (subcategories.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final isValidSelection = subcategories.any((s) => s.id == _selectedSubcategoryId);
+
+        return Column(
+          children: [
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              decoration: InputDecoration(
+                labelText: 'Subcategoría (opcional)',
+                border: const OutlineInputBorder(),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface,
+                prefixIcon: const Icon(Icons.subdirectory_arrow_right),
+              ),
+              initialValue: isValidSelection ? _selectedSubcategoryId : null,
+              items: subcategories.map<DropdownMenuItem<String>>((subcategory) {
+                final displayTitle = subcategory.icon != null && subcategory.icon!.isNotEmpty
+                    ? '${subcategory.icon} ${subcategory.name}'
+                    : subcategory.name;
+                return DropdownMenuItem(
+                  value: subcategory.id,
+                  child: Text(displayTitle),
+                );
+              }).toList(),
+              onChanged: (value) {
+                setState(() {
+                  _selectedSubcategoryId = value;
+                });
+              },
+            ),
+          ],
+        );
+      },
+      loading: () => const LinearProgressIndicator(),
+      error: (error, stack) => const SizedBox.shrink(),
     );
   }
 }

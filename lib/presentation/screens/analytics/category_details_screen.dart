@@ -154,7 +154,11 @@ class _CategoryDetailsScreenState extends ConsumerState<CategoryDetailsScreen> {
                                   return Padding(
                                     padding: const EdgeInsets.only(right: 8),
                                     child: ChoiceChip(
-                                      label: Text(sub.name),
+                                      label: Text(
+                                        sub.icon != null && sub.icon!.isNotEmpty
+                                            ? '${sub.icon} ${sub.name}'
+                                            : sub.name,
+                                      ),
                                       selected: _selectedSubcategoryId == subId,
                                       onSelected: (val) {
                                         setState(
