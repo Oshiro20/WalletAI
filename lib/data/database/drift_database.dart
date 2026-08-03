@@ -71,7 +71,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 13;
+  int get schemaVersion => 14;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -156,8 +156,8 @@ class AppDatabase extends _$AppDatabase {
         } catch (_) {}
         await _insertDefaultSubcategories();
       }
-      if (from < 13) {
-        // v13: Re-mapeo limpio de subcategorías por defecto a categorías correctas y purga de duplicados
+      if (from < 14) {
+        // v14: Purga limpia de subcategorías por defecto e insert sin conflicto de id en categorías
         try {
           await customStatement("DELETE FROM subcategories WHERE id LIKE 'sub_%'");
         } catch (_) {}
@@ -1097,10 +1097,10 @@ class AppDatabase extends _$AppDatabase {
       ),
     ];
 
-    // Insertar todas las categorías
+    // Insertar todas las categorías evitando conflictos de IDs existentes
     await batch((batch) {
-      batch.insertAll(categories, expenseCategories);
-      batch.insertAll(categories, incomeCategories);
+      batch.insertAllOnConflictUpdate(categories, expenseCategories);
+      batch.insertAllOnConflictUpdate(categories, incomeCategories);
     });
   }
 }
