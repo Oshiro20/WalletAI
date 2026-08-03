@@ -125,6 +125,9 @@ class _CreateTransactionScreenState
   }
 
   void _onProductNameFocusChanged() async {
+    // Solo auto-categorizar si la transacción es un Gasto
+    if (_transactionType != 'expense') return;
+
     // Cuando el usuario termina de escribir el producto y sale del campo
     if (!_productNameFocusNode.hasFocus) {
       final name = _productNameController.text.trim();
@@ -140,7 +143,7 @@ class _CreateTransactionScreenState
           // Mostrar un pequeño feedback visual
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Categoría auto-asignada por aprendizaje: \$name'),
+              content: Text('Categoría auto-asignada por aprendizaje: $name'),
               duration: const Duration(seconds: 2),
               behavior: SnackBarBehavior.floating,
             ),
@@ -151,6 +154,9 @@ class _CreateTransactionScreenState
   }
 
   void _onProductNameChanged(String value) {
+    // Solo auto-categorizar por IA / aprendizaje si es un Gasto
+    if (_transactionType != 'expense') return;
+
     if (value.trim().isEmpty) {
       _predictionTimer?.cancel();
       if (_isPredictingCategory) {

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../data/database/drift_database.dart';
 import '../../providers/database_providers.dart';
 import '../../widgets/common/loading_widget.dart';
 import '../../widgets/common/error_widget.dart';
@@ -432,48 +433,160 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
   ) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Text(
-                  AppLocalizations.of(context)!.selectPeriod,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.onSurface,
+        return Consumer(
+          builder: (context, ref, child) {
+            final filters = ref.watch(transactionFiltersProvider);
+            final subcatsAsync = ref.watch(allSubcategoriesStreamProvider);
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Text(
+                          'Filtros de Transacciones',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.onSurface,
+                          ),
+                        ),
+                      ),
+                      const Divider(),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Período',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                              color: AppColors.primarySoft,
+                            ),
+                          ),
+                        ),
+                      ),
+                      ...TimePeriod.values.map((period) {
+                        return ListTile(
+                          dense: true,
+                          title: Text(period.label),
+                          selected: period == filters.period,
+                          selectedTileColor: AppColors.primary.withValues(
+                            alpha: 0.1,
+                          ),
+                          trailing: period == filters.period
+                              ? const Icon(
+                                  Icons.check,
+                                  color: AppColors.primarySoft,
+                                )
+                              : null,
+                          onTap: () {
+                            final now = DateTime.now();
+                            final range = period.calculateRange(now);
+                            ref
+                                .read(transactionFiltersProvider.notifier)
+                                .state = filters.copyWith(
+                              startDate: range.start,
+                              endDate: range.end,
+                              period: period,
+                            );
+                          },
+                        );
+                      }),
+                      const Divider(),
+                      subcatsAsync.when(
+                        data: (subcats) {
+                          if (subcats.isEmpty) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Subcategoría',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: AppColors.primarySoft,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                DropdownButtonFormField<String?>(
+                                  initialValue: filters.subcategoryId,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<String?>(
+                                      value: null,
+                                      child: Text('Todas las subcategorías'),
+                                    ),
+                                    ...subcats.map((sc) {
+                                      final label =
+                                          sc.icon != null &&
+                                                  sc.icon!.isNotEmpty
+                                              ? '${sc.icon} ${sc.name}'
+                                              : sc.name;
+                                      return DropdownMenuItem<String?>(
+                                        value: sc.id,
+                                        child: Text(label),
+                                      );
+                                    }),
+                                  ],
+                                  onChanged: (val) {
+                                    ref
+                                        .read(
+                                          transactionFiltersProvider.notifier,
+                                        )
+                                        .state = filters.copyWith(
+                                      subcategoryId: val,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 16),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Aplicar Filtros'),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-              ...TimePeriod.values.map((period) {
-                return ListTile(
-                  title: Text(period.label),
-                  selected: period == currentPeriod,
-                  selectedTileColor: AppColors.primary.withValues(alpha: 0.1),
-                  trailing: period == currentPeriod
-                      ? const Icon(Icons.check, color: AppColors.primarySoft)
-                      : null,
-                  onTap: () {
-                    final now = DateTime.now();
-                    final range = period.calculateRange(now);
-
-                    ref
-                        .read(transactionFiltersProvider.notifier)
-                        .state = TransactionFilters(
-                      startDate: range.start,
-                      endDate: range.end,
-                      period: period,
-                    );
-
-                    Navigator.pop(context);
-                  },
-                );
-              }),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -482,7 +595,7 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
 
 // ─── Swipeable Transaction Tile ──────────────────────────────────────────────
 
-class _SwipeableTransactionTile extends StatelessWidget {
+class _SwipeableTransactionTile extends ConsumerWidget {
   final dynamic transaction;
   final bool isExpanded;
   final VoidCallback onToggleExpand;
@@ -498,7 +611,49 @@ class _SwipeableTransactionTile extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final categoriesAsync = ref.watch(allCategoriesStreamProvider);
+    final subcategoriesAsync = ref.watch(allSubcategoriesStreamProvider);
+    final accountsAsync = ref.watch(accountsStreamProvider);
+
+    final categoriesMap = {
+      for (var c in categoriesAsync.value ?? <Category>[]) c.id: c
+    };
+    final subcategoriesMap = {
+      for (var s in subcategoriesAsync.value ?? <Subcategory>[]) s.id: s
+    };
+    final accountsMap = {
+      for (var a in accountsAsync.value ?? <Account>[]) a.id: a
+    };
+
+    final categoryObj = transaction.categoryId != null
+        ? categoriesMap[transaction.categoryId]
+        : null;
+    final subcategoryObj = transaction.subcategoryId != null
+        ? subcategoriesMap[transaction.subcategoryId]
+        : null;
+    final accountObj = transaction.accountId != null
+        ? accountsMap[transaction.accountId]
+        : null;
+    final destAccountObj = transaction.destinationAccountId != null
+        ? accountsMap[transaction.destinationAccountId]
+        : null;
+
+    final categoryName = categoryObj != null
+        ? (categoryObj.icon != null && categoryObj.icon!.isNotEmpty
+            ? '${categoryObj.icon} ${categoryObj.name}'
+            : categoryObj.name)
+        : '—';
+
+    final subcategoryName = subcategoryObj != null
+        ? (subcategoryObj.icon != null && subcategoryObj.icon!.isNotEmpty
+            ? '${subcategoryObj.icon} ${subcategoryObj.name}'
+            : subcategoryObj.name)
+        : null;
+
+    final accountName = accountObj?.name ?? '—';
+    final destAccountName = destAccountObj?.name ?? '—';
+
     return Dismissible(
       key: Key('tx_${transaction.id}'),
       direction: DismissDirection.horizontal,
@@ -682,17 +837,37 @@ class _SwipeableTransactionTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _DetailRow(
-                    icon: Icons.category_rounded,
-                    label: 'Categoría',
-                    value: transaction.categoryId ?? '—',
-                  ),
-                  if (transaction.accountId != null) ...[
+                  if (transaction.type == 'transfer') ...[
+                    _DetailRow(
+                      icon: Icons.account_balance_wallet_rounded,
+                      label: 'Origen',
+                      value: accountName,
+                    ),
+                    const SizedBox(height: 8),
+                    _DetailRow(
+                      icon: Icons.move_to_inbox_rounded,
+                      label: 'Destino',
+                      value: destAccountName,
+                    ),
+                  ] else ...[
+                    _DetailRow(
+                      icon: Icons.category_rounded,
+                      label: 'Categoría',
+                      value: categoryName,
+                    ),
+                    if (subcategoryName != null) ...[
+                      const SizedBox(height: 8),
+                      _DetailRow(
+                        icon: Icons.subdirectory_arrow_right_rounded,
+                        label: 'Subcategoría',
+                        value: subcategoryName,
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     _DetailRow(
                       icon: Icons.account_balance_wallet_rounded,
                       label: 'Cuenta',
-                      value: transaction.accountId.toString(),
+                      value: accountName,
                     ),
                   ],
                   if (transaction.latitude != null &&

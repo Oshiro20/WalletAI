@@ -290,6 +290,7 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
     String? type,
     String? accountId,
     String? categoryId,
+    String? subcategoryId,
   }) {
     return (select(transactions)
           ..where((t) {
@@ -312,6 +313,9 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
             }
             if (categoryId != null) {
               predicate = predicate & t.categoryId.equals(categoryId);
+            }
+            if (subcategoryId != null) {
+              predicate = predicate & t.subcategoryId.equals(subcategoryId);
             }
             return predicate;
           })

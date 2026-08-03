@@ -19,6 +19,13 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
     )..orderBy([(c) => OrderingTerm(expression: c.sortOrder)])).get();
   }
 
+  /// Observar todas las categorías
+  Stream<List<Category>> watchAllCategories() {
+    return (select(
+      categories,
+    )..orderBy([(c) => OrderingTerm(expression: c.sortOrder)])).watch();
+  }
+
   /// Obtener categorías por tipo (income, expense)
   Future<List<Category>> getCategoriesByType(String type) {
     return (select(categories)
