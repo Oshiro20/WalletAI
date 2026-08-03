@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../data/database/drift_database.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import '../../providers/database_providers.dart';
 
 class BudgetsScreen extends ConsumerWidget {
@@ -368,6 +369,7 @@ class _CreateBudgetSheetState extends ConsumerState<_CreateBudgetSheet> {
           // Amount
           TextFormField(
             controller: _amountCtrl,
+            onTap: () => clearAmountIfZero(_amountCtrl),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
               labelText: 'Límite (S/)',

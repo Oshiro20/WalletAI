@@ -321,6 +321,8 @@ class SettingsScreen extends ConsumerWidget {
       if (type == 'trans_cats' || type == 'all') {
         await categoriesDao.deleteAllSubcategories(); // Primero hijos
         await categoriesDao.deleteAllCategories();
+        // Repoblar categorías y subcategorías predeterminadas del sistema
+        await ref.read(databaseProvider).reseedDefaults();
       }
 
       if (type == 'all') {

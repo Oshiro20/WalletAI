@@ -257,48 +257,64 @@ class CategoryTile extends ConsumerWidget {
           ),
           children: [
             ...subcategories.map(
-              (sub) => ListTile(
-                leading: const SizedBox(width: 24), // Indent
-                title: Row(
-                  children: [
-                    AppIcons.getIcon(
-                      sub.icon ?? 'label_outline',
-                      size: 20,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(sub.name),
-                  ],
-                ),
-                trailing: PopupMenuButton<String>(
-                  icon: const Icon(Icons.more_vert, size: 20),
-                  onSelected: (value) {
-                    if (value == 'edit') {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CreateSubcategoryScreen(
-                            categoryId: sub.categoryId,
-                            existingSubcategory: sub,
+              (sub) {
+                final iconStr = (sub.icon != null && sub.icon!.isNotEmpty) ? '${sub.icon} ' : '';
+                final displayName = '$iconStr${sub.name}';
+                return ListTile(
+                  contentPadding: const EdgeInsets.only(left: 32, right: 16),
+                  leading: AppIcons.getIcon(
+                    sub.icon ?? 'label_outline',
+                    size: 20,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  title: Text(
+                    displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: (sub.description != null && sub.description!.isNotEmpty)
+                      ? Text(
+                          sub.description!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.outline,
                           ),
-                        ),
-                      );
-                    } else if (value == 'delete') {
-                      _confirmDeleteSubcategory(context, ref, sub);
-                    }
+                        )
+                      : null,
+                  onTap: () {
+                    _showSubcategoryDetailsModal(context, sub, displayName);
                   },
-                  itemBuilder: (context) => [
-                    const PopupMenuItem(value: 'edit', child: Text('Editar')),
-                    const PopupMenuItem(
-                      value: 'delete',
-                      child: Text(
-                        'Eliminar',
-                        style: TextStyle(color: Colors.red),
+                  trailing: PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert, size: 20),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CreateSubcategoryScreen(
+                              categoryId: sub.categoryId,
+                              existingSubcategory: sub,
+                            ),
+                          ),
+                        );
+                      } else if (value == 'delete') {
+                        _confirmDeleteSubcategory(context, ref, sub);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(value: 'edit', child: Text('Editar')),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text(
+                          'Eliminar',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
+                    ],
+                  ),
+                );
+              },
             ),
             ListTile(
               leading: const SizedBox(width: 24),
@@ -378,6 +394,71 @@ class CategoryTile extends ConsumerWidget {
             child: const Text('Eliminar'),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSubcategoryDetailsModal(
+    BuildContext context,
+    Subcategory sub,
+    String displayName,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AppIcons.getIcon(
+                  sub.icon ?? 'label_outline',
+                  size: 28,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    displayName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '¿Qué abarca esta subcategoría?',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              (sub.description != null && sub.description!.isNotEmpty)
+                  ? sub.description!
+                  : 'Sin descripción detallada.',
+              style: const TextStyle(fontSize: 15, height: 1.4),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonal(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Entendido'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

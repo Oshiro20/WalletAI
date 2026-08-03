@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../../data/database/drift_database.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import '../../providers/database_providers.dart';
 
 class SavingsGoalsScreen extends ConsumerWidget {
@@ -313,6 +314,7 @@ class _AddProgressDialogState extends ConsumerState<_AddProgressDialog> {
       title: Text('Agregar a "${widget.goal.name}"'),
       content: TextField(
         controller: _ctrl,
+        onTap: () => clearAmountIfZero(_ctrl),
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         decoration: const InputDecoration(
           labelText: 'Monto a agregar (S/)',
@@ -469,6 +471,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
             // Target amount
             TextFormField(
               controller: _targetCtrl,
+              onTap: () => clearAmountIfZero(_targetCtrl),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/database/drift_database.dart';
 import '../../providers/database_providers.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import '../../../core/theme/app_colors.dart';
 
 class EditAccountScreen extends ConsumerStatefulWidget {
@@ -210,6 +211,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
             if (_accountType == 'credit_card') ...[
               TextFormField(
                 controller: _creditLimitController,
+                onTap: () => clearAmountIfZero(_creditLimitController),
                 decoration: const InputDecoration(
                   labelText: 'Línea de Crédito',
                   prefixText: 'S/ ',
@@ -291,6 +293,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
             // Balance inicial / Saldo Actual
             TextFormField(
               controller: _balanceController,
+              onTap: () => clearAmountIfZero(_balanceController),
               decoration: InputDecoration(
                 labelText: _accountType == 'credit_card'
                     ? 'Saldo Actual'

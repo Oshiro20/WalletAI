@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../data/datasources/currency_service.dart';
 import '../../../core/utils/currency_data.dart';
+import '../../../core/utils/amount_input_helper.dart';
 
 class CurrencyConverterScreen extends StatefulWidget {
   const CurrencyConverterScreen({super.key});
@@ -128,6 +129,7 @@ class _CurrencyConverterScreenState extends State<CurrencyConverterScreen> {
                     // Campo Monto
                     TextField(
                       controller: _amountCtrl,
+                      onTap: () => clearAmountIfZero(_amountCtrl),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),

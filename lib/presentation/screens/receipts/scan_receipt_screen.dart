@@ -7,6 +7,7 @@ import '../../../data/datasources/receipt_scanner_service.dart';
 import '../../../data/datasources/transaction_parser_service.dart';
 import '../../../data/database/drift_database.dart';
 import '../../providers/database_providers.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import '../../providers/transaction_repository_provider.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
@@ -672,6 +673,7 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
             // Monto — SIEMPRE en S/ (soles)
             TextField(
               controller: _amountController,
+              onTap: () => clearAmountIfZero(_amountController),
               decoration: InputDecoration(
                 labelText: 'Monto Total',
                 prefixText: 'S/ ',
@@ -1035,6 +1037,7 @@ class _ScanReceiptScreenState extends ConsumerState<ScanReceiptScreen> {
                             flex: 1,
                             child: TextField(
                               controller: item.priceController,
+                              onTap: () => clearAmountIfZero(item.priceController),
                               decoration: const InputDecoration(
                                 prefixText: 'S/ ',
                                 hintText: '0.00',
