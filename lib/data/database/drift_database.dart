@@ -157,6 +157,15 @@ class AppDatabase extends _$AppDatabase {
         await _insertDefaultSubcategories();
       }
     },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+      // Si la tabla de subcategorías está vacía, restaurar categorías y subcategorías por defecto automáticamente
+      final existingSubcats = await subcategories.select().get();
+      if (existingSubcats.isEmpty) {
+        await _insertDefaultCategories();
+        await _insertDefaultSubcategories();
+      }
+    },
   );
 
   /// Repoblar y restablecer las categorías y subcategorías por defecto del sistema
