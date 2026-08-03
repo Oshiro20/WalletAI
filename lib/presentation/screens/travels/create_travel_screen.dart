@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
 
 import '../../../data/database/drift_database.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import '../../providers/database_providers.dart';
 
 class CreateTravelScreen extends ConsumerStatefulWidget {
@@ -131,6 +132,7 @@ class _CreateTravelScreenState extends ConsumerState<CreateTravelScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _budgetController,
+                onTap: () => clearAmountIfZero(_budgetController),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../core/utils/period_filter.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import '../../providers/database_providers.dart';
 import '../../widgets/common/loading_widget.dart';
 import '../../widgets/common/error_widget.dart';
@@ -1239,6 +1240,7 @@ class _CreditCardPaymentSheetState
           // --- Input de Monto ---
           TextField(
             controller: _amountController,
+            onTap: () => clearAmountIfZero(_amountController),
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
               labelText: 'Monto a pagar',

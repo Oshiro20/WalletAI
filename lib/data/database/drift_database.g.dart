@@ -2706,6 +2706,17 @@ class $SubcategoriesTable extends Subcategories
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _descriptionMeta = const VerificationMeta(
+    'description',
+  );
+  @override
+  late final GeneratedColumn<String> description = GeneratedColumn<String>(
+    'description',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _sortOrderMeta = const VerificationMeta(
     'sortOrder',
   );
@@ -2735,6 +2746,7 @@ class $SubcategoriesTable extends Subcategories
     categoryId,
     name,
     icon,
+    description,
     sortOrder,
     createdAt,
   ];
@@ -2777,6 +2789,15 @@ class $SubcategoriesTable extends Subcategories
         icon.isAcceptableOrUnknown(data['icon']!, _iconMeta),
       );
     }
+    if (data.containsKey('description')) {
+      context.handle(
+        _descriptionMeta,
+        description.isAcceptableOrUnknown(
+          data['description']!,
+          _descriptionMeta,
+        ),
+      );
+    }
     if (data.containsKey('sort_order')) {
       context.handle(
         _sortOrderMeta,
@@ -2816,6 +2837,10 @@ class $SubcategoriesTable extends Subcategories
         DriftSqlType.string,
         data['${effectivePrefix}icon'],
       ),
+      description: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}description'],
+      ),
       sortOrder: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
@@ -2838,6 +2863,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
   final String categoryId;
   final String name;
   final String? icon;
+  final String? description;
   final int sortOrder;
   final DateTime createdAt;
   const Subcategory({
@@ -2845,6 +2871,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
     required this.categoryId,
     required this.name,
     this.icon,
+    this.description,
     required this.sortOrder,
     required this.createdAt,
   });
@@ -2857,6 +2884,9 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
     if (!nullToAbsent || icon != null) {
       map['icon'] = Variable<String>(icon);
     }
+    if (!nullToAbsent || description != null) {
+      map['description'] = Variable<String>(description);
+    }
     map['sort_order'] = Variable<int>(sortOrder);
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
@@ -2868,6 +2898,9 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
       categoryId: Value(categoryId),
       name: Value(name),
       icon: icon == null && nullToAbsent ? const Value.absent() : Value(icon),
+      description: description == null && nullToAbsent
+          ? const Value.absent()
+          : Value(description),
       sortOrder: Value(sortOrder),
       createdAt: Value(createdAt),
     );
@@ -2883,6 +2916,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
       categoryId: serializer.fromJson<String>(json['categoryId']),
       name: serializer.fromJson<String>(json['name']),
       icon: serializer.fromJson<String?>(json['icon']),
+      description: serializer.fromJson<String?>(json['description']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
@@ -2895,6 +2929,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
       'categoryId': serializer.toJson<String>(categoryId),
       'name': serializer.toJson<String>(name),
       'icon': serializer.toJson<String?>(icon),
+      'description': serializer.toJson<String?>(description),
       'sortOrder': serializer.toJson<int>(sortOrder),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
@@ -2905,6 +2940,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
     String? categoryId,
     String? name,
     Value<String?> icon = const Value.absent(),
+    Value<String?> description = const Value.absent(),
     int? sortOrder,
     DateTime? createdAt,
   }) => Subcategory(
@@ -2912,6 +2948,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
     categoryId: categoryId ?? this.categoryId,
     name: name ?? this.name,
     icon: icon.present ? icon.value : this.icon,
+    description: description.present ? description.value : this.description,
     sortOrder: sortOrder ?? this.sortOrder,
     createdAt: createdAt ?? this.createdAt,
   );
@@ -2923,6 +2960,9 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
           : this.categoryId,
       name: data.name.present ? data.name.value : this.name,
       icon: data.icon.present ? data.icon.value : this.icon,
+      description: data.description.present
+          ? data.description.value
+          : this.description,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
@@ -2935,6 +2975,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
           ..write('categoryId: $categoryId, ')
           ..write('name: $name, ')
           ..write('icon: $icon, ')
+          ..write('description: $description, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
@@ -2942,8 +2983,15 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, categoryId, name, icon, sortOrder, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    categoryId,
+    name,
+    icon,
+    description,
+    sortOrder,
+    createdAt,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2952,6 +3000,7 @@ class Subcategory extends DataClass implements Insertable<Subcategory> {
           other.categoryId == this.categoryId &&
           other.name == this.name &&
           other.icon == this.icon &&
+          other.description == this.description &&
           other.sortOrder == this.sortOrder &&
           other.createdAt == this.createdAt);
 }
@@ -2961,6 +3010,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
   final Value<String> categoryId;
   final Value<String> name;
   final Value<String?> icon;
+  final Value<String?> description;
   final Value<int> sortOrder;
   final Value<DateTime> createdAt;
   final Value<int> rowid;
@@ -2969,6 +3019,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
     this.categoryId = const Value.absent(),
     this.name = const Value.absent(),
     this.icon = const Value.absent(),
+    this.description = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -2978,6 +3029,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
     required String categoryId,
     required String name,
     this.icon = const Value.absent(),
+    this.description = const Value.absent(),
     this.sortOrder = const Value.absent(),
     required DateTime createdAt,
     this.rowid = const Value.absent(),
@@ -2990,6 +3042,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
     Expression<String>? categoryId,
     Expression<String>? name,
     Expression<String>? icon,
+    Expression<String>? description,
     Expression<int>? sortOrder,
     Expression<DateTime>? createdAt,
     Expression<int>? rowid,
@@ -2999,6 +3052,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
       if (categoryId != null) 'category_id': categoryId,
       if (name != null) 'name': name,
       if (icon != null) 'icon': icon,
+      if (description != null) 'description': description,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (createdAt != null) 'created_at': createdAt,
       if (rowid != null) 'rowid': rowid,
@@ -3010,6 +3064,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
     Value<String>? categoryId,
     Value<String>? name,
     Value<String?>? icon,
+    Value<String?>? description,
     Value<int>? sortOrder,
     Value<DateTime>? createdAt,
     Value<int>? rowid,
@@ -3019,6 +3074,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
       categoryId: categoryId ?? this.categoryId,
       name: name ?? this.name,
       icon: icon ?? this.icon,
+      description: description ?? this.description,
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt ?? this.createdAt,
       rowid: rowid ?? this.rowid,
@@ -3040,6 +3096,9 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
     if (icon.present) {
       map['icon'] = Variable<String>(icon.value);
     }
+    if (description.present) {
+      map['description'] = Variable<String>(description.value);
+    }
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
@@ -3059,6 +3118,7 @@ class SubcategoriesCompanion extends UpdateCompanion<Subcategory> {
           ..write('categoryId: $categoryId, ')
           ..write('name: $name, ')
           ..write('icon: $icon, ')
+          ..write('description: $description, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('createdAt: $createdAt, ')
           ..write('rowid: $rowid')
@@ -9304,6 +9364,7 @@ typedef $$SubcategoriesTableCreateCompanionBuilder =
       required String categoryId,
       required String name,
       Value<String?> icon,
+      Value<String?> description,
       Value<int> sortOrder,
       required DateTime createdAt,
       Value<int> rowid,
@@ -9314,6 +9375,7 @@ typedef $$SubcategoriesTableUpdateCompanionBuilder =
       Value<String> categoryId,
       Value<String> name,
       Value<String?> icon,
+      Value<String?> description,
       Value<int> sortOrder,
       Value<DateTime> createdAt,
       Value<int> rowid,
@@ -9345,6 +9407,11 @@ class $$SubcategoriesTableFilterComposer
 
   ColumnFilters<String> get icon => $composableBuilder(
     column: $table.icon,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get description => $composableBuilder(
+    column: $table.description,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -9388,6 +9455,11 @@ class $$SubcategoriesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
@@ -9421,6 +9493,11 @@ class $$SubcategoriesTableAnnotationComposer
 
   GeneratedColumn<String> get icon =>
       $composableBuilder(column: $table.icon, builder: (column) => column);
+
+  GeneratedColumn<String> get description => $composableBuilder(
+    column: $table.description,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
@@ -9464,6 +9541,7 @@ class $$SubcategoriesTableTableManager
                 Value<String> categoryId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String?> icon = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -9472,6 +9550,7 @@ class $$SubcategoriesTableTableManager
                 categoryId: categoryId,
                 name: name,
                 icon: icon,
+                description: description,
                 sortOrder: sortOrder,
                 createdAt: createdAt,
                 rowid: rowid,
@@ -9482,6 +9561,7 @@ class $$SubcategoriesTableTableManager
                 required String categoryId,
                 required String name,
                 Value<String?> icon = const Value.absent(),
+                Value<String?> description = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 required DateTime createdAt,
                 Value<int> rowid = const Value.absent(),
@@ -9490,6 +9570,7 @@ class $$SubcategoriesTableTableManager
                 categoryId: categoryId,
                 name: name,
                 icon: icon,
+                description: description,
                 sortOrder: sortOrder,
                 createdAt: createdAt,
                 rowid: rowid,

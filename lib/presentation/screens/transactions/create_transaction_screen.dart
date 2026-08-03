@@ -9,6 +9,7 @@ import '../../../data/database/drift_database.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/transaction_repository_provider.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../providers/service_providers.dart';
 import 'widgets/account_selector.dart';
@@ -934,6 +935,7 @@ class _CreateTransactionScreenState
         Expanded(
           child: TextFormField(
             controller: _amountController,
+            onTap: () => clearAmountIfZero(_amountController),
             decoration: InputDecoration(
               labelText: 'Monto',
               prefixText: '$_currency ',

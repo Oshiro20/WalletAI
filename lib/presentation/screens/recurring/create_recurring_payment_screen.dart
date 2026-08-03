@@ -5,6 +5,7 @@ import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../providers/database_providers.dart';
 import '../../../data/database/drift_database.dart';
+import '../../../core/utils/amount_input_helper.dart';
 import '../transactions/widgets/account_selector.dart';
 import '../transactions/widgets/category_selector.dart';
 
@@ -46,6 +47,7 @@ class _CreateRecurringPaymentScreenState
             const SizedBox(height: 16),
             TextFormField(
               controller: _amountController,
+              onTap: () => clearAmountIfZero(_amountController),
               decoration: const InputDecoration(
                 labelText: 'Monto',
                 prefixText: 'S/ ',

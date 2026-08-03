@@ -7,6 +7,7 @@ class Subcategories extends Table {
   TextColumn get categoryId => text()();
   TextColumn get name => text().withLength(min: 1, max: 50)();
   TextColumn get icon => text().nullable()();
+  TextColumn get description => text().nullable()();
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime()();
 

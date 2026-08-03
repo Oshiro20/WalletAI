@@ -8,6 +8,7 @@ import '../../providers/transaction_repository_provider.dart';
 import 'widgets/account_selector.dart';
 import 'widgets/category_selector.dart';
 import '../../../data/datasources/notification_service.dart';
+import '../../../core/utils/amount_input_helper.dart';
 
 class EditTransactionScreen extends ConsumerStatefulWidget {
   final String transactionId;
@@ -296,6 +297,7 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
                   Expanded(
                     child: TextFormField(
                       controller: _amountController,
+                      onTap: () => clearAmountIfZero(_amountController),
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
