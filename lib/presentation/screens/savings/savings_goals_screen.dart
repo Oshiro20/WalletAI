@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' as drift;
 import '../../../data/database/drift_database.dart';
 import '../../../core/utils/amount_input_helper.dart';
 import '../../providers/database_providers.dart';
+import '../../providers/transaction_repository_provider.dart';
 
 class SavingsGoalsScreen extends ConsumerWidget {
   const SavingsGoalsScreen({super.key});
@@ -301,6 +302,8 @@ class _AddProgressDialog extends ConsumerStatefulWidget {
 
 class _AddProgressDialogState extends ConsumerState<_AddProgressDialog> {
   final _ctrl = TextEditingController();
+  String? _selectedAccountId;
+  bool _isSaving = false;
 
   @override
   void dispose() {
@@ -310,41 +313,158 @@ class _AddProgressDialogState extends ConsumerState<_AddProgressDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final accountsAsync = ref.watch(accountsStreamProvider);
+
     return AlertDialog(
       title: Text('Agregar a "${widget.goal.name}"'),
-      content: TextField(
-        controller: _ctrl,
-        onTap: () => clearAmountIfZero(_ctrl),
-        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        decoration: const InputDecoration(
-          labelText: 'Monto a agregar (S/)',
-          border: OutlineInputBorder(),
-          prefixIcon: Icon(Icons.attach_money),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _ctrl,
+              onTap: () => clearAmountIfZero(_ctrl),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Monto a agregar (S/)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.attach_money),
+              ),
+              autofocus: true,
+              enabled: !_isSaving,
+            ),
+            const SizedBox(height: 16),
+            accountsAsync.when(
+              data: (accounts) {
+                if (accounts.isEmpty) {
+                  return const Text(
+                    '⚠️ No tienes cuentas activas registradas',
+                    style: TextStyle(color: Colors.red, fontSize: 13),
+                  );
+                }
+                // Si la meta tiene cuenta asociada por defecto y existe en la lista, usarla
+                if (_selectedAccountId == null) {
+                  if (widget.goal.accountId != null &&
+                      accounts.any((a) => a.id == widget.goal.accountId)) {
+                    _selectedAccountId = widget.goal.accountId;
+                  } else {
+                    _selectedAccountId = accounts.first.id;
+                  }
+                }
+
+                return DropdownButtonFormField<String>(
+                  initialValue: _selectedAccountId,
+                  decoration: const InputDecoration(
+                    labelText: 'Cuenta de origen',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.account_balance_wallet),
+                  ),
+                  items: accounts
+                      .map(
+                        (a) => DropdownMenuItem(
+                          value: a.id,
+                          child: Text('${a.name} (S/ ${a.balance.toStringAsFixed(2)})'),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: _isSaving
+                      ? null
+                      : (v) {
+                          if (v != null) {
+                            setState(() => _selectedAccountId = v);
+                          }
+                        },
+                );
+              },
+              loading: () => const LinearProgressIndicator(),
+              error: (e, _) => Text('Error al cargar cuentas: $e'),
+            ),
+          ],
         ),
-        autofocus: true,
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: () async {
-            final amount = double.tryParse(_ctrl.text.replaceAll(',', '.'));
-            if (amount == null || amount <= 0) return;
+          onPressed: _isSaving
+              ? null
+              : () async {
+                  final amount = double.tryParse(_ctrl.text.replaceAll(',', '.'));
+                  if (amount == null || amount <= 0) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Ingresa un monto válido')),
+                    );
+                    return;
+                  }
+                  if (_selectedAccountId == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Selecciona una cuenta de origen')),
+                    );
+                    return;
+                  }
 
-            final dao = ref.read(savingsGoalsDaoProvider);
-            final newAmount = widget.goal.currentAmount + amount;
-            await dao.updateGoalProgress(widget.goal.id, newAmount);
+                  setState(() => _isSaving = true);
 
-            if (newAmount >= widget.goal.targetAmount) {
-              await dao.completeGoal(widget.goal.id);
-            }
+                  try {
+                    final repo = ref.read(transactionRepositoryProvider);
+                    final dao = ref.read(savingsGoalsDaoProvider);
+                    final transactionId = const Uuid().v4();
 
-            if (!context.mounted) return;
-            Navigator.of(context).pop();
-          },
-          child: const Text('Agregar'),
+                    // 1. Crear transacción contable que descuenta de la cuenta de origen
+                    final transactionCompanion = TransactionsCompanion.insert(
+                      id: transactionId,
+                      type: 'expense',
+                      amount: amount,
+                      accountId: _selectedAccountId!,
+                      productName: drift.Value('Ahorro: ${widget.goal.name}'),
+                      description: drift.Value('Abono a meta de ahorro: ${widget.goal.name}'),
+                      date: DateTime.now(),
+                      createdAt: DateTime.now(),
+                      updatedAt: DateTime.now(),
+                    );
+
+                    await repo.addTransaction(
+                      transaction: transactionCompanion,
+                      accountId: _selectedAccountId!,
+                      amount: amount,
+                      type: 'expense',
+                    );
+
+                    // 2. Actualizar el progreso acumulado de la meta
+                    final newAmount = widget.goal.currentAmount + amount;
+                    await dao.updateGoalProgress(widget.goal.id, newAmount);
+
+                    if (newAmount >= widget.goal.targetAmount) {
+                      await dao.completeGoal(widget.goal.id);
+                    }
+
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'S/ ${amount.toStringAsFixed(2)} abonados a "${widget.goal.name}"',
+                        ),
+                      ),
+                    );
+                    Navigator.of(context).pop();
+                  } catch (e) {
+                    if (!context.mounted) return;
+                    setState(() => _isSaving = false);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error al abonar a la meta: $e')),
+                    );
+                  }
+                },
+          child: _isSaving
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Agregar'),
         ),
       ],
     );

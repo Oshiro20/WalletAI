@@ -81,6 +81,12 @@ class QuickActions extends StatelessWidget {
                 onTap: () => context.push('/analytics'),
               ),
               _QuickActionChip(
+                icon: Icons.flag_rounded,
+                label: 'Meta',
+                color: AppColors.income,
+                onTap: () => context.push('/savings'),
+              ),
+              _QuickActionChip(
                 icon: Icons.savings_rounded,
                 label: 'Presupuesto',
                 color: AppColors.warning,
