@@ -17,6 +17,8 @@ import 'widgets/category_selector.dart';
 import '../../../data/datasources/notification_service.dart';
 import '../../../data/datasources/location_service.dart';
 import 'widgets/add_receipt_items_screen.dart';
+import 'widgets/credit_card_installment_selector.dart';
+import '../../../core/utils/credit_card_calculator.dart';
 
 class CreateTransactionScreen extends ConsumerStatefulWidget {
   final String? initialType;
@@ -82,9 +84,16 @@ class _CreateTransactionScreenState
   bool _isRecurring = false;
   String _frequency = 'monthly'; // monthly, weekly, yearly
 
+  // Variables para compras con Tarjeta de Crédito (cuotas / financiamiento)
+  bool _isInstallment = false;
+  int _installmentsCount = 3;
+  bool _hasInterest = false;
+  final _installmentTeaController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    _amountController.addListener(_onAmountChanged);
     if (widget.initialType != null &&
         ['expense', 'income', 'transfer'].contains(widget.initialType)) {
       _transactionType = widget.initialType!;
@@ -243,8 +252,13 @@ class _CreateTransactionScreenState
     });
   }
 
+  void _onAmountChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _predictionTimer?.cancel();
     _amountController.dispose();
     _descriptionController.dispose();
@@ -252,6 +266,7 @@ class _CreateTransactionScreenState
     _quantityController.dispose();
     _unitController.dispose();
     _productNameFocusNode.dispose();
+    _installmentTeaController.dispose();
     super.dispose();
   }
 
@@ -558,6 +573,63 @@ class _CreateTransactionScreenState
         );
       }
 
+      // Si es compra en cuotas con tarjeta de crédito
+      String? creditInstallmentId;
+      InstallmentPlanCalculation? installmentPlan;
+
+      if (_transactionType == 'expense' &&
+          _selectedAccountId != null &&
+          _isInstallment) {
+        final accounts = ref.read(accountsStreamProvider).valueOrNull ?? [];
+        final account = accounts
+            .where((a) => a.id == _selectedAccountId)
+            .firstOrNull;
+
+        if (account != null && account.type == 'credit_card') {
+          final tea = double.tryParse(_installmentTeaController.text) ??
+              (account.tea ?? 54.9);
+
+          installmentPlan = CreditCardCalculator.calculatePlan(
+            principal: amount,
+            installments: _installmentsCount,
+            tea: tea,
+            hasInterest: _hasInterest,
+            purchaseDate: _selectedDate,
+            closingDay: account.closingDay,
+            paymentDueDay: account.paymentDueDay,
+          );
+
+          creditInstallmentId = uuid.v4();
+
+          final installmentCompanion = CreditInstallmentsCompanion.insert(
+            id: creditInstallmentId,
+            accountId: _selectedAccountId!,
+            transactionId: drift.Value(transactionId),
+            title: _productNameController.text.trim().isNotEmpty
+                ? _productNameController.text.trim()
+                : (_descriptionController.text.trim().isNotEmpty
+                    ? _descriptionController.text.trim()
+                    : 'Compra en cuotas'),
+            totalAmount: amount,
+            totalInstallments: _installmentsCount,
+            paidInstallments: const drift.Value(0),
+            monthlyPayment: installmentPlan.monthlyPayment,
+            hasInterest: drift.Value(_hasInterest),
+            tea: drift.Value(_hasInterest ? tea : 0.0),
+            totalInterest: drift.Value(installmentPlan.totalInterest),
+            purchaseDate: _selectedDate,
+            firstDueDate: installmentPlan.firstDueDate,
+            status: const drift.Value('active'),
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          );
+
+          await ref
+              .read(creditInstallmentsDaoProvider)
+              .insertInstallment(installmentCompanion);
+        }
+      }
+
       // Crear objeto TransactionCompanion
       final transaction = TransactionsCompanion.insert(
         id: transactionId,
@@ -591,6 +663,11 @@ class _CreateTransactionScreenState
         longitude: drift.Value(_longitude),
         locationName: drift.Value(_locationName),
         currency: drift.Value(_currency),
+        creditInstallmentId: drift.Value(creditInstallmentId),
+        installmentNumber: drift.Value(creditInstallmentId != null ? 1 : null),
+        totalInstallments: drift.Value(
+          creditInstallmentId != null ? _installmentsCount : null,
+        ),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -606,13 +683,18 @@ class _CreateTransactionScreenState
       );
 
       if (mounted) {
+        String successMsg = 'Transacción guardada exitosamente';
+        if (creditInstallmentId != null && installmentPlan != null) {
+          final fee = installmentPlan.monthlyPayment.toStringAsFixed(2);
+          successMsg =
+              'Compra registrada en $_installmentsCount cuotas de $_currency $fee';
+        } else if (_isRecurring) {
+          successMsg = 'Transacción y suscripción guardadas';
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              _isRecurring
-                  ? 'Transacción y suscripción guardadas'
-                  : 'Transacción guardada exitosamente',
-            ),
+            content: Text(successMsg),
           ),
         );
 
@@ -752,6 +834,42 @@ class _CreateTransactionScreenState
 
             // Selector de cuenta
             _buildAccountSelector(accountsAsync),
+
+            // Selector interactivo de financiamiento/cuotas (solo si es tarjeta de crédito y es gasto)
+            if (_transactionType == 'expense' && _selectedAccountId != null) ...[
+              accountsAsync.maybeWhen(
+                data: (accounts) {
+                  final selectedAcc = accounts
+                      .where((a) => a.id == _selectedAccountId)
+                      .firstOrNull;
+                  if (selectedAcc != null && selectedAcc.type == 'credit_card') {
+                    return Column(
+                      children: [
+                        const SizedBox(height: 16),
+                        CreditCardInstallmentSelector(
+                          account: selectedAcc,
+                          amount: double.tryParse(_amountController.text) ?? 0.0,
+                          purchaseDate: _selectedDate,
+                          isInstallment: _isInstallment,
+                          installmentsCount: _installmentsCount,
+                          hasInterest: _hasInterest,
+                          teaController: _installmentTeaController,
+                          onModeChanged: (val) =>
+                              setState(() => _isInstallment = val),
+                          onInstallmentsCountChanged: (val) =>
+                              setState(() => _installmentsCount = val),
+                          onHasInterestChanged: (val) =>
+                              setState(() => _hasInterest = val),
+                          onTeaChanged: (_) => setState(() {}),
+                        ),
+                      ],
+                    );
+                  }
+                  return const SizedBox.shrink();
+                },
+                orElse: () => const SizedBox.shrink(),
+              ),
+            ],
 
             const SizedBox(height: 16),
 
@@ -980,6 +1098,18 @@ class _CreateTransactionScreenState
           // Resetear destino si es igual al origen
           if (_destinationAccountId == value) {
             _destinationAccountId = null;
+          }
+
+          // Si es tarjeta de crédito, inicializar la TEA configurada
+          final accounts = accountsAsync.valueOrNull ?? [];
+          final account = accounts.where((a) => a.id == value).firstOrNull;
+          if (account != null && account.type == 'credit_card') {
+            if (account.tea != null && account.tea! > 0) {
+              _installmentTeaController.text = account.tea!.toStringAsFixed(1);
+              _hasInterest = true;
+            } else {
+              _installmentTeaController.text = '54.9';
+            }
           }
         });
       },

@@ -8,26 +8,42 @@ final debtPayoffProvider = StreamProvider.family<DebtPayoffEntity, DebtStrategy>
   ref,
   strategy,
 ) {
-  final netWorthAsync = ref.watch(netWorthProvider);
+  final accountsAsync = ref.watch(accountsStreamProvider);
 
-  return netWorthAsync.maybeWhen(
-    data: (netWorth) {
-      final debts = netWorth.liabilityAccounts.map((acc) {
-        // Estimamos TEA basada en tipo de cuenta (en producción vendría de la DB)
-        final estimatedTea = _estimateTeaForType(acc.type);
+  return accountsAsync.maybeWhen(
+    data: (accounts) {
+      final liabilityAccounts = accounts
+          .where((a) => a.isActive && (a.type == 'credit_card' || a.balance < 0))
+          .toList();
+      final debts = <DebtAccount>[];
+
+      for (final acc in liabilityAccounts) {
+        final debtBalance = acc.type == 'credit_card'
+            ? (acc.balance < 0 ? acc.balance.abs() : 0.0)
+            : acc.balance.abs();
+
+        if (debtBalance <= 0) continue;
+
+        // Si la tarjeta tiene TEA configurada por el usuario en la BD, la usamos. Si no, estimado por defecto.
+        final annualRate = (acc.tea != null && acc.tea! > 0)
+            ? (acc.tea! / 100.0)
+            : _estimateTeaForType(acc.type);
+
         // Pago mínimo estimado: 5% del saldo o S/50, lo que sea mayor
-        final minPayment = (acc.balance * 0.05).clamp(50.0, double.infinity);
+        final minPayment = (debtBalance * 0.05).clamp(50.0, double.infinity);
 
-        return DebtAccount(
-          id: acc.id,
-          name: acc.name,
-          institution: acc.institution,
-          balance: acc.balance,
-          annualInterestRate: estimatedTea,
-          minimumPayment: minPayment,
-          creditLimit: acc.creditLimit,
+        debts.add(
+          DebtAccount(
+            id: acc.id,
+            name: acc.name,
+            institution: acc.institution,
+            balance: debtBalance,
+            annualInterestRate: annualRate,
+            minimumPayment: minPayment,
+            creditLimit: acc.creditLimit,
+          ),
         );
-      }).toList();
+      }
 
       // Pago extra estimado: 10% de la deuda total
       final extraPayment = debts.fold(0.0, (sum, d) => sum + d.balance) * 0.1;

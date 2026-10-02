@@ -25,6 +25,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
   final _creditLimitController = TextEditingController();
   final _closingDayController = TextEditingController();
   final _paymentDayController = TextEditingController();
+  final _teaController = TextEditingController();
 
   String _accountType = 'bank';
   String _currency = 'PEN';
@@ -60,6 +61,9 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
           if (account.paymentDueDay != null) {
             _paymentDayController.text = account.paymentDueDay.toString();
           }
+          if (account.tea != null) {
+            _teaController.text = account.tea.toString();
+          }
 
           _isLoading = false;
         });
@@ -90,6 +94,7 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
     _creditLimitController.dispose();
     _closingDayController.dispose();
     _paymentDayController.dispose();
+    _teaController.dispose();
     super.dispose();
   }
 
@@ -107,8 +112,6 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
       final balance = double.parse(_balanceController.text);
 
       // Crear objeto Account actualizado
-      // Nota: Usamos copyWith si estuviera disponible en la clase generada,
-      // pero Drift genera clases inmutables, así que creamos una nueva instancia.
       final updatedAccount = Account(
         id: widget.accountId,
         name: _nameController.text,
@@ -125,6 +128,9 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
             : null,
         paymentDueDay: _accountType == 'credit_card'
             ? int.tryParse(_paymentDayController.text)
+            : null,
+        tea: _accountType == 'credit_card'
+            ? double.tryParse(_teaController.text)
             : null,
         createdAt: _originalAccount?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
@@ -286,6 +292,29 @@ class _EditAccountScreenState extends ConsumerState<EditAccountScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _teaController,
+                decoration: const InputDecoration(
+                  labelText: 'Tasa de Interés Anual (TEA %)',
+                  hintText: 'Ej. 54.9',
+                  helperText: 'Tasa referencial para compras en cuotas (opcional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.percent),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    final rate = double.tryParse(value);
+                    if (rate == null || rate < 0) {
+                      return 'Tasa inválida';
+                    }
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
             ],

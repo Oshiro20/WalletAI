@@ -255,6 +255,25 @@ final travelsDaoProvider = Provider((ref) {
   return database.travelsDao;
 });
 
+/// Provider de CreditInstallmentsDao
+final creditInstallmentsDaoProvider = Provider((ref) {
+  final database = ref.watch(databaseProvider);
+  return database.creditInstallmentsDao;
+});
+
+/// Provider de stream de cuotas activas generales
+final activeCreditInstallmentsStreamProvider = StreamProvider((ref) {
+  final dao = ref.watch(creditInstallmentsDaoProvider);
+  return dao.watchActiveInstallments();
+});
+
+/// Provider de stream de cuotas por tarjeta de crédito (family)
+final creditInstallmentsByAccountStreamProvider =
+    StreamProvider.family<List<CreditInstallment>, String>((ref, accountId) {
+      final dao = ref.watch(creditInstallmentsDaoProvider);
+      return dao.watchInstallmentsByAccount(accountId);
+    });
+
 /// Provider de stream del viaje activo
 final activeTravelProvider = StreamProvider((ref) {
   final dao = ref.watch(travelsDaoProvider);

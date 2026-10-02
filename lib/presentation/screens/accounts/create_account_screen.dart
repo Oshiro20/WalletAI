@@ -26,6 +26,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
   final _creditLimitController = TextEditingController();
   final _closingDayController = TextEditingController();
   final _paymentDayController = TextEditingController();
+  final _teaController = TextEditingController();
 
   String _accountType = 'bank'; // cash, bank, card, savings
   String _currency = 'PEN';
@@ -39,6 +40,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
     _creditLimitController.dispose();
     _closingDayController.dispose();
     _paymentDayController.dispose();
+    _teaController.dispose();
     super.dispose();
   }
 
@@ -73,6 +75,9 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
               : const drift.Value.absent(),
           paymentDueDay: _accountType == 'credit_card'
               ? drift.Value(int.tryParse(_paymentDayController.text))
+              : const drift.Value.absent(),
+          tea: _accountType == 'credit_card'
+              ? drift.Value(double.tryParse(_teaController.text))
               : const drift.Value.absent(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
@@ -230,6 +235,29 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _teaController,
+                decoration: const InputDecoration(
+                  labelText: 'Tasa de Interés Anual (TEA %)',
+                  hintText: 'Ej. 54.9',
+                  helperText: 'Tasa referencial para compras en cuotas (opcional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.percent),
+                ),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                validator: (value) {
+                  if (value != null && value.isNotEmpty) {
+                    final rate = double.tryParse(value);
+                    if (rate == null || rate < 0) {
+                      return 'Tasa inválida';
+                    }
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 16),
             ],

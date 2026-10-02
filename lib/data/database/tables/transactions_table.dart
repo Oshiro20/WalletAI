@@ -26,6 +26,10 @@ class Transactions extends Table {
   RealColumn get latitude => real().nullable()();
   RealColumn get longitude => real().nullable()();
   TextColumn get locationName => text().nullable()();
+  // ── Cuotas / Tarjetas de Crédito ──────────────────────────────────────
+  TextColumn get creditInstallmentId => text().nullable()();
+  IntColumn get installmentNumber => integer().nullable()();
+  IntColumn get totalInstallments => integer().nullable()();
   // ─────────────────────────────────────────────────────────────────────
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();

@@ -15,6 +15,7 @@ class Accounts extends Table {
   RealColumn get creditLimit => real().nullable()(); // para tarjetas de crédito
   IntColumn get closingDay => integer().nullable()(); // día de corte (1-31)
   IntColumn get paymentDueDay => integer().nullable()(); // día de pago (1-31)
+  RealColumn get tea => real().nullable()(); // Tasa Efectiva Anual (TEA %) para tarjetas de crédito
   IntColumn get sortOrder => integer().withDefault(const Constant(0))();
   BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   DateTimeColumn get createdAt => dateTime()();

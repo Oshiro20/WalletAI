@@ -12,6 +12,7 @@ import '../../../data/database/drift_database.dart';
 import 'package:uuid/uuid.dart';
 import '../../providers/transaction_repository_provider.dart';
 import 'package:drift/drift.dart' as drift;
+import 'widgets/active_installments_card.dart';
 
 class _CreditCardMath {
   final double debt;
@@ -307,6 +308,17 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> {
             },
             loading: () => const LoadingWidget(),
             error: (e, _) => ErrorDisplayWidget(message: e.toString()),
+          ),
+
+          // ─── Tarjeta de Compras en Cuotas Activas (solo tarjetas) ────────
+          accountAsync.maybeWhen(
+            data: (account) {
+              if (account != null && account.type == 'credit_card') {
+                return ActiveInstallmentsCard(account: account);
+              }
+              return const SizedBox.shrink();
+            },
+            orElse: () => const SizedBox.shrink(),
           ),
 
           // ─── Selector de período ─────────────────────────────────────────

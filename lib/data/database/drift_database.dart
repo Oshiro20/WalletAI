@@ -20,6 +20,7 @@ import 'tables/sync_queue_table.dart';
 import 'tables/settings_table.dart';
 import 'tables/travels_table.dart';
 import 'tables/learning_rules_table.dart';
+import 'tables/credit_installments_table.dart';
 
 // Importar DAOs
 import 'daos/accounts_dao.dart';
@@ -32,6 +33,7 @@ import 'daos/subcategories_dao.dart';
 import 'daos/sync_queue_dao.dart';
 import 'daos/travels_dao.dart';
 import 'daos/learning_rules_dao.dart';
+import 'daos/credit_installments_dao.dart';
 
 part 'drift_database.g.dart';
 
@@ -52,6 +54,7 @@ part 'drift_database.g.dart';
     Settings,
     Travels,
     LearningRules,
+    CreditInstallments,
   ],
   daos: [
     AccountsDao,
@@ -64,6 +67,7 @@ part 'drift_database.g.dart';
     SyncQueueDao,
     TravelsDao,
     LearningRulesDao,
+    CreditInstallmentsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -71,7 +75,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 14;
+  int get schemaVersion => 15;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -163,6 +167,24 @@ class AppDatabase extends _$AppDatabase {
         } catch (_) {}
         await _insertDefaultCategories();
         await _insertDefaultSubcategories();
+      }
+      if (from < 15) {
+        // v15: TEA en cuentas, columnas de cuotas en transacciones y tabla de CreditInstallments
+        try {
+          await m.addColumn(accounts, accounts.tea);
+        } catch (_) {}
+        try {
+          await m.addColumn(transactions, transactions.creditInstallmentId);
+        } catch (_) {}
+        try {
+          await m.addColumn(transactions, transactions.installmentNumber);
+        } catch (_) {}
+        try {
+          await m.addColumn(transactions, transactions.totalInstallments);
+        } catch (_) {}
+        try {
+          await m.createTable(creditInstallments);
+        } catch (_) {}
       }
     },
     beforeOpen: (details) async {
