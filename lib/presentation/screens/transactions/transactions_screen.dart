@@ -17,6 +17,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../widgets/common/tutorial_tooltip.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'transaction_search_delegate.dart';
 
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
@@ -55,6 +56,14 @@ class _TransactionsScreenState extends ConsumerState<TransactionsScreen> {
       appBar: AppBar(
         title: Text(AppLocalizations.of(context)!.transactionsTitle),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            tooltip: 'Buscar transacciones',
+            onPressed: () => showSearch(
+              context: context,
+              delegate: TransactionSearchDelegate(),
+            ),
+          ),
           Showcase.withWidget(
             key: _filterKey,
             container: TutorialTooltip(

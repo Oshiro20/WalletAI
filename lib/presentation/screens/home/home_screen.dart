@@ -152,7 +152,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             icon: const Icon(Icons.search),
             onPressed: () => showSearch(
               context: context,
-              delegate: TransactionSearchDelegate(ref),
+              delegate: TransactionSearchDelegate(),
             ),
           ),
           IconButton(

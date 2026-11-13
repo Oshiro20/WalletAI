@@ -1,26 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
-import '../../../../data/database/drift_database.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/text_search_helper.dart';
+import '../../../../data/database/drift_database.dart';
 
 class SearchSummaryCard extends StatelessWidget {
-  final double totalAmount;
+  final double totalExpense;
+  final double totalIncome;
+  final double totalTransfer;
   final int count;
   final String query;
 
   const SearchSummaryCard({
     super.key,
-    required this.totalAmount,
+    required this.totalExpense,
+    this.totalIncome = 0,
+    this.totalTransfer = 0,
     required this.count,
     required this.query,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    // Determinar el monto principal a destacar según el tipo predominante
+    final double primaryAmount;
+    final Color primaryColor;
+    final String primaryLabel;
+    if (totalExpense > 0) {
+      primaryAmount = totalExpense;
+      primaryColor = AppColors.expense;
+      primaryLabel = 'Total gastado';
+    } else if (totalIncome > 0) {
+      primaryAmount = totalIncome;
+      primaryColor = AppColors.income;
+      primaryLabel = 'Total ingresado';
+    } else {
+      primaryAmount = totalTransfer;
+      primaryColor = AppColors.transfer;
+      primaryLabel = 'Total transferido';
+    }
+
+    final hasMultipleTypes =
+        [totalExpense > 0, totalIncome > 0, totalTransfer > 0]
+            .where((active) => active)
+            .length >
+        1;
+
     return Card(
       margin: const EdgeInsets.all(16),
-      elevation: 4,
+      elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -28,23 +60,61 @@ class SearchSummaryCard extends StatelessWidget {
           children: [
             Text(
               'Resultados para "$query"',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
-              'S/ ${totalAmount.toStringAsFixed(2)}',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppColors.expense, // Assuming mostly expense search
+              primaryLabel,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 4),
             Text(
-              '$count transacciones encontradas',
-              style: Theme.of(context).textTheme.bodyMedium,
+              'S/ ${primaryAmount.toStringAsFixed(2)}',
+              style: theme.textTheme.headlineMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: primaryColor,
+              ),
             ),
+            const SizedBox(height: 4),
+            Text(
+              '$count ${count == 1 ? "transacción encontrada" : "transacciones encontradas"}',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            if (hasMultipleTypes) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  if (totalIncome > 0)
+                    _MiniMetric(
+                      label: 'Ingresos',
+                      amount: totalIncome,
+                      color: AppColors.income,
+                    ),
+                  if (totalExpense > 0)
+                    _MiniMetric(
+                      label: 'Gastos',
+                      amount: totalExpense,
+                      color: AppColors.expense,
+                    ),
+                  if (totalTransfer > 0)
+                    _MiniMetric(
+                      label: 'Transfer.',
+                      amount: totalTransfer,
+                      color: AppColors.transfer,
+                    ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
@@ -52,40 +122,85 @@ class SearchSummaryCard extends StatelessWidget {
   }
 }
 
-class SearchTrendChart extends StatelessWidget {
-  final List<Transaction> transactions;
+class _MiniMetric extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
 
-  const SearchTrendChart({super.key, required this.transactions});
+  const _MiniMetric({
+    required this.label,
+    required this.amount,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // 1. Group by Month (YYYY-MM)
-    final Map<String, double> monthlyTotals = {};
+    return Column(
+      children: [
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelSmall,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          'S/ ${amount.toStringAsFixed(2)}',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: color,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
-    // Sort transactions by date ascending for the chart
+class SearchTrendChart extends StatelessWidget {
+  final List<Transaction> transactions;
+  final Map<String, double> rates;
+
+  const SearchTrendChart({
+    super.key,
+    required this.transactions,
+    this.rates = const {'PEN': 1.0},
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final sortedTx = List<Transaction>.from(transactions)
       ..sort((a, b) => a.date.compareTo(b.date));
 
     if (sortedTx.isEmpty) return const SizedBox.shrink();
 
-    for (var tx in sortedTx) {
-      if (tx.type == 'expense') {
-        // Only chart expenses for now
+    final hasExpenses = sortedTx.any((tx) => tx.type == 'expense');
+    final targetType = hasExpenses ? 'expense' : 'income';
+    final barColor = hasExpenses ? AppColors.expense : AppColors.income;
+    final chartTitle = hasExpenses
+        ? 'Tendencia Mensual de Gastos'
+        : 'Tendencia Mensual de Ingresos';
+
+    final Map<String, double> monthlyTotals = {};
+    for (final tx in sortedTx) {
+      if (tx.type == targetType) {
         final key = DateFormat('yyyy-MM').format(tx.date);
-        monthlyTotals[key] = (monthlyTotals[key] ?? 0) + tx.amount;
+        final amountInPen = TextSearchHelper.convertToPen(
+          tx.amount,
+          tx.currency,
+          rates,
+        );
+        monthlyTotals[key] = (monthlyTotals[key] ?? 0) + amountInPen;
       }
     }
 
     if (monthlyTotals.isEmpty) return const SizedBox.shrink();
 
-    // 2. Prepare Spot Data
     final List<BarChartGroupData> barGroups = [];
     final List<String> monthLabels = [];
 
     int index = 0;
     monthlyTotals.forEach((key, value) {
       final date = DateFormat('yyyy-MM').parse(key);
-      monthLabels.add(DateFormat('MMM').format(date)); // Jan, Feb...
+      monthLabels.add(DateFormat('MMM yy', 'es_PE').format(date));
 
       barGroups.add(
         BarChartGroupData(
@@ -93,7 +208,7 @@ class SearchTrendChart extends StatelessWidget {
           barRods: [
             BarChartRodData(
               toY: value,
-              color: AppColors.expense,
+              color: barColor,
               width: 16,
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(4),
@@ -105,6 +220,8 @@ class SearchTrendChart extends StatelessWidget {
       index++;
     });
 
+    final maxVal = monthlyTotals.values.reduce((a, b) => a > b ? a : b);
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
@@ -115,7 +232,7 @@ class SearchTrendChart extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tendencia Mensual',
+              chartTitle,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 24),
@@ -124,9 +241,7 @@ class SearchTrendChart extends StatelessWidget {
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY:
-                      monthlyTotals.values.reduce((a, b) => a > b ? a : b) *
-                      1.2,
+                  maxY: maxVal > 0 ? maxVal * 1.2 : 10,
                   barTouchData: BarTouchData(
                     touchTooltipData: BarTouchTooltipData(
                       getTooltipColor: (_) => Colors.blueGrey,
