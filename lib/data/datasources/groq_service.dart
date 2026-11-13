@@ -10,36 +10,52 @@ class GroqService {
   static String get _baseUrl => AppConfig.apiBaseUrl;
 
   static const String _systemPrompt = '''
-Eres WalletAI, un asistente financiero personal inteligente integrado en una app de gestión de gastos personal.
-Tu rol es ayudar al usuario a entender sus finanzas, dar consejos, analizar datos y responder cualquier pregunta sobre dinero, ahorro y gastos.
+Eres WalletAI, el asistente financiero personal inteligente integrado en la app de finanzas del usuario.
+Tu rol es analizar sus finanzas reales y responder con precisión usando sus datos del aplicativo.
 
-Reglas:
-- Responde SIEMPRE en español peruano/latinoamericano
-- Sé conciso y amigable (máximo 3-4 párrafos cortos)
-- Usa emojis con moderación para hacer las respuestas más visuales
-- Cuando tengas datos financieros del usuario en el contexto, úsalos para personalizar tu respuesta
-- Si el usuario pregunta de presupuestos, ahorros, gastos o ingresos, relaciona la respuesta con sus datos reales
-- Si no tienes datos del usuario para una pregunta específica, responde con consejos generales útiles
-- No inventes datos que no te han proporcionado
-- Los montos están en soles peruanos (S/)''';
+Reglas estrictas:
+- Responde SIEMPRE en español peruano/latinoamericano.
+- Sé conciso, claro y accionable (máximo 3-4 párrafos cortos o viñetas limpias).
+- Usa emojis con moderación para hacer las respuestas más visuales.
+- PRIORIZA SIEMPRE los "DATOS FINANCIEROS REALES DEL USUARIO" proporcionados abajo: cita montos, cuentas, categorías, subcategorías, presupuestos, metas, cuotas, pagos recurrentes y fechas exactas.
+- NUNCA respondas con consejos meramente genéricos si existen cifras del usuario aplicables a la pregunta; analiza sus números reales y da recomendaciones basadas en ellos.
+- Si el usuario pregunta por un gasto, categoría, mes o concepto que NO aparece en sus datos proporcionados, indícalo explícitamente ("No encontré registros de X en tus datos") en lugar de inventar cifras.
+- No inventes transacciones, saldos ni porcentajes que no estén en el contexto.
+- La moneda principal son soles peruanos (S/).''';
 
-  /// Historial de mensajes (rol + contenido) para mantener el contexto de la conversación
+  /// Historial de mensajes (rol + contenido limpio) para mantener el contexto de la conversación
   final List<Map<String, String>> _history = [];
 
   GroqService();
 
-  /// Envía un mensaje al modelo con contexto financiero opcional
+  /// Envía un mensaje al modelo con contexto financiero real y respaldo local opcional
   Future<String> sendMessage(
     String userMessage, {
     String? financialContext,
+    Future<String> Function(String query)? offlineFallback,
   }) async {
-    // Construir el mensaje completo con contexto si está disponible
-    final fullMessage = financialContext != null && financialContext.isNotEmpty
-        ? '**Datos actuales del usuario:**\n$financialContext\n\n**Pregunta:** $userMessage'
-        : userMessage;
+    final cleanQuestion = userMessage.trim();
 
-    // Agregar el mensaje del usuario al historial
-    _history.add({'role': 'user', 'content': fullMessage});
+    // Construir systemPrompt enriquecido con los datos reales actuales y memoria reciente
+    final sysBuffer = StringBuffer(_systemPrompt);
+
+    if (financialContext != null && financialContext.isNotEmpty) {
+      sysBuffer.writeln('\n\n=== DATOS FINANCIEROS REALES DEL USUARIO ===');
+      sysBuffer.writeln(financialContext);
+    }
+
+    if (_history.isNotEmpty) {
+      sysBuffer.writeln('\n\n=== CONVERSACIÓN RECIENTE ===');
+      final recentHistory = _history.length > 8
+          ? _history.sublist(_history.length - 8)
+          : _history;
+      for (final msg in recentHistory) {
+        final roleLabel = msg['role'] == 'user' ? 'Usuario' : 'WalletAI';
+        sysBuffer.writeln('$roleLabel: ${msg['content']}');
+      }
+    }
+
+    _history.add({'role': 'user', 'content': cleanQuestion});
 
     try {
       final response = await http
@@ -47,11 +63,11 @@ Reglas:
             Uri.parse('$_baseUrl/parse-voice'),
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({
-              'systemPrompt': _systemPrompt,
-              'userMessage': fullMessage,
+              'systemPrompt': sysBuffer.toString(),
+              'userMessage': cleanQuestion,
             }),
           )
-          .timeout(const Duration(seconds: 30));
+          .timeout(const Duration(seconds: 55));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
@@ -61,37 +77,48 @@ Reglas:
         // Guardar respuesta en historial para contexto futuro
         _history.add({'role': 'assistant', 'content': assistantMessage});
 
-        // Limitar historial a últimos 20 mensajes para no sobrepasar tokens
+        // Limitar historial a últimos 20 mensajes
         if (_history.length > 20) {
           _history.removeRange(0, 2);
         }
 
         return assistantMessage;
       } else {
-        final errorData = jsonDecode(response.body);
-        String errorMsg = 'Error desconocido';
+        _history.removeLast(); // Revertir mensaje fallido
 
-        if (errorData['error'] != null) {
-          if (errorData['error'] is String) {
-            errorMsg = errorData['error'];
-          } else if (errorData['error'] is Map) {
-            errorMsg = errorData['error']['message'] ?? 'Error desconocido';
+        if (offlineFallback != null) {
+          final localReply = await offlineFallback(cleanQuestion);
+          return '$localReply\n\n_ℹ️ Respuesta generada localmente con tus datos (servidor IA ocupado: ${response.statusCode})._';
+        }
+
+        String errorMsg = 'Error desconocido';
+        try {
+          final errorData = jsonDecode(response.body);
+          if (errorData['error'] != null) {
+            if (errorData['error'] is String) {
+              errorMsg = errorData['error'];
+            } else if (errorData['error'] is Map) {
+              errorMsg = errorData['error']['message'] ?? 'Error desconocido';
+            }
           }
+        } catch (_) {
+          errorMsg = 'HTTP ${response.statusCode}';
         }
 
         if (response.statusCode == 401) {
-          _history.removeLast(); // Revertir mensaje fallido
           return '🔑 API key de Groq configurada en el servidor no es válida o está ausente.';
         } else if (response.statusCode == 429) {
-          _history.removeLast();
           return '⏳ Límite de consultas alcanzado. Espera un momento e intenta de nuevo.';
         }
 
-        _history.removeLast();
         return '❌ Error del servidor Groq (${response.statusCode}): $errorMsg';
       }
     } catch (e) {
       _history.removeLast();
+      if (offlineFallback != null) {
+        final localReply = await offlineFallback(cleanQuestion);
+        return '$localReply\n\n_ℹ️ Respuesta generada con tus datos locales (sin conexión al servidor IA)._';
+      }
       if (e.toString().contains('TimeoutException') ||
           e.toString().contains('SocketException') ||
           e.toString().contains('Failed host lookup') ||

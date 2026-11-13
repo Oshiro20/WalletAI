@@ -20,6 +20,9 @@ class KeepAliveService {
     _timer = Timer.periodic(const Duration(minutes: 10), (_) => _ping());
   }
 
+  /// Dispara un ping puntual para despertar el backend bajo demanda.
+  Future<void> wakeUp() => _ping();
+
   /// Detiene el ciclo de keep-alive.
   void stop() {
     _timer?.cancel();

@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../../core/services/financial_context_builder.dart';
+import '../../../data/datasources/assistant_service.dart' hide ChatMessage;
 import '../../../data/datasources/groq_service.dart';
-import '../../providers/database_providers.dart';
+import '../../../data/datasources/keep_alive_service.dart';
 
 // ─── Modelo de Mensaje ────────────────────────────────────────────────────────
 
@@ -96,94 +97,6 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     } catch (_) {}
   }
 
-  Future<String> _buildFinancialContext() async {
-    try {
-      final txDao = _ref.read(transactionsDaoProvider);
-      final accDao = _ref.read(accountsDaoProvider);
-      final catDao = _ref.read(categoriesDaoProvider);
-      final budDao = _ref.read(budgetsDaoProvider);
-
-      final now = DateTime.now();
-      final startMonth = DateTime(now.year, now.month, 1);
-      final endMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
-
-      final accounts = await accDao.getAllAccounts();
-      final categories = await catDao.getAllCategories();
-      final budgets = await budDao.getActiveBudgets();
-      final monthlyTxs = await txDao.getTransactionsByDateRange(
-        startMonth,
-        endMonth,
-      );
-
-      double totalBalance = 0;
-      for (final acc in accounts) {
-        totalBalance += acc.balance;
-      }
-
-      double monthIncome = 0, monthExpense = 0;
-      for (final tx in monthlyTxs) {
-        if (tx.type == 'income') monthIncome += tx.amount;
-        if (tx.type == 'expense') monthExpense += tx.amount;
-      }
-
-      final fmt = NumberFormat('S/ #,##0.00', 'es');
-      final sb = StringBuffer();
-      sb.writeln('Fecha: ${DateFormat('dd/MM/yyyy').format(now)}');
-      sb.writeln('Saldo total en cuentas: ${fmt.format(totalBalance)}');
-      sb.writeln(
-        'Ingresos este mes (${DateFormat('MMMM yyyy', 'es').format(now)}): ${fmt.format(monthIncome)}',
-      );
-      sb.writeln('Gastos este mes: ${fmt.format(monthExpense)}');
-      sb.writeln(
-        'Balance neto del mes: ${fmt.format(monthIncome - monthExpense)}',
-      );
-      sb.writeln('Número de transacciones este mes: ${monthlyTxs.length}');
-
-      if (accounts.isNotEmpty) {
-        sb.writeln('\nCuentas:');
-        for (final a in accounts) {
-          sb.writeln('  - ${a.name} (${a.type}): ${fmt.format(a.balance)}');
-        }
-      }
-
-      if (monthlyTxs.isNotEmpty) {
-        sb.writeln('\nÚltimas transacciones del mes:');
-        final recentTxs = monthlyTxs
-            .take(20)
-            .toList(); // Limitar para no saturar tokens
-        final catMap = {for (final c in categories) c.id: c.name};
-        for (final tx in recentTxs) {
-          final catName = catMap[tx.categoryId] ?? "Varios";
-          final sign = tx.type == 'expense' ? '-' : '+';
-          final desc = tx.description ?? tx.productName ?? 'Sin detalle';
-          sb.writeln(
-            '  - ${DateFormat('dd/MM').format(tx.date)}: $sign${fmt.format(tx.amount)} [Cat: $catName] - $desc',
-          );
-        }
-      }
-
-      if (budgets.isNotEmpty) {
-        sb.writeln('\nPresupuestos activos:');
-        final catMap = {for (final c in categories) c.id: c.name};
-        for (final b in budgets) {
-          sb.writeln(
-            '  - ${catMap[b.categoryId] ?? "Sin categoría"}: ${fmt.format(b.amount)}/mes',
-          );
-        }
-      }
-
-      if (categories.isNotEmpty) {
-        sb.writeln(
-          '\nCategorías de gastos registradas: ${categories.where((c) => c.type == "expense").map((c) => c.name).join(", ")}',
-        );
-      }
-
-      return sb.toString();
-    } catch (_) {
-      return '';
-    }
-  }
-
   Future<void> sendMessage(String text) async {
     if (text.trim().isEmpty || _isLoading) return;
 
@@ -200,9 +113,15 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     );
     state = [...state, typing];
 
-    final context = await _buildFinancialContext();
+    final contextBuilder = _ref.read(financialContextBuilderProvider);
+    final localAssistant = _ref.read(assistantServiceProvider);
+    final context = await contextBuilder.buildContext(userQuery: text);
     final groq = _getGroq();
-    final response = await groq.sendMessage(text, financialContext: context);
+    final response = await groq.sendMessage(
+      text,
+      financialContext: context,
+      offlineFallback: (q) => localAssistant.processQuestion(q),
+    );
 
     final msgs = [...state];
     msgs.removeLast();
@@ -247,15 +166,21 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
   final _msgController = TextEditingController();
   final _scrollController = ScrollController();
 
-  // Sugerencias iniciales
+  // Sugerencias iniciales orientadas a datos reales del usuario
   static const _suggestions = [
     '¿Cuánto gasté este mes?',
-    '¿Cuál es mi saldo actual?',
-    'Dame consejos para ahorrar más',
-    'Analiza mis gastos de este mes',
-    '¿Cómo puedo reducir mis gastos?',
-    'Explica qué es un presupuesto 50/30/20',
+    '¿Cuál es mi saldo y mis deudas?',
+    '¿En qué categoría gasto más?',
+    '¿Cómo van mis presupuestos y metas?',
+    '¿Qué pagos recurrentes o cuotas tengo?',
+    'Compara mis gastos con el mes pasado',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    keepAliveService.wakeUp();
+  }
 
   @override
   void dispose() {
