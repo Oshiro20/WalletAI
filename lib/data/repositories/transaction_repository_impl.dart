@@ -17,6 +17,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String type = 'expense', // expense, income, transfer
     String? destinationAccountId,
     dynamic recurringPayment, // Expecting RecurringPaymentsCompanion
+    dynamic creditInstallment, // Expecting CreditInstallmentsCompanion
   }) async {
     // Obtenemos las tarifas de red ANTES de bloquear la BD (evita el congelamiento)
     final rates = await _currencyService.getRatesBasePEN();
@@ -28,42 +29,52 @@ class TransactionRepositoryImpl implements TransactionRepository {
         await _db.recurringPaymentsDao.createRecurringPayment(recurringPayment);
       }
 
+      // 0b. Insert Credit Installment plan atomically if exists
+      if (creditInstallment != null &&
+          creditInstallment is CreditInstallmentsCompanion) {
+        await _db.creditInstallmentsDao.insertInstallment(creditInstallment);
+      }
+
       // 1. Insert Transaction
       await _db.transactionsDao.createTransaction(transaction);
 
-      // 2. Update Source Account Balance
-      // Nota: Asumimos que las cuentas están en PEN (moneda base) por ahora.
-      // Convertimos el monto de la transacción a PEN antes de descontar.
+      final txCurrency = transaction.currency.present
+          ? transaction.currency.value
+          : 'PEN';
 
-      double amountInPen = amount;
-      // transaction.currency es Value<String> en el companion.
-      if (transaction.currency.present) {
-        amountInPen = _convertToPen(amount, transaction.currency.value, rates);
-      } else {
-        // Fallback or default assumption (PEN) if not present
-      }
-
+      // 2. Update Source Account Balance (en la moneda propia de la cuenta origen)
       final sourceAccount = await _db.accountsDao.getAccountById(accountId);
       if (sourceAccount != null) {
+        final amountInSourceCurrency = _convertCurrency(
+          amount,
+          txCurrency,
+          sourceAccount.currency,
+          rates,
+        );
         double newBalance = sourceAccount.balance;
 
         if (type == 'income') {
-          newBalance += amountInPen;
+          newBalance += amountInSourceCurrency;
         } else {
           // Expense or Transfer (money leaves source)
-          newBalance -= amountInPen;
+          newBalance -= amountInSourceCurrency;
         }
         await _db.accountsDao.updateBalance(accountId, newBalance);
       }
 
-      // 3. Update Destination Account Balance (if transfer)
+      // 3. Update Destination Account Balance (en la moneda de la cuenta destino)
       if (type == 'transfer' && destinationAccountId != null) {
         final destAccount = await _db.accountsDao.getAccountById(
           destinationAccountId,
         );
         if (destAccount != null) {
-          // Money enters destination
-          final newDestBalance = destAccount.balance + amountInPen;
+          final amountInDestCurrency = _convertCurrency(
+            amount,
+            txCurrency,
+            destAccount.currency,
+            rates,
+          );
+          final newDestBalance = destAccount.balance + amountInDestCurrency;
           await _db.accountsDao.updateBalance(
             destinationAccountId,
             newDestBalance,
@@ -85,6 +96,20 @@ class TransactionRepositoryImpl implements TransactionRepository {
     return amount / rate;
   }
 
+  double _convertCurrency(
+    double amount,
+    String fromCurrency,
+    String toCurrency,
+    Map<String, double> rates,
+  ) {
+    if (fromCurrency == toCurrency) return amount;
+    final amountInPen = _convertToPen(amount, fromCurrency, rates);
+    if (toCurrency == 'PEN') return amountInPen;
+    final targetRate = rates[toCurrency];
+    if (targetRate == null || targetRate == 0) return amountInPen;
+    return amountInPen * targetRate;
+  }
+
   @override
   Future<void> updateTransaction(Transaction transaction) async {
     // Obtenemos las tarifas locales/red ANTES del lock
@@ -97,23 +122,22 @@ class TransactionRepositoryImpl implements TransactionRepository {
       );
       if (oldTransaction == null) return; // Should not happen
 
-      // 2. Revert OLD balance effect
-      double oldAmountInPen = oldTransaction.amount;
-      oldAmountInPen = _convertToPen(
-        oldTransaction.amount,
-        oldTransaction.currency,
-        rates,
-      );
-
+      // 2. Revert OLD balance effect (en moneda de cuenta origen)
       final oldAccount = await _db.accountsDao.getAccountById(
         oldTransaction.accountId,
       );
       if (oldAccount != null) {
+        final oldAmountInSource = _convertCurrency(
+          oldTransaction.amount,
+          oldTransaction.currency,
+          oldAccount.currency,
+          rates,
+        );
         double revertedBalance = oldAccount.balance;
         if (oldTransaction.type == 'income') {
-          revertedBalance -= oldAmountInPen;
+          revertedBalance -= oldAmountInSource;
         } else {
-          revertedBalance += oldAmountInPen;
+          revertedBalance += oldAmountInSource;
         }
         await _db.accountsDao.updateBalance(
           oldTransaction.accountId,
@@ -128,47 +152,40 @@ class TransactionRepositoryImpl implements TransactionRepository {
           oldTransaction.destinationAccountId!,
         );
         if (oldDest != null) {
+          final oldAmountInDest = _convertCurrency(
+            oldTransaction.amount,
+            oldTransaction.currency,
+            oldDest.currency,
+            rates,
+          );
           await _db.accountsDao.updateBalance(
             oldTransaction.destinationAccountId!,
-            oldDest.balance - oldAmountInPen,
+            oldDest.balance - oldAmountInDest,
           );
         }
       }
 
       // 3. Apply NEW balance effect
-      // Note: Transaction object passed here is the NEW one.
-      double newAmountInPen = transaction.amount;
-      newAmountInPen = _convertToPen(
-        transaction.amount,
-        transaction.currency,
-        rates,
-      );
-
-      final newAccount = await _db.accountsDao.getAccountById(
+      final freshAccount = await _db.accountsDao.getAccountById(
         transaction.accountId,
       );
-      if (newAccount != null) {
-        // We need to re-fetch balance because we just updated it (maybe)
-        // Actually, inside a transaction, we should get the latest.
-        // But getAccountById fetches snapshot.
-        // If accountId is same as oldTransaction.accountId, we must be careful.
-        // The safest way is to fetch again.
-
-        final freshAccount = await _db.accountsDao.getAccountById(
-          transaction.accountId,
+      if (freshAccount != null) {
+        final newAmountInSource = _convertCurrency(
+          transaction.amount,
+          transaction.currency,
+          freshAccount.currency,
+          rates,
         );
-        if (freshAccount != null) {
-          double newBalance = freshAccount.balance;
-          if (transaction.type == 'income') {
-            newBalance += newAmountInPen;
-          } else {
-            newBalance -= newAmountInPen;
-          }
-          await _db.accountsDao.updateBalance(
-            transaction.accountId,
-            newBalance,
-          );
+        double newBalance = freshAccount.balance;
+        if (transaction.type == 'income') {
+          newBalance += newAmountInSource;
+        } else {
+          newBalance -= newAmountInSource;
         }
+        await _db.accountsDao.updateBalance(
+          transaction.accountId,
+          newBalance,
+        );
       }
 
       // Apply to new destination if transfer
@@ -178,9 +195,15 @@ class TransactionRepositoryImpl implements TransactionRepository {
           transaction.destinationAccountId!,
         );
         if (freshDest != null) {
+          final newAmountInDest = _convertCurrency(
+            transaction.amount,
+            transaction.currency,
+            freshDest.currency,
+            rates,
+          );
           await _db.accountsDao.updateBalance(
             transaction.destinationAccountId!,
-            freshDest.balance + newAmountInPen,
+            freshDest.balance + newAmountInDest,
           );
         }
       }
@@ -192,55 +215,69 @@ class TransactionRepositoryImpl implements TransactionRepository {
 
   @override
   Future<void> deleteTransaction(String id) async {
-    // 1. Fetch transaction to know amount/account
-    final transaction = await _db.transactionsDao.getTransactionById(id);
-    if (transaction == null) return;
+    // Obtenemos las tasas ANTES de iniciar la transacción SQLite para evitar locks
+    final rates = await _currencyService.getRatesBasePEN();
 
-    // 2. Revert Balance Update
-    // HOTFIX: Hardcoded rates to prevent DB lock/crash (Network call removed)
-    final rates = {'USD': 3.75, 'EUR': 4.10, 'PEN': 1.0};
-    double amountInPen = transaction.amount;
-    try {
-      amountInPen = _convertToPen(
-        transaction.amount,
-        transaction.currency,
-        rates,
-      );
-    } catch (e) {
-      amountInPen = transaction.amount;
-    }
+    return _db.transaction(() async {
+      // 1. Fetch transaction to know amount/account
+      final transaction = await _db.transactionsDao.getTransactionById(id);
+      if (transaction == null) return;
 
-    final accountId = transaction.accountId;
-    final account = await _db.accountsDao.getAccountById(accountId);
-
-    if (account != null) {
-      double newBalance = account.balance;
-
-      if (transaction.type == 'income') {
-        newBalance -= amountInPen;
-      } else {
-        newBalance += amountInPen;
-      }
-      await _db.accountsDao.updateBalance(accountId, newBalance);
-    }
-
-    // Handle transfer destination reversal
-    if (transaction.type == 'transfer' &&
-        transaction.destinationAccountId != null) {
-      final destAccount = await _db.accountsDao.getAccountById(
-        transaction.destinationAccountId!,
-      );
-      if (destAccount != null) {
-        final newDestBalance = destAccount.balance - amountInPen;
-        await _db.accountsDao.updateBalance(
-          transaction.destinationAccountId!,
-          newDestBalance,
+      // 2. Revert Balance Update en la moneda de cada cuenta
+      final account = await _db.accountsDao.getAccountById(transaction.accountId);
+      if (account != null) {
+        final amountInSource = _convertCurrency(
+          transaction.amount,
+          transaction.currency,
+          account.currency,
+          rates,
         );
-      }
-    }
+        double newBalance = account.balance;
 
-    // 3. Delete Transaction
-    await _db.transactionsDao.deleteTransaction(id);
+        if (transaction.type == 'income') {
+          newBalance -= amountInSource;
+        } else {
+          newBalance += amountInSource;
+        }
+        await _db.accountsDao.updateBalance(transaction.accountId, newBalance);
+      }
+
+      // Handle transfer destination reversal
+      if (transaction.type == 'transfer' &&
+          transaction.destinationAccountId != null) {
+        final destAccount = await _db.accountsDao.getAccountById(
+          transaction.destinationAccountId!,
+        );
+        if (destAccount != null) {
+          final amountInDest = _convertCurrency(
+            transaction.amount,
+            transaction.currency,
+            destAccount.currency,
+            rates,
+          );
+          final newDestBalance = destAccount.balance - amountInDest;
+          await _db.accountsDao.updateBalance(
+            transaction.destinationAccountId!,
+            newDestBalance,
+          );
+        }
+      }
+
+      // 3. Eliminar plan de cuotas solo si la transacción borrada fue la compra original
+      if (transaction.creditInstallmentId != null) {
+        final inst = await _db.creditInstallmentsDao.getInstallmentById(
+          transaction.creditInstallmentId!,
+        );
+        if (inst != null &&
+            (inst.transactionId == transaction.id ||
+                transaction.type == 'expense')) {
+          await _db.creditInstallmentsDao.deleteInstallment(inst.id);
+        }
+      }
+
+      // 4. Delete Transaction
+      await _db.transactionsDao.deleteTransaction(id);
+    });
   }
 
   @override

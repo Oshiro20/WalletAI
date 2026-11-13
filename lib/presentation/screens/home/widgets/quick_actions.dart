@@ -19,7 +19,7 @@ class QuickActions extends StatelessWidget {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.onSurface,
+              color: Theme.of(context).colorScheme.onSurface,
             ),
           ),
         ),
@@ -78,7 +78,7 @@ class QuickActions extends StatelessWidget {
                 icon: Icons.bar_chart_rounded,
                 label: 'Estadísticas',
                 color: AppColors.primaryLight,
-                onTap: () => context.push('/analytics'),
+                onTap: () => context.push('/statistics'),
               ),
               _QuickActionChip(
                 icon: Icons.flag_rounded,

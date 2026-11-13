@@ -361,10 +361,31 @@ final allSubcategoriesFutureProvider = FutureProvider<List<Subcategory>>((
   return dao.getAllSubcategories();
 });
 
-/// Provider de balance total
-final totalBalanceProvider = FutureProvider<double>((ref) async {
+/// Provider de balance total (Patrimonio neto en PEN convertido según tasas)
+final totalBalanceProvider = StreamProvider<double>((ref) {
   final dao = ref.watch(accountsDaoProvider);
-  return dao.getTotalBalance();
+  final rates =
+      ref.watch(exchangeRatesProvider).value ??
+      const {'PEN': 1.0, 'USD': 0.2666, 'EUR': 0.2439};
+
+  return dao.watchAllAccounts().map((accounts) {
+    double netTotal = 0.0;
+    for (final acc in accounts) {
+      if (!acc.isActive) continue;
+      if (acc.type == 'credit_card') {
+        final safeLimit = acc.creditLimit ?? 0.0;
+        final debt = acc.balance <= 0
+            ? acc.balance.abs()
+            : (safeLimit > 0 && safeLimit > acc.balance
+                  ? safeLimit - acc.balance
+                  : 0.0);
+        netTotal -= _convertToPen(debt, acc.currency, rates);
+      } else {
+        netTotal += _convertToPen(acc.balance, acc.currency, rates);
+      }
+    }
+    return netTotal;
+  });
 });
 
 /// Provider CONSOLIDADO del mes actual — hace UNA sola query DB y retorna income+expense+balance.

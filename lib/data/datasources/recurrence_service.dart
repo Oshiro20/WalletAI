@@ -1,9 +1,10 @@
 import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
+import '../../core/utils/credit_card_calculator.dart';
 import '../../presentation/providers/database_providers.dart';
+import '../../presentation/providers/transaction_repository_provider.dart';
 import '../database/drift_database.dart';
-import '../database/daos/transactions_dao.dart';
 import '../database/daos/recurring_payments_dao.dart';
 
 class RecurrenceService {
@@ -14,7 +15,6 @@ class RecurrenceService {
   /// Verificar y procesar pagos vencidos
   Future<void> checkDuePayments() async {
     final dao = ref.read(recurringPaymentsDaoProvider);
-    final transactionsDao = ref.read(transactionsDaoProvider);
     final now = DateTime.now();
 
     // Obtener pagos activos que vencen hoy o antes
@@ -27,35 +27,58 @@ class RecurrenceService {
             .get();
 
     for (final payment in duePayments) {
-      await _processPayment(payment, transactionsDao, dao);
+      await _processPayment(payment, dao);
     }
   }
 
-  /// Procesar un pago individual
+  /// Procesar un pago individual actualizando saldos mediante TransactionRepository
   Future<void> _processPayment(
     RecurringPayment payment,
-    TransactionsDao transactionsDao,
     RecurringPaymentsDao recurringDao,
   ) async {
-    // 1. Crear transacción
-    await transactionsDao.createTransaction(
-      TransactionsCompanion.insert(
+    final db = ref.read(databaseProvider);
+    final repository = ref.read(transactionRepositoryProvider);
+    final account = await db.accountsDao.getAccountById(payment.accountId);
+    final currency = account?.currency ?? 'PEN';
+
+    // Detectar si la categoría corresponde a un ingreso o gasto
+    String txType = 'expense';
+    if (payment.categoryId != null) {
+      final cat = await (db.select(db.categories)
+            ..where((c) => c.id.equals(payment.categoryId!)))
+          .getSingleOrNull();
+      if (cat != null && cat.type == 'income') {
+        txType = 'income';
+      }
+    }
+
+    final now = DateTime.now();
+    // 1. Crear transacción y actualizar saldo de cuenta atómicamente
+    await repository.addTransaction(
+      transaction: TransactionsCompanion.insert(
         id: const Uuid().v4(),
         amount: payment.amount,
-        type:
-            'expense', // Asumimos gasto por ahora, idealmente agregar campo 'type' a RecurringPayments
+        type: txType,
         categoryId: Value(payment.categoryId),
         accountId: payment.accountId,
-
-        date: DateTime.now(),
+        date: now,
         description: Value('Pago recurrente: ${payment.name}'),
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        currency: Value(currency),
+        isRecurring: const Value(true),
+        recurringPaymentId: Value(payment.id),
+        createdAt: now,
+        updatedAt: now,
       ),
+      accountId: payment.accountId,
+      amount: payment.amount,
+      type: txType,
     );
 
-    // 2. Calcular próxima fecha de vencimiento
-    final nextDate = _calculateNextDate(payment.nextDueDate, payment.frequency);
+    // 2. Calcular próxima fecha de vencimiento (segura para fin de mes)
+    var nextDate = _calculateNextDate(payment.nextDueDate, payment.frequency);
+    while (!nextDate.isAfter(now)) {
+      nextDate = _calculateNextDate(nextDate, payment.frequency);
+    }
 
     // 3. Actualizar pago recurrente
     await recurringDao.updateRecurringPayment(
@@ -70,10 +93,9 @@ class RecurrenceService {
       case 'weekly':
         return current.add(const Duration(days: 7));
       case 'monthly':
-        // Manejo básico de meses (puede requerir lógica más robusta para días 31)
-        return DateTime(current.year, current.month + 1, current.day);
+        return CreditCardCalculator.addMonthsToDay(current, 1, current.day);
       case 'yearly':
-        return DateTime(current.year + 1, current.month, current.day);
+        return CreditCardCalculator.addMonthsToDay(current, 12, current.day);
       default:
         return current.add(const Duration(days: 1));
     }

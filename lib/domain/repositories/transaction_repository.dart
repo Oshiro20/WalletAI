@@ -10,6 +10,7 @@ abstract class TransactionRepository {
     // Recurring Payment (optional)
     dynamic
     recurringPayment, // Using dynamic to avoid circular import or verbose import of Companion
+    dynamic creditInstallment, // Optional CreditInstallmentsCompanion
   });
 
   Future<void> updateTransaction(Transaction transaction);

@@ -1,4 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/utils/credit_card_calculator.dart';
+import '../../core/utils/text_search_helper.dart';
 import '../../domain/entities/debt_payoff_entity.dart';
 import 'net_worth_provider.dart';
 import 'database_providers.dart';
@@ -9,6 +11,9 @@ final debtPayoffProvider = StreamProvider.family<DebtPayoffEntity, DebtStrategy>
   strategy,
 ) {
   final accountsAsync = ref.watch(accountsStreamProvider);
+  final rates =
+      ref.watch(exchangeRatesProvider).value ??
+      const {'PEN': 1.0, 'USD': 0.2666, 'EUR': 0.2439};
 
   return accountsAsync.maybeWhen(
     data: (accounts) {
@@ -18,9 +23,18 @@ final debtPayoffProvider = StreamProvider.family<DebtPayoffEntity, DebtStrategy>
       final debts = <DebtAccount>[];
 
       for (final acc in liabilityAccounts) {
-        final debtBalance = acc.type == 'credit_card'
-            ? (acc.balance < 0 ? acc.balance.abs() : 0.0)
+        final rawDebt = acc.type == 'credit_card'
+            ? CreditCardCalculator.calculateCardBalance(
+                balance: acc.balance,
+                creditLimit: acc.creditLimit,
+              ).debt
             : acc.balance.abs();
+
+        final debtBalance = TextSearchHelper.convertToPen(
+          rawDebt,
+          acc.currency,
+          rates,
+        );
 
         if (debtBalance <= 0) continue;
 
@@ -32,6 +46,14 @@ final debtPayoffProvider = StreamProvider.family<DebtPayoffEntity, DebtStrategy>
         // Pago mínimo estimado: 5% del saldo o S/50, lo que sea mayor
         final minPayment = (debtBalance * 0.05).clamp(50.0, double.infinity);
 
+        final limitInPen = acc.creditLimit != null
+            ? TextSearchHelper.convertToPen(
+                acc.creditLimit!,
+                acc.currency,
+                rates,
+              )
+            : null;
+
         debts.add(
           DebtAccount(
             id: acc.id,
@@ -40,7 +62,7 @@ final debtPayoffProvider = StreamProvider.family<DebtPayoffEntity, DebtStrategy>
             balance: debtBalance,
             annualInterestRate: annualRate,
             minimumPayment: minPayment,
-            creditLimit: acc.creditLimit,
+            creditLimit: limitInPen,
           ),
         );
       }

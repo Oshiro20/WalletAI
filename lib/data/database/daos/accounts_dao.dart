@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart';
 import '../drift_database.dart';
 import '../tables/accounts_table.dart';
@@ -34,77 +32,22 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   /// Crear cuenta
   Future<int> createAccount(AccountsCompanion account) {
-    return attachedDatabase.transaction(() async {
-      final id = await into(accounts).insert(account);
-
-      // Sync Queue
-      final insertedRow = await (select(
-        accounts,
-      )..where((a) => a.id.equals(account.id.value))).getSingle();
-      await into(attachedDatabase.syncQueue).insert(
-        SyncQueueCompanion.insert(
-          id: const Uuid().v4(),
-          operation: 'insert',
-          recordId: insertedRow.id,
-          targetTable: 'accounts',
-          data: Value(jsonEncode(insertedRow.toJson())),
-          createdAt: DateTime.now(),
-        ),
-      );
-
-      return id;
-    });
+    return into(accounts).insert(account);
   }
 
   /// Actualizar cuenta
   Future<bool> updateAccount(Account account) {
-    return attachedDatabase.transaction(() async {
-      final result = await update(accounts).replace(account);
-
-      if (result) {
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'update',
-            recordId: account.id,
-            targetTable: 'accounts',
-            data: Value(jsonEncode(account.toJson())),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
-    });
+    return update(accounts).replace(account);
   }
 
   /// Actualizar saldo de cuenta
   Future<int> updateBalance(String accountId, double newBalance) {
-    return attachedDatabase.transaction(() async {
-      final result =
-          await (update(accounts)..where((a) => a.id.equals(accountId))).write(
-            AccountsCompanion(
-              balance: Value(newBalance),
-              updatedAt: Value(DateTime.now()),
-            ),
-          );
-
-      if (result > 0) {
-        final updatedRow = await (select(
-          accounts,
-        )..where((a) => a.id.equals(accountId))).getSingle();
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'update',
-            recordId: accountId,
-            targetTable: 'accounts',
-            data: Value(jsonEncode(updatedRow.toJson())),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
-    });
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(
+        balance: Value(newBalance),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   // Alias for compatibility with ExcelService
@@ -113,32 +56,12 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
 
   /// Soft delete (marcar como inactiva)
   Future<int> deactivateAccount(String accountId) {
-    return attachedDatabase.transaction(() async {
-      final result =
-          await (update(accounts)..where((a) => a.id.equals(accountId))).write(
-            AccountsCompanion(
-              isActive: const Value(false),
-              updatedAt: Value(DateTime.now()),
-            ),
-          );
-
-      if (result > 0) {
-        final updatedRow = await (select(
-          accounts,
-        )..where((a) => a.id.equals(accountId))).getSingle();
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'update',
-            recordId: accountId,
-            targetTable: 'accounts',
-            data: Value(jsonEncode(updatedRow.toJson())),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
-    });
+    return (update(accounts)..where((a) => a.id.equals(accountId))).write(
+      AccountsCompanion(
+        isActive: const Value(false),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Eliminar cuenta permanentemente
@@ -152,29 +75,18 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
           ))
           .go();
 
-      // 2. Borrar pagos recurrentes vinculados
+      // 2. Borrar planes de cuotas vinculados
+      await (delete(
+        attachedDatabase.creditInstallments,
+      )..where((c) => c.accountId.equals(accountId))).go();
+
+      // 3. Borrar pagos recurrentes vinculados
       await (delete(
         attachedDatabase.recurringPayments,
       )..where((r) => r.accountId.equals(accountId))).go();
 
-      // 3. Borrar la cuenta
-      final result = await (delete(
-        accounts,
-      )..where((a) => a.id.equals(accountId))).go();
-
-      if (result > 0) {
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'delete',
-            recordId: accountId,
-            targetTable: 'accounts',
-            data: const Value(null),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
+      // 4. Borrar la cuenta
+      return (delete(accounts)..where((a) => a.id.equals(accountId))).go();
     });
   }
 
@@ -184,26 +96,14 @@ class AccountsDao extends DatabaseAccessor<AppDatabase>
       // 1. Borrar todas las transacciones
       await delete(attachedDatabase.transactions).go();
 
-      // 2. Borrar todos los pagos recurrentes
+      // 2. Borrar todos los planes de cuotas
+      await delete(attachedDatabase.creditInstallments).go();
+
+      // 3. Borrar todos los pagos recurrentes
       await delete(attachedDatabase.recurringPayments).go();
 
-      // 3. Borrar las cuentas
-      final ids = await (select(accounts).map((a) => a.id)).get();
-      final result = await delete(accounts).go();
-
-      for (final id in ids) {
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'delete',
-            recordId: id,
-            targetTable: 'accounts',
-            data: const Value(null),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
+      // 4. Borrar las cuentas
+      return delete(accounts).go();
     });
   }
 

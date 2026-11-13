@@ -26,6 +26,7 @@ class SyncService {
         debugPrint('Error syncing item ${item.id}: $e');
       }
     }
+    await dao.clearSyncedItems();
   }
 
   Future<void> _processItem(SyncQueueItem item) async {

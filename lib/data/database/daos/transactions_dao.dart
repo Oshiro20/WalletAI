@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart';
 import '../drift_database.dart';
 import '../tables/transactions_table.dart';
@@ -89,92 +87,24 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
 
   /// Crear transacción
   Future<int> createTransaction(TransactionsCompanion entry) {
-    return attachedDatabase.transaction(() async {
-      final id = await into(transactions).insert(entry);
-
-      // Sync Queue
-      final insertedRow = await (select(
-        transactions,
-      )..where((t) => t.id.equals(entry.id.value))).getSingle();
-      await into(attachedDatabase.syncQueue).insert(
-        SyncQueueCompanion.insert(
-          id: const Uuid().v4(),
-          operation: 'insert',
-          recordId: insertedRow.id,
-          targetTable: 'transactions',
-          data: Value(jsonEncode(insertedRow.toJson())),
-          createdAt: DateTime.now(),
-        ),
-      );
-
-      return id;
-    });
+    return into(transactions).insert(entry);
   }
 
   /// Actualizar transacción
   Future<bool> updateTransaction(Transaction entry) {
-    return attachedDatabase.transaction(() async {
-      final result = await update(transactions).replace(entry);
-
-      if (result) {
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'update',
-            recordId: entry.id,
-            targetTable: 'transactions',
-            data: Value(jsonEncode(entry.toJson())),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
-    });
+    return update(transactions).replace(entry);
   }
 
   /// Eliminar transacción
   Future<int> deleteTransaction(String transactionId) {
-    return attachedDatabase.transaction(() async {
-      final result = await (delete(
-        transactions,
-      )..where((t) => t.id.equals(transactionId))).go();
-
-      if (result > 0) {
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'delete',
-            recordId: transactionId,
-            targetTable: 'transactions',
-            data: const Value(null),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
-    });
+    return (delete(
+      transactions,
+    )..where((t) => t.id.equals(transactionId))).go();
   }
 
   /// Eliminar TODAS las transacciones
   Future<int> deleteAllTransactions() {
-    return attachedDatabase.transaction(() async {
-      final ids = await (select(transactions).map((t) => t.id)).get();
-      final result = await delete(transactions).go();
-
-      for (final id in ids) {
-        await into(attachedDatabase.syncQueue).insert(
-          SyncQueueCompanion.insert(
-            id: const Uuid().v4(),
-            operation: 'delete',
-            recordId: id,
-            targetTable: 'transactions',
-            data: const Value(null),
-            createdAt: DateTime.now(),
-          ),
-        );
-      }
-      return result;
-    });
+    return delete(transactions).go();
   }
 
   /// Obtener total de ingresos en un período

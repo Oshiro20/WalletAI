@@ -19,8 +19,12 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final transactionsAsync = ref.watch(transactionsStreamProvider);
+    final transactionsAsync = ref.watch(allTransactionsProvider);
     final theme = Theme.of(context);
+
+    final gpsTransactionsForCenter = (transactionsAsync.valueOrNull ?? [])
+        .where((t) => t.latitude != null && t.longitude != null)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(
@@ -29,10 +33,19 @@ class _MapAnalyticsScreenState extends ConsumerState<MapAnalyticsScreen> {
           IconButton(
             icon: const Icon(Icons.my_location),
             tooltip: 'Centrar en resultados',
-            onPressed: () {
-              // Si hay datos, centraremos aquí
-              // Por ahora, recargar
-            },
+            onPressed: gpsTransactionsForCenter.isEmpty
+                ? null
+                : () {
+                    double avgLat = 0;
+                    double avgLon = 0;
+                    for (final t in gpsTransactionsForCenter) {
+                      avgLat += t.latitude!;
+                      avgLon += t.longitude!;
+                    }
+                    avgLat /= gpsTransactionsForCenter.length;
+                    avgLon /= gpsTransactionsForCenter.length;
+                    _mapController.move(LatLng(avgLat, avgLon), 13.0);
+                  },
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/utils/text_search_helper.dart';
 import 'database_providers.dart';
 
 /// Modelo de proyección financiera del mes
@@ -33,18 +34,30 @@ class MonthProjection {
   }
 }
 
-/// Provider que calcula la proyección financiera del mes actual
+/// Provider que calcula la proyección financiera del mes actual (con conversión a PEN)
 final monthProjectionProvider = FutureProvider<MonthProjection>((ref) async {
   final txDao = ref.watch(transactionsDaoProvider);
+  final rates = await ref.watch(exchangeRatesProvider.future);
 
   final now = DateTime.now();
   final startOfMonth = DateTime(now.year, now.month, 1);
   final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
   final today = DateTime(now.year, now.month, now.day, 23, 59, 59);
 
-  // Datos reales hasta hoy
-  final spentSoFar = await txDao.getTotalExpenses(startOfMonth, today);
-  final currentIncome = await txDao.getTotalIncome(startOfMonth, endOfMonth);
+  final monthTxs = await txDao.getTransactionsByDateRange(
+    startOfMonth,
+    endOfMonth,
+  );
+  double spentSoFar = 0.0;
+  double currentIncome = 0.0;
+  for (final tx in monthTxs) {
+    final amt = TextSearchHelper.convertToPen(tx.amount, tx.currency, rates);
+    if (tx.type == 'income') {
+      currentIncome += amt;
+    } else if (tx.type == 'expense' && !tx.date.isAfter(today)) {
+      spentSoFar += amt;
+    }
+  }
 
   // Días
   final daysElapsed = now.day;
