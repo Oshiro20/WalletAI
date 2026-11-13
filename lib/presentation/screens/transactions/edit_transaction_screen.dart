@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
+import 'package:uuid/uuid.dart';
+import '../../../core/utils/credit_card_calculator.dart';
 import '../../../data/database/drift_database.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/transaction_repository_provider.dart';
 import 'widgets/account_selector.dart';
 import 'widgets/category_selector.dart';
+import 'widgets/credit_card_installment_selector.dart';
 import '../../../data/datasources/notification_service.dart';
 import '../../../core/utils/amount_input_helper.dart';
 
@@ -37,17 +40,34 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
   bool _isLoading = true;
   bool _isSaving = false;
 
+  // Cuotas de tarjeta de crédito
+  CreditInstallment? _existingInstallment;
+  bool _isInstallment = false;
+  int _installmentsCount = 3;
+  bool _hasInterest = false;
+  final _installmentTeaController = TextEditingController();
+  bool _useManualMonthlyPayment = false;
+  final _manualMonthlyPaymentController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
+    _amountController.addListener(_onAmountChanged);
     _loadTransaction();
+  }
+
+  void _onAmountChanged() {
+    if (mounted && _isInstallment) setState(() {});
   }
 
   @override
   void dispose() {
+    _amountController.removeListener(_onAmountChanged);
     _amountController.dispose();
     _descriptionController.dispose();
     _productNameController.dispose();
+    _installmentTeaController.dispose();
+    _manualMonthlyPaymentController.dispose();
     super.dispose();
   }
 
@@ -55,8 +75,17 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
     final dao = ref.read(transactionsDaoProvider);
     final t = await dao.getTransactionById(widget.transactionId);
     if (t != null && mounted) {
+      CreditInstallment? existingInst;
+      if (t.creditInstallmentId != null) {
+        existingInst = await ref
+            .read(creditInstallmentsDaoProvider)
+            .getInstallmentById(t.creditInstallmentId!);
+      }
+
+      if (!mounted) return;
       setState(() {
         _original = t;
+        _existingInstallment = existingInst;
         _transactionType = t.type;
         _amountController.text = t.amount.toStringAsFixed(2);
         _currency = t.currency;
@@ -67,6 +96,22 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
         _destinationAccountId = t.destinationAccountId;
         _selectedCategoryId = t.categoryId;
         _selectedSubcategoryId = t.subcategoryId;
+
+        if (existingInst != null) {
+          _isInstallment = true;
+          _installmentsCount = existingInst.totalInstallments;
+          _hasInterest = existingInst.hasInterest;
+          _installmentTeaController.text =
+              (existingInst.tea ?? 0.0) > 0
+                  ? existingInst.tea!.toStringAsFixed(1)
+                  : '54.9';
+          _manualMonthlyPaymentController.text =
+              existingInst.monthlyPayment.toStringAsFixed(2);
+        } else if (t.totalInstallments != null && t.totalInstallments! > 1) {
+          _isInstallment = true;
+          _installmentsCount = t.totalInstallments!;
+        }
+
         _isLoading = false;
       });
     } else {
@@ -103,6 +148,120 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
 
     try {
       final amount = double.parse(_amountController.text.replaceAll(',', '.'));
+      final installmentsDao = ref.read(creditInstallmentsDaoProvider);
+      final accounts = ref.read(accountsStreamProvider).valueOrNull ?? [];
+      final selectedAccount = accounts
+          .where((a) => a.id == _selectedAccountId)
+          .firstOrNull;
+      final isCreditCardExpense =
+          _transactionType == 'expense' &&
+          selectedAccount != null &&
+          selectedAccount.type == 'credit_card' &&
+          _isInstallment;
+
+      String? creditInstallmentId = _original!.creditInstallmentId;
+      int? installmentNumber = _original!.installmentNumber;
+      int? totalInstallments = _original!.totalInstallments;
+
+      if (isCreditCardExpense) {
+        final tea =
+            double.tryParse(
+              _installmentTeaController.text.replaceAll(',', '.'),
+            ) ??
+            (selectedAccount.tea ?? 54.9);
+        final manualMonthly = _useManualMonthlyPayment
+            ? double.tryParse(
+                    _manualMonthlyPaymentController.text.replaceAll(',', '.'),
+                  ) ??
+                  0.0
+            : 0.0;
+
+        final plan = _useManualMonthlyPayment && manualMonthly > 0
+            ? CreditCardCalculator.calculateFromMonthlyPayment(
+                principal: amount,
+                installments: _installmentsCount,
+                monthlyPayment: manualMonthly,
+                purchaseDate: _selectedDate,
+                closingDay: selectedAccount.closingDay,
+                paymentDueDay: selectedAccount.paymentDueDay,
+              )
+            : CreditCardCalculator.calculatePlan(
+                principal: amount,
+                installments: _installmentsCount,
+                tea: tea,
+                hasInterest: _hasInterest,
+                purchaseDate: _selectedDate,
+                closingDay: selectedAccount.closingDay,
+                paymentDueDay: selectedAccount.paymentDueDay,
+              );
+
+        final title = _productNameController.text.trim().isNotEmpty
+            ? _productNameController.text.trim()
+            : (_descriptionController.text.trim().isNotEmpty
+                  ? _descriptionController.text.trim()
+                  : 'Compra en cuotas');
+
+        if (_existingInstallment != null) {
+          creditInstallmentId = _existingInstallment!.id;
+          final paid = _existingInstallment!.paidInstallments.clamp(
+            0,
+            _installmentsCount,
+          );
+          await installmentsDao.updateInstallment(
+            CreditInstallmentsCompanion(
+              id: drift.Value(_existingInstallment!.id),
+              accountId: drift.Value(selectedAccount.id),
+              transactionId: drift.Value(_original!.id),
+              title: drift.Value(title),
+              totalAmount: drift.Value(amount),
+              totalInstallments: drift.Value(_installmentsCount),
+              paidInstallments: drift.Value(paid),
+              monthlyPayment: drift.Value(plan.monthlyPayment),
+              hasInterest: drift.Value(plan.hasInterest),
+              tea: drift.Value(plan.tea),
+              totalInterest: drift.Value(plan.totalInterest),
+              purchaseDate: drift.Value(_selectedDate),
+              firstDueDate: drift.Value(plan.firstDueDate),
+              status: drift.Value(
+                paid >= _installmentsCount ? 'completed' : 'active',
+              ),
+              createdAt: drift.Value(_existingInstallment!.createdAt),
+              updatedAt: drift.Value(DateTime.now()),
+            ),
+          );
+        } else {
+          creditInstallmentId = const Uuid().v4();
+          await installmentsDao.insertInstallment(
+            CreditInstallmentsCompanion.insert(
+              id: creditInstallmentId,
+              accountId: selectedAccount.id,
+              transactionId: drift.Value(_original!.id),
+              title: title,
+              totalAmount: amount,
+              totalInstallments: _installmentsCount,
+              paidInstallments: const drift.Value(0),
+              monthlyPayment: plan.monthlyPayment,
+              hasInterest: drift.Value(plan.hasInterest),
+              tea: drift.Value(plan.tea),
+              totalInterest: drift.Value(plan.totalInterest),
+              purchaseDate: _selectedDate,
+              firstDueDate: plan.firstDueDate,
+              status: const drift.Value('active'),
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          );
+        }
+        installmentNumber = installmentNumber ?? 1;
+        totalInstallments = _installmentsCount;
+      } else {
+        if (_existingInstallment != null) {
+          await installmentsDao.deleteInstallment(_existingInstallment!.id);
+        }
+        creditInstallmentId = null;
+        installmentNumber = null;
+        totalInstallments = null;
+      }
 
       final updated = _original!.copyWith(
         type: _transactionType,
@@ -125,6 +284,9 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
         ),
         date: _selectedDate,
         currency: _currency,
+        creditInstallmentId: drift.Value(creditInstallmentId),
+        installmentNumber: drift.Value(installmentNumber),
+        totalInstallments: drift.Value(totalInstallments),
         updatedAt: DateTime.now(),
       );
 
@@ -374,9 +536,76 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
                     ? 'Cuenta de Origen'
                     : 'Cuenta',
                 selectedAccountId: _selectedAccountId,
-                onAccountSelected: (id) =>
-                    setState(() => _selectedAccountId = id),
+                onAccountSelected: (id) {
+                  setState(() {
+                    _selectedAccountId = id;
+                    final accounts =
+                        ref.read(accountsStreamProvider).valueOrNull ?? [];
+                    final acc = accounts.where((a) => a.id == id).firstOrNull;
+                    if (acc != null && acc.type == 'credit_card') {
+                      if (_installmentTeaController.text.trim().isEmpty) {
+                        _installmentTeaController.text =
+                            (acc.tea != null && acc.tea! > 0)
+                                ? acc.tea!.toStringAsFixed(1)
+                                : '54.9';
+                        if (acc.tea != null && acc.tea! > 0) {
+                          _hasInterest = true;
+                        }
+                      }
+                    } else {
+                      _isInstallment = false;
+                    }
+                  });
+                },
               ),
+              if (_transactionType == 'expense' &&
+                  _selectedAccountId != null) ...[
+                ref.watch(accountsStreamProvider).maybeWhen(
+                  data: (accounts) {
+                    final selectedAcc = accounts
+                        .where((a) => a.id == _selectedAccountId)
+                        .firstOrNull;
+                    if (selectedAcc != null &&
+                        selectedAcc.type == 'credit_card') {
+                      return Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          CreditCardInstallmentSelector(
+                            account: selectedAcc,
+                            amount:
+                                double.tryParse(
+                                  _amountController.text.replaceAll(',', '.'),
+                                ) ??
+                                0.0,
+                            purchaseDate: _selectedDate,
+                            isInstallment: _isInstallment,
+                            installmentsCount: _installmentsCount,
+                            hasInterest: _hasInterest,
+                            teaController: _installmentTeaController,
+                            transactionCurrency: _currency,
+                            useManualMonthlyPayment: _useManualMonthlyPayment,
+                            manualMonthlyPaymentController:
+                                _manualMonthlyPaymentController,
+                            onModeChanged: (val) =>
+                                setState(() => _isInstallment = val),
+                            onInstallmentsCountChanged: (val) =>
+                                setState(() => _installmentsCount = val),
+                            onHasInterestChanged: (val) =>
+                                setState(() => _hasInterest = val),
+                            onTeaChanged: (_) => setState(() {}),
+                            onManualMonthlyPaymentModeChanged: (val) =>
+                                setState(() => _useManualMonthlyPayment = val),
+                            onManualMonthlyPaymentChanged: (_) =>
+                                setState(() {}),
+                          ),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                  orElse: () => const SizedBox.shrink(),
+                ),
+              ],
               const SizedBox(height: 16),
 
               // Account (Destino)

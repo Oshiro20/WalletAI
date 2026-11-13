@@ -1,8 +1,11 @@
+import 'package:drift/drift.dart' as drift;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../data/database/drift_database.dart';
 import '../../../providers/database_providers.dart';
+import '../../../providers/transaction_repository_provider.dart';
 
 /// Tarjeta que muestra las compras en cuotas activas para una tarjeta de crédito
 class ActiveInstallmentsCard extends ConsumerWidget {
@@ -197,20 +200,13 @@ class ActiveInstallmentsCard extends ConsumerWidget {
                                     minimumSize: Size.zero,
                                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                   ),
-                                  onPressed: () async {
-                                    final dao = ref.read(creditInstallmentsDaoProvider);
-                                    await dao.incrementPaidInstallments(item.id);
-                                    if (context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text(
-                                            'Cuota pagada para "${item.title}". Restan ${remainingCount - 1} cuotas.',
-                                          ),
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    }
-                                  },
+                                  onPressed: () => _handlePayInstallment(
+                                    context,
+                                    ref,
+                                    item,
+                                    remainingCount,
+                                    currencyFmt,
+                                  ),
                                 ),
                               ],
                             ),
@@ -228,5 +224,140 @@ class ActiveInstallmentsCard extends ConsumerWidget {
       loading: () => const SizedBox.shrink(),
       error: (_, __) => const SizedBox.shrink(),
     );
+  }
+
+  Future<void> _handlePayInstallment(
+    BuildContext context,
+    WidgetRef ref,
+    CreditInstallment item,
+    int remainingCount,
+    NumberFormat currencyFmt,
+  ) async {
+    final accounts = await ref.read(accountsDaoProvider).getAllAccounts();
+    final liquidAccounts = accounts
+        .where(
+          (a) =>
+              a.isActive &&
+              a.id != account.id &&
+              a.type != 'credit_card',
+        )
+        .toList();
+
+    if (!context.mounted) return;
+
+    String? selectedAccountId =
+        liquidAccounts.isNotEmpty ? liquidAccounts.first.id : null;
+    bool createTransfer = liquidAccounts.isNotEmpty;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => AlertDialog(
+          title: Text('Pagar cuota ${item.paidInstallments + 1}/${item.totalInstallments}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${item.title} • ${currencyFmt.format(item.monthlyPayment)}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              if (liquidAccounts.isNotEmpty) ...[
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Descontar de una cuenta'),
+                  subtitle: const Text(
+                    'Registra el abono real hacia la tarjeta',
+                  ),
+                  value: createTransfer,
+                  onChanged: (v) => setStateDialog(() => createTransfer = v),
+                ),
+                if (createTransfer) ...[
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedAccountId,
+                    decoration: const InputDecoration(
+                      labelText: 'Cuenta origen',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: liquidAccounts.map((acc) {
+                      return DropdownMenuItem(
+                        value: acc.id,
+                        child: Text(
+                          '${acc.name} (${acc.currency} ${acc.balance.toStringAsFixed(2)})',
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (val) =>
+                        setStateDialog(() => selectedAccountId = val),
+                  ),
+                ],
+              ] else
+                const Text(
+                  'Se marcará la cuota como pagada en tu cronograma.',
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Confirmar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    if (createTransfer && selectedAccountId != null) {
+      final repository = ref.read(transactionRepositoryProvider);
+      final now = DateTime.now();
+      final nextQuota = item.paidInstallments + 1;
+      await repository.addTransaction(
+        transaction: TransactionsCompanion.insert(
+          id: const Uuid().v4(),
+          type: 'transfer',
+          amount: item.monthlyPayment,
+          accountId: selectedAccountId!,
+          destinationAccountId: drift.Value(account.id),
+          description: drift.Value(
+            'Pago cuota $nextQuota/${item.totalInstallments}: ${item.title}',
+          ),
+          date: now,
+          currency: drift.Value(account.currency),
+          creditInstallmentId: drift.Value(item.id),
+          installmentNumber: drift.Value(nextQuota),
+          totalInstallments: drift.Value(item.totalInstallments),
+          createdAt: now,
+          updatedAt: now,
+        ),
+        accountId: selectedAccountId!,
+        amount: item.monthlyPayment,
+        type: 'transfer',
+        destinationAccountId: account.id,
+      );
+    }
+
+    await ref
+        .read(creditInstallmentsDaoProvider)
+        .incrementPaidInstallments(item.id);
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Cuota registrada para "${item.title}". Restan ${remainingCount - 1} cuotas.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 }

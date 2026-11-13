@@ -12,6 +12,7 @@ import '../../../data/database/drift_database.dart';
 import 'package:uuid/uuid.dart';
 import '../../providers/transaction_repository_provider.dart';
 import 'package:drift/drift.dart' as drift;
+import '../../../core/utils/credit_card_calculator.dart';
 import 'widgets/active_installments_card.dart';
 
 class _CreditCardMath {
@@ -20,20 +21,11 @@ class _CreditCardMath {
   const _CreditCardMath(this.debt, this.available);
 
   static _CreditCardMath calculate(double balance, double? limit) {
-    final safeLimit = limit ?? 0.0;
-    if (balance <= 0) {
-      final debt = balance.abs();
-      final available = safeLimit > 0
-          ? (safeLimit - debt > 0 ? safeLimit - debt : 0.0)
-          : 0.0;
-      return _CreditCardMath(debt, available);
-    } else {
-      final available = balance;
-      final debt = safeLimit > 0
-          ? (safeLimit - available > 0 ? safeLimit - available : 0.0)
-          : 0.0;
-      return _CreditCardMath(debt, available);
-    }
+    final res = CreditCardCalculator.calculateCardBalance(
+      balance: balance,
+      creditLimit: limit,
+    );
+    return _CreditCardMath(res.debt, res.available);
   }
 }
 
@@ -1329,11 +1321,20 @@ class _CreditCardPaymentSheetState
           accountsAsync.when(
             data: (accounts) {
               final sourceAccounts = accounts
-                  .where((a) => a.id != widget.destAccount.id)
+                  .where(
+                    (a) =>
+                        a.isActive &&
+                        a.id != widget.destAccount.id &&
+                        a.type != 'credit_card',
+                  )
                   .toList();
 
               return DropdownButtonFormField<String>(
-                initialValue: _selectedSourceAccountId,
+                initialValue: sourceAccounts.any(
+                  (a) => a.id == _selectedSourceAccountId,
+                )
+                    ? _selectedSourceAccountId
+                    : null,
                 decoration: const InputDecoration(
                   labelText: 'Desde la cuenta',
                   border: OutlineInputBorder(),
@@ -1343,7 +1344,7 @@ class _CreditCardPaymentSheetState
                   return DropdownMenuItem(
                     value: a.id,
                     child: Text(
-                      '${a.name} (S/ ${a.balance.toStringAsFixed(2)})',
+                      '${a.name} (${a.currency} ${a.balance.toStringAsFixed(2)})',
                     ),
                   );
                 }).toList(),

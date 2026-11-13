@@ -57,6 +57,126 @@ class CreditCardCalculator {
     return temDecimal.toDouble() * 100.0;
   }
 
+  /// Convierte una Tasa Efectiva Mensual (TEM %) a Tasa Efectiva Anual (TEA %)
+  /// Fórmula: TEA = ((1 + TEM)^12) - 1
+  static double temToTea(double temPercent) {
+    if (temPercent <= 0) return 0.0;
+    final temDecimal = temPercent / 100.0;
+    final teaDecimal = math.pow(1.0 + temDecimal, 12) - 1.0;
+    return teaDecimal.toDouble() * 100.0;
+  }
+
+  /// Calcula la deuda y línea disponible de una tarjeta de crédito soportando ambas
+  /// convenciones: balance negativo (deuda acumulada) o positivo (línea disponible).
+  static ({double debt, double available}) calculateCardBalance({
+    required double balance,
+    double? creditLimit,
+  }) {
+    final safeLimit = creditLimit ?? 0.0;
+    if (balance <= 0) {
+      final debt = balance.abs();
+      final available = safeLimit > 0 ? math.max(0.0, safeLimit - debt) : 0.0;
+      return (debt: debt, available: available);
+    }
+    final available = balance;
+    final debt = safeLimit > 0 ? math.max(0.0, safeLimit - available) : 0.0;
+    return (debt: debt, available: available);
+  }
+
+  /// Calcula el plan de cuotas y la TEA/TEM implícitas a partir de una cuota mensual fija
+  /// ingresada manualmente por el usuario (por ejemplo, la cuota exacta que indica el banco/POS).
+  static InstallmentPlanCalculation calculateFromMonthlyPayment({
+    required double principal,
+    required int installments,
+    required double monthlyPayment,
+    required DateTime purchaseDate,
+    int? closingDay,
+    int? paymentDueDay,
+  }) {
+    if (installments < 1) installments = 1;
+    final safeMonthly = math.max(0.0, monthlyPayment);
+    final totalToPay = safeMonthly * installments;
+    final totalInterest = math.max(0.0, totalToPay - principal);
+    final hasInterest = totalInterest > 0.01 && principal > 0 && installments > 1;
+
+    double temDecimal = 0.0;
+    if (hasInterest && safeMonthly > 0) {
+      // Búsqueda binaria sobre la TEM mensual (hasta 100% mensual) bajo Sistema Francés
+      double low = 0.0;
+      double high = 1.0;
+      for (int iter = 0; iter < 60; iter++) {
+        final mid = (low + high) / 2.0;
+        if (mid <= 0) {
+          low = mid;
+          continue;
+        }
+        final factor = math.pow(1.0 + mid, installments).toDouble();
+        final estimated = principal * (mid * factor) / (factor - 1.0);
+        if (estimated < safeMonthly) {
+          low = mid;
+        } else {
+          high = mid;
+        }
+      }
+      temDecimal = (low + high) / 2.0;
+    }
+
+    final temPercent = temDecimal * 100.0;
+    final effectiveTea = hasInterest ? temToTea(temPercent) : 0.0;
+
+    final firstDueDate = calculateFirstDueDate(
+      purchaseDate: purchaseDate,
+      closingDay: closingDay,
+      paymentDueDay: paymentDueDay,
+    );
+
+    final schedule = <InstallmentItem>[];
+    double balance = principal;
+    for (int i = 1; i <= installments; i++) {
+      final dueDate = addMonthsToDay(
+        firstDueDate,
+        i - 1,
+        paymentDueDay ?? firstDueDate.day,
+      );
+      double interestForMonth = 0.0;
+      double principalForMonth = safeMonthly;
+
+      if (hasInterest && temDecimal > 0) {
+        interestForMonth = balance * temDecimal;
+        principalForMonth = safeMonthly - interestForMonth;
+        if (i == installments) {
+          principalForMonth = math.max(0.0, balance);
+        }
+      }
+
+      balance = math.max(0.0, balance - principalForMonth);
+
+      schedule.add(
+        InstallmentItem(
+          number: i,
+          dueDate: dueDate,
+          payment: safeMonthly,
+          principalPortion: principalForMonth,
+          interestPortion: interestForMonth,
+          remainingBalance: balance,
+        ),
+      );
+    }
+
+    return InstallmentPlanCalculation(
+      principal: principal,
+      installments: installments,
+      tea: effectiveTea,
+      tem: temPercent,
+      monthlyPayment: safeMonthly,
+      totalInterest: totalInterest,
+      totalToPay: totalToPay,
+      hasInterest: hasInterest,
+      firstDueDate: firstDueDate,
+      schedule: schedule,
+    );
+  }
+
   /// Calcula el plan de cuotas completo (Sistema Francés)
   static InstallmentPlanCalculation calculatePlan({
     required double principal,

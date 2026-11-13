@@ -89,6 +89,8 @@ class _CreateTransactionScreenState
   int _installmentsCount = 3;
   bool _hasInterest = false;
   final _installmentTeaController = TextEditingController();
+  bool _useManualMonthlyPayment = false;
+  final _manualMonthlyPaymentController = TextEditingController();
 
   @override
   void initState() {
@@ -267,6 +269,7 @@ class _CreateTransactionScreenState
     _unitController.dispose();
     _productNameFocusNode.dispose();
     _installmentTeaController.dispose();
+    _manualMonthlyPaymentController.dispose();
     super.dispose();
   }
 
@@ -576,6 +579,7 @@ class _CreateTransactionScreenState
       // Si es compra en cuotas con tarjeta de crédito
       String? creditInstallmentId;
       InstallmentPlanCalculation? installmentPlan;
+      CreditInstallmentsCompanion? creditInstallmentCompanion;
 
       if (_transactionType == 'expense' &&
           _selectedAccountId != null &&
@@ -586,22 +590,40 @@ class _CreateTransactionScreenState
             .firstOrNull;
 
         if (account != null && account.type == 'credit_card') {
-          final tea = double.tryParse(_installmentTeaController.text) ??
+          final tea =
+              double.tryParse(
+                _installmentTeaController.text.replaceAll(',', '.'),
+              ) ??
               (account.tea ?? 54.9);
+          final manualMonthly = _useManualMonthlyPayment
+              ? double.tryParse(
+                      _manualMonthlyPaymentController.text.replaceAll(',', '.'),
+                    ) ??
+                    0.0
+              : 0.0;
 
-          installmentPlan = CreditCardCalculator.calculatePlan(
-            principal: amount,
-            installments: _installmentsCount,
-            tea: tea,
-            hasInterest: _hasInterest,
-            purchaseDate: _selectedDate,
-            closingDay: account.closingDay,
-            paymentDueDay: account.paymentDueDay,
-          );
+          installmentPlan = _useManualMonthlyPayment && manualMonthly > 0
+              ? CreditCardCalculator.calculateFromMonthlyPayment(
+                  principal: amount,
+                  installments: _installmentsCount,
+                  monthlyPayment: manualMonthly,
+                  purchaseDate: _selectedDate,
+                  closingDay: account.closingDay,
+                  paymentDueDay: account.paymentDueDay,
+                )
+              : CreditCardCalculator.calculatePlan(
+                  principal: amount,
+                  installments: _installmentsCount,
+                  tea: tea,
+                  hasInterest: _hasInterest,
+                  purchaseDate: _selectedDate,
+                  closingDay: account.closingDay,
+                  paymentDueDay: account.paymentDueDay,
+                );
 
           creditInstallmentId = uuid.v4();
 
-          final installmentCompanion = CreditInstallmentsCompanion.insert(
+          creditInstallmentCompanion = CreditInstallmentsCompanion.insert(
             id: creditInstallmentId,
             accountId: _selectedAccountId!,
             transactionId: drift.Value(transactionId),
@@ -614,8 +636,8 @@ class _CreateTransactionScreenState
             totalInstallments: _installmentsCount,
             paidInstallments: const drift.Value(0),
             monthlyPayment: installmentPlan.monthlyPayment,
-            hasInterest: drift.Value(_hasInterest),
-            tea: drift.Value(_hasInterest ? tea : 0.0),
+            hasInterest: drift.Value(installmentPlan.hasInterest),
+            tea: drift.Value(installmentPlan.tea),
             totalInterest: drift.Value(installmentPlan.totalInterest),
             purchaseDate: _selectedDate,
             firstDueDate: installmentPlan.firstDueDate,
@@ -623,10 +645,6 @@ class _CreateTransactionScreenState
             createdAt: DateTime.now(),
             updatedAt: DateTime.now(),
           );
-
-          await ref
-              .read(creditInstallmentsDaoProvider)
-              .insertInstallment(installmentCompanion);
         }
       }
 
@@ -680,6 +698,7 @@ class _CreateTransactionScreenState
         type: _transactionType,
         destinationAccountId: _destinationAccountId,
         recurringPayment: recurringPayment,
+        creditInstallment: creditInstallmentCompanion,
       );
 
       if (mounted) {
@@ -848,12 +867,19 @@ class _CreateTransactionScreenState
                         const SizedBox(height: 16),
                         CreditCardInstallmentSelector(
                           account: selectedAcc,
-                          amount: double.tryParse(_amountController.text) ?? 0.0,
+                          amount: double.tryParse(
+                                _amountController.text.replaceAll(',', '.'),
+                              ) ??
+                              0.0,
                           purchaseDate: _selectedDate,
                           isInstallment: _isInstallment,
                           installmentsCount: _installmentsCount,
                           hasInterest: _hasInterest,
                           teaController: _installmentTeaController,
+                          transactionCurrency: _currency,
+                          useManualMonthlyPayment: _useManualMonthlyPayment,
+                          manualMonthlyPaymentController:
+                              _manualMonthlyPaymentController,
                           onModeChanged: (val) =>
                               setState(() => _isInstallment = val),
                           onInstallmentsCountChanged: (val) =>
@@ -861,6 +887,10 @@ class _CreateTransactionScreenState
                           onHasInterestChanged: (val) =>
                               setState(() => _hasInterest = val),
                           onTeaChanged: (_) => setState(() {}),
+                          onManualMonthlyPaymentModeChanged: (val) =>
+                              setState(() => _useManualMonthlyPayment = val),
+                          onManualMonthlyPaymentChanged: (_) =>
+                              setState(() {}),
                         ),
                       ],
                     );
