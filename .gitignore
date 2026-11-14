@@ -123,3 +123,4 @@ app.*.symbols
 
 builds/
 *.apk
+client_secret_*.json
