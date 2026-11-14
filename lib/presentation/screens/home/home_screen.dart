@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:showcaseview/showcaseview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../core/services/mylifeos_integration_service.dart';
+import '../../../core/services/ecosystem_sync_service.dart';
 import '../../../data/datasources/notification_service.dart';
 import '../transactions/transaction_search_delegate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -52,39 +52,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  /// Exporta el resumen mensual para MyLifeOS.
+  /// Sincroniza resumen enriquecido e importa gastos pendientes desde MyLifeOS.
   Future<void> _exportMyLifeOSSummary() async {
     try {
-      final incomeVal = ref.read(currentMonthIncomeProvider);
-      final expensesVal = ref.read(currentMonthExpensesProvider);
+      final db = ref.read(databaseProvider);
+      final imported =
+          await EcosystemSyncService.importAllPendingTransactions(db);
+      await EcosystemSyncService.publishSummary(db);
 
-      final income = incomeVal.when(
-        data: (v) => v,
-        loading: () => 0.0,
-        error: (_, __) => 0.0,
-      );
-
-      final expenses = expensesVal.when(
-        data: (v) => v,
-        loading: () => 0.0,
-        error: (_, __) => 0.0,
-      );
-
-      final now = DateTime.now();
-      final summary = {
-        'balance': income - expenses,
-        'income': income,
-        'expenses': expenses,
-        'currency': 'PEN',
-        'month': '${now.year}-${now.month.toString().padLeft(2, '0')}',
-      };
-
-      final integration = MyLifeOSIntegrationService(
-        getMonthlySummary: () async => summary,
-      );
-      await integration.exportWalletSummary();
+      if (imported > 0 && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '🔄 $imported movimiento(s) importado(s) desde MyLifeOS',
+            ),
+            backgroundColor: const Color(0xFF00C896),
+          ),
+        );
+      }
     } catch (e) {
-      debugPrint('[Home] Error exportando resumen MyLifeOS: $e');
+      debugPrint('[Home] Error sincronizando ecosistema MyLifeOS: $e');
     }
   }
 

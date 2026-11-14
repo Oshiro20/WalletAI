@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
 import 'core/router/app_router.dart';
-import 'core/services/wallet_summary_service.dart';
+import 'core/services/ecosystem_sync_service.dart';
 import 'data/datasources/recurrence_service.dart';
 import 'data/datasources/keep_alive_service.dart';
 import 'presentation/providers/database_providers.dart';
@@ -17,20 +17,34 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
+  late final AppLifecycleListener _lifecycleListener;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(recurrenceServiceProvider).checkDuePayments();
-      // Exportar resumen para MyLifeOS (silencioso, no bloquea UI)
-      WalletSummaryService(ref.read(databaseProvider)).exportSummary();
+      final db = ref.read(databaseProvider);
+      EcosystemSyncService.initDeepLinkListener(db: db, router: appRouter);
+      EcosystemSyncService.importAllPendingTransactions(db).then((_) {
+        EcosystemSyncService.publishSummary(db);
+      });
     });
+    _lifecycleListener = AppLifecycleListener(
+      onResume: () {
+        final db = ref.read(databaseProvider);
+        EcosystemSyncService.importAllPendingTransactions(db).then((_) {
+          EcosystemSyncService.publishSummary(db);
+        });
+      },
+    );
     // Iniciar keep-alive para despertar backend
     keepAliveService.start();
   }
 
   @override
   void dispose() {
+    _lifecycleListener.dispose();
     keepAliveService.stop();
     super.dispose();
   }

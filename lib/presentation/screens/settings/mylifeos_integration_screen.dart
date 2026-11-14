@@ -1,18 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../../core/services/ecosystem_sync_service.dart';
 import '../../../core/services/mylifeos_integration_service.dart';
+import '../../../data/datasources/cloud_account_service.dart';
+import '../../providers/database_providers.dart';
 
-class MyLifeOSIntegrationScreen extends StatefulWidget {
+class MyLifeOSIntegrationScreen extends ConsumerStatefulWidget {
   const MyLifeOSIntegrationScreen({super.key});
 
   @override
-  State<MyLifeOSIntegrationScreen> createState() =>
+  ConsumerState<MyLifeOSIntegrationScreen> createState() =>
       _MyLifeOSIntegrationScreenState();
 }
 
-class _MyLifeOSIntegrationScreenState extends State<MyLifeOSIntegrationScreen> {
+class _MyLifeOSIntegrationScreenState
+    extends ConsumerState<MyLifeOSIntegrationScreen> {
   String? _projectId;
+  String? _cloudUsername;
+  int _pendingCount = 0;
   bool _loading = true;
+  bool _syncingCloud = false;
   final _controller = TextEditingController();
 
   @override
@@ -29,12 +38,45 @@ class _MyLifeOSIntegrationScreenState extends State<MyLifeOSIntegrationScreen> {
 
   Future<void> _loadProjectId() async {
     final id = await MyLifeOSIntegrationService.getMyLifeOSProjectId();
+    final session = await CloudAccountService.getSessionInfo();
+    final pending = (session.token != null && session.token!.isNotEmpty)
+        ? await EcosystemSyncService.fetchPendingTransactions()
+        : const <Map<String, dynamic>>[];
+
     if (mounted) {
       setState(() {
         _projectId = id;
+        _cloudUsername = session.username;
+        _pendingCount = pending.length;
         _controller.text = id ?? '';
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _syncCloudEcosystem() async {
+    setState(() => _syncingCloud = true);
+    final db = ref.read(databaseProvider);
+    final imported = await EcosystemSyncService.importAllPendingTransactions(
+      db,
+    );
+    final published = await EcosystemSyncService.publishSummary(db);
+    await _loadProjectId();
+
+    if (mounted) {
+      setState(() => _syncingCloud = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            published
+                ? '☁️ Resumen publicado en la nube ($imported movimientos importados)'
+                : '⚠️ Inicia sesión en Respaldos > Cuenta en la Nube para sincronizar entre apps.',
+          ),
+          backgroundColor: published
+              ? const Color(0xFF00C896)
+              : Colors.orange.shade700,
+        ),
+      );
     }
   }
 
@@ -210,6 +252,92 @@ class _MyLifeOSIntegrationScreenState extends State<MyLifeOSIntegrationScreen> {
                 ),
                 const SizedBox(height: 16),
 
+                // Estado Nube Ecosistema (Render + PostgreSQL)
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              _cloudUsername != null
+                                  ? Icons.cloud_done
+                                  : Icons.cloud_off,
+                              color: _cloudUsername != null
+                                  ? const Color(0xFF00C896)
+                                  : Colors.orange,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _cloudUsername != null
+                                        ? 'Cuenta Nube: $_cloudUsername'
+                                        : 'Cuenta Nube no conectada',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Text(
+                                    _cloudUsername != null
+                                        ? 'Pendientes desde MyLifeOS: $_pendingCount'
+                                        : 'Inicia sesión en Backup para conectar MyLifeOS sin límites de sandbox.',
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _syncingCloud
+                                    ? null
+                                    : (_cloudUsername != null
+                                        ? _syncCloudEcosystem
+                                        : () => context.push('/backup')),
+                                icon: _syncingCloud
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Icon(
+                                        _cloudUsername != null
+                                            ? Icons.sync
+                                            : Icons.login,
+                                      ),
+                                label: Text(
+                                  _cloudUsername != null
+                                      ? 'Sincronizar ahora'
+                                      : 'Configurar Cuenta Nube',
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF00C896),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
                 // Instrucciones
                 Card(
                   child: Padding(
@@ -227,21 +355,23 @@ class _MyLifeOSIntegrationScreenState extends State<MyLifeOSIntegrationScreen> {
                         const SizedBox(height: 12),
                         _Step(
                           number: 1,
-                          title: 'Abre MyLifeOS > Finanzas > 🔗',
-                          description: 'Copia el Project ID que muestra.',
+                          title: 'Conecta la misma Cuenta WalletAI',
+                          description:
+                              'Inicia sesión con tu usuario en Backup (WalletAI) y en Finanzas > 🔗 (MyLifeOS).',
                         ),
                         const SizedBox(height: 8),
                         _Step(
                           number: 2,
-                          title: 'Pega el ID aquí y guarda',
-                          description: 'O usa el ID autogenerado de MyLifeOS.',
+                          title: 'Resumen enriquecido automático',
+                          description:
+                              'WalletAI publica categorías, gastos semanales y movimientos recientes en Render.',
                         ),
                         const SizedBox(height: 8),
                         _Step(
                           number: 3,
-                          title: 'El resumen se exporta solo',
+                          title: 'Importación bidireccional',
                           description:
-                              'Cada vez que abras WalletAI, se actualiza wallet_summary.json.',
+                              'Las compras registradas en Cocina (MyLifeOS) se importan aquí automáticamente.',
                         ),
                       ],
                     ),
