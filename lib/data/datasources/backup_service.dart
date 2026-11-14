@@ -1,17 +1,17 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:path/path.dart' as p;
-import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import '../database/drift_database.dart';
+import 'backup_package_service.dart';
 
-/// Nombre del archivo de base de datos SQLite de Drift
-const _dbFileName = 'finanzas.db';
-
-/// Folder de Drive donde se guardan los backups
+/// Carpeta de Drive donde se guardan los backups
 const _driveFolderName = 'Control Financiero Backups';
 
 class BackupResult {
@@ -26,9 +26,8 @@ class BackupResult {
   });
 }
 
-/// Servicio de copia de seguridad: Local, Google Drive y compartir
+/// Servicio de copia de seguridad unificado: Local, Compartir y Google Drive.
 class BackupService {
-  // ─── Google Sign In ────────────────────────────────────────────────────────
   static final _googleSignIn = GoogleSignIn(
     scopes: [
       drive.DriveApi.driveFileScope,
@@ -39,40 +38,31 @@ class BackupService {
 
   static GoogleSignInAccount? _currentUser;
 
-  // ─── Obtener ruta de la base de datos ─────────────────────────────────────
-  static Future<File> _getDbFile() async {
-    final dir = await getApplicationDocumentsDirectory();
-    return File(p.join(dir.path, _dbFileName));
+  static String _timestampName() {
+    return DateTime.now()
+        .toIso8601String()
+        .replaceAll(':', '-')
+        .substring(0, 19);
   }
 
-  // ─── BACKUP LOCAL ─────────────────────────────────────────────────────────
+  // ─── BACKUP LOCAL UNIFICADO ────────────────────────────────────────────────
 
-  /// Copia el archivo .db a la carpeta de Documentos del usuario
-  static Future<BackupResult> backupLocally() async {
+  /// Crea un paquete unificado (.wbackup = SQLite limpio + preferencias) en carpeta persistente
+  static Future<BackupResult> backupLocally({AppDatabase? activeDb}) async {
     try {
-      final dbFile = await _getDbFile();
-      if (!await dbFile.exists()) {
-        return const BackupResult(
-          success: false,
-          message: 'No se encontró la base de datos',
-        );
-      }
+      final pkg = await BackupPackageService.buildPackage(activeDb: activeDb);
+      final targetDir = await BackupPackageService.resolveLocalBackupDirectory();
+      final fileName = 'backup_financiero_${_timestampName()}.wbackup';
+      final backupPath = p.join(targetDir.path, fileName);
 
-      final docsDir = await getApplicationDocumentsDirectory();
-      final timestamp = DateTime.now()
-          .toIso8601String()
-          .replaceAll(':', '-')
-          .substring(0, 19);
-      final backupPath = p.join(
-        docsDir.path,
-        'backup_financiero_$timestamp.db',
-      );
-
-      await dbFile.copy(backupPath);
+      await File(backupPath).writeAsBytes(pkg.bytes, flush: true);
 
       return BackupResult(
         success: true,
-        message: 'Backup guardado en:\n$backupPath',
+        message:
+            '✅ Backup completo guardado (${pkg.meta.stats.accountsCount} cuentas, '
+            '${pkg.meta.stats.categoriesCount} categorías, '
+            '${pkg.meta.stats.transactionsCount} movimientos):\n$backupPath',
         filePath: backupPath,
       );
     } catch (e) {
@@ -80,33 +70,54 @@ class BackupService {
     }
   }
 
-  /// Comparte el archivo .db vía cualquier app (WhatsApp, email, Terabox…)
-  static Future<BackupResult> shareBackup() async {
+  /// Permite al usuario elegir exactamente dónde guardar (Descargas, Documentos, etc.) vía SAF
+  static Future<BackupResult> exportWithFilePicker({
+    AppDatabase? activeDb,
+  }) async {
     try {
-      final dbFile = await _getDbFile();
-      if (!await dbFile.exists()) {
+      final pkg = await BackupPackageService.buildPackage(activeDb: activeDb);
+      final fileName = 'backup_walletai_${_timestampName()}.wbackup';
+
+      final savedPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Guardar copia de seguridad completa',
+        fileName: fileName,
+        bytes: pkg.bytes,
+      );
+
+      if (savedPath == null) {
         return const BackupResult(
           success: false,
-          message: 'No se encontró la base de datos',
+          message: 'Exportación cancelada',
         );
       }
 
-      // Copiar a un nombre legible antes de compartir
-      final tempDir = await getTemporaryDirectory();
-      final timestamp = DateTime.now()
-          .toIso8601String()
-          .replaceAll(':', '-')
-          .substring(0, 10);
-      final shareFile = File(
-        p.join(tempDir.path, 'backup_financiero_$timestamp.db'),
+      return BackupResult(
+        success: true,
+        message:
+            '✅ Copia exportada con cuentas, categorías, movimientos y ajustes.',
+        filePath: savedPath,
       );
-      await dbFile.copy(shareFile.path);
+    } catch (e) {
+      return BackupResult(success: false, message: 'Error al exportar: $e');
+    }
+  }
+
+  /// Comparte el paquete unificado (.wbackup) vía WhatsApp, Email, TeraBox, etc.
+  static Future<BackupResult> shareBackup({AppDatabase? activeDb}) async {
+    try {
+      final pkg = await BackupPackageService.buildPackage(activeDb: activeDb);
+      final tempDir = await getTemporaryDirectory();
+      final dateStr = DateTime.now().toIso8601String().substring(0, 10);
+      final shareFile = File(
+        p.join(tempDir.path, 'backup_walletai_$dateStr.wbackup'),
+      );
+      await shareFile.writeAsBytes(pkg.bytes, flush: true);
 
       await Share.shareXFiles(
         [XFile(shareFile.path)],
-        subject: 'Backup Control Financiero – $timestamp',
+        subject: 'Backup WalletAI – $dateStr',
         text:
-            'Copia de seguridad de tu aplicativo de control financiero. Guárdala en un lugar seguro.',
+            'Copia de seguridad completa de WalletAI (cuentas, categorías, movimientos y configuración).',
       );
 
       return const BackupResult(
@@ -118,8 +129,11 @@ class BackupService {
     }
   }
 
-  /// Restaurar desde un archivo .db local seleccionado
-  static Future<BackupResult> restoreFromLocalFile() async {
+  /// Restaura desde archivo local (.wbackup, .walletai o .db legado)
+  static Future<BackupResult> restoreFromLocalFile({
+    WidgetRef? ref,
+    Future<String?> Function()? promptPassword,
+  }) async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.any,
@@ -133,33 +147,25 @@ class BackupService {
         );
       }
 
-      final selectedFile = File(result.files.single.path!);
+      final bytes = await File(result.files.single.path!).readAsBytes();
+      var res = await BackupPackageService.restoreFromBytes(bytes, ref: ref);
 
-      // Validar que sea un archivo SQLite
-      final bytes = await selectedFile.readAsBytes();
-      if (bytes.length < 16 ||
-          String.fromCharCodes(bytes.sublist(0, 6)) != 'SQLite') {
-        return const BackupResult(
-          success: false,
-          message: 'Archivo inválido. No es un backup compatible.',
+      if (!res.success && res.requiresPassword && promptPassword != null) {
+        final pass = await promptPassword();
+        if (pass == null || pass.isEmpty) {
+          return const BackupResult(
+            success: false,
+            message: 'Restauración cancelada (requiere contraseña).',
+          );
+        }
+        res = await BackupPackageService.restoreFromBytes(
+          bytes,
+          password: pass,
+          ref: ref,
         );
       }
 
-      final dbFile = await _getDbFile();
-
-      // Crear un backup de seguridad antes de restaurar
-      if (await dbFile.exists()) {
-        final dir = await getApplicationDocumentsDirectory();
-        await dbFile.copy(p.join(dir.path, 'backup_antes_restaurar.db'));
-      }
-
-      await selectedFile.copy(dbFile.path);
-
-      return const BackupResult(
-        success: true,
-        message:
-            '✅ Restauración exitosa.\n\nReinicia la app para aplicar los cambios.',
-      );
+      return BackupResult(success: res.success, message: res.message);
     } catch (e) {
       return BackupResult(success: false, message: 'Error al restaurar: $e');
     }
@@ -167,7 +173,6 @@ class BackupService {
 
   // ─── GOOGLE DRIVE ─────────────────────────────────────────────────────────
 
-  /// Iniciar sesión con Google
   static Future<GoogleSignInAccount?> signInWithGoogle() async {
     try {
       _currentUser = await _googleSignIn.signIn();
@@ -178,7 +183,6 @@ class BackupService {
     }
   }
 
-  /// Cerrar sesión de Google
   static Future<void> signOutGoogle() async {
     await _googleSignIn.signOut();
     _currentUser = null;
@@ -194,7 +198,6 @@ class BackupService {
     return _currentUser;
   }
 
-  /// Obtener cliente HTTP autenticado para Drive API
   static Future<drive.DriveApi?> _getDriveApi() async {
     final user = _currentUser ?? await _googleSignIn.signInSilently();
     if (user == null) return null;
@@ -204,11 +207,9 @@ class BackupService {
     return drive.DriveApi(client);
   }
 
-  /// Obtener o crear carpeta de backups en Drive
   static Future<String?> _getOrCreateDriveFolder(
     drive.DriveApi driveApi,
   ) async {
-    // Buscar carpeta existente
     final query =
         "name='$_driveFolderName' and mimeType='application/vnd.google-apps.folder' and trashed=false";
     final list = await driveApi.files.list(q: query, spaces: 'drive');
@@ -217,7 +218,6 @@ class BackupService {
       return list.files!.first.id;
     }
 
-    // Crear carpeta
     final folder = drive.File()
       ..name = _driveFolderName
       ..mimeType = 'application/vnd.google-apps.folder';
@@ -226,8 +226,8 @@ class BackupService {
     return created.id;
   }
 
-  /// Subir backup a Google Drive
-  static Future<BackupResult> backupToDrive() async {
+  /// Sube el paquete unificado (.wbackup) a Google Drive
+  static Future<BackupResult> backupToDrive({AppDatabase? activeDb}) async {
     try {
       final driveApi = await _getDriveApi();
       if (driveApi == null) {
@@ -237,29 +237,17 @@ class BackupService {
         );
       }
 
-      final dbFile = await _getDbFile();
-      if (!await dbFile.exists()) {
-        return const BackupResult(
-          success: false,
-          message: 'No se encontró la base de datos',
-        );
-      }
-
+      final pkg = await BackupPackageService.buildPackage(activeDb: activeDb);
       final folderId = await _getOrCreateDriveFolder(driveApi);
-      final fileBytes = await dbFile.readAsBytes();
-      final timestamp = DateTime.now()
-          .toIso8601String()
-          .replaceAll(':', '-')
-          .substring(0, 19);
-      final fileName = 'backup_financiero_$timestamp.db';
+      final fileName = 'backup_financiero_${_timestampName()}.wbackup';
 
       final driveFile = drive.File()
         ..name = fileName
         ..parents = folderId != null ? [folderId] : null;
 
       final media = drive.Media(
-        Stream.value(fileBytes),
-        fileBytes.length,
+        Stream.value(pkg.bytes),
+        pkg.bytes.length,
         contentType: 'application/octet-stream',
       );
 
@@ -268,7 +256,8 @@ class BackupService {
       return BackupResult(
         success: true,
         message:
-            '☁️ Backup subido a Google Drive\nCarpeta: $_driveFolderName\nArchivo: $fileName',
+            '☁️ Backup completo subido a Drive (${pkg.meta.stats.accountsCount} cuentas, '
+            '${pkg.meta.stats.transactionsCount} movimientos)\nArchivo: $fileName',
       );
     } catch (e) {
       return BackupResult(
@@ -278,7 +267,7 @@ class BackupService {
     }
   }
 
-  /// Listar backups disponibles en Google Drive
+  /// Lista backups disponibles en Drive (soporta .wbackup nuevo y .db legado)
   static Future<List<drive.File>> listDriveBackups() async {
     try {
       final driveApi = await _getDriveApi();
@@ -288,7 +277,7 @@ class BackupService {
       if (folderId == null) return [];
 
       final query =
-          "'$folderId' in parents and name contains 'backup_financiero' and trashed=false";
+          "'$folderId' in parents and (name contains 'backup_financiero' or name contains 'backup_walletai') and trashed=false";
       final list = await driveApi.files.list(
         q: query,
         spaces: 'drive',
@@ -303,8 +292,12 @@ class BackupService {
     }
   }
 
-  /// Restaurar desde Google Drive
-  static Future<BackupResult> restoreFromDrive(String fileId) async {
+  /// Descarga y restaura desde Google Drive en caliente
+  static Future<BackupResult> restoreFromDrive(
+    String fileId, {
+    WidgetRef? ref,
+    Future<String?> Function()? promptPassword,
+  }) async {
     try {
       final driveApi = await _getDriveApi();
       if (driveApi == null) {
@@ -326,27 +319,26 @@ class BackupService {
         bytes.addAll(chunk);
       }
 
-      final dbFile = await _getDbFile();
+      final rawBytes = Uint8List.fromList(bytes);
+      var res = await BackupPackageService.restoreFromBytes(rawBytes, ref: ref);
 
-      // Backup de seguridad antes de restaurar
-      if (await dbFile.exists()) {
-        final dir = await getApplicationDocumentsDirectory();
-        await dbFile.copy(p.join(dir.path, 'backup_antes_restaurar.db'));
+      if (!res.success && res.requiresPassword && promptPassword != null) {
+        final pass = await promptPassword();
+        if (pass != null && pass.isNotEmpty) {
+          res = await BackupPackageService.restoreFromBytes(
+            rawBytes,
+            password: pass,
+            ref: ref,
+          );
+        }
       }
 
-      await dbFile.writeAsBytes(bytes);
-
-      return const BackupResult(
-        success: true,
-        message:
-            '✅ Restauración desde Drive exitosa.\n\nReinicia la app para aplicar los cambios.',
-      );
+      return BackupResult(success: res.success, message: res.message);
     } catch (e) {
       return BackupResult(success: false, message: 'Error al restaurar: $e');
     }
   }
 
-  /// Eliminar un backup de Drive
   static Future<BackupResult> deleteDriveBackup(String fileId) async {
     try {
       final driveApi = await _getDriveApi();
@@ -364,7 +356,6 @@ class BackupService {
   }
 }
 
-/// Cliente HTTP autenticado para Google APIs
 class _GoogleAuthClient extends http.BaseClient {
   final Map<String, String> _headers;
   final http.Client _client = http.Client();

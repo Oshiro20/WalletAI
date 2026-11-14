@@ -194,8 +194,12 @@ final filteredBalanceProvider =
       });
     });
 
+/// Incrementar para forzar reapertura limpia de AppDatabase y todos los streams tras restaurar un backup
+final dbGenerationProvider = StateProvider<int>((ref) => 0);
+
 /// Provider global de la base de datos
 final databaseProvider = Provider<AppDatabase>((ref) {
+  ref.watch(dbGenerationProvider);
   final database = AppDatabase();
   ref.onDispose(() => database.close());
   return database;

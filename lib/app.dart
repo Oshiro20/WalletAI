@@ -6,7 +6,7 @@ import 'core/router/app_router.dart';
 import 'core/services/wallet_summary_service.dart';
 import 'data/datasources/recurrence_service.dart';
 import 'data/datasources/keep_alive_service.dart';
-import 'data/database/drift_database.dart';
+import 'presentation/providers/database_providers.dart';
 import 'presentation/providers/theme_provider.dart';
 
 class MyApp extends ConsumerStatefulWidget {
@@ -23,7 +23,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(recurrenceServiceProvider).checkDuePayments();
       // Exportar resumen para MyLifeOS (silencioso, no bloquea UI)
-      WalletSummaryService(AppDatabase()).exportSummary();
+      WalletSummaryService(ref.read(databaseProvider)).exportSummary();
     });
     // Iniciar keep-alive para despertar backend
     keepAliveService.start();

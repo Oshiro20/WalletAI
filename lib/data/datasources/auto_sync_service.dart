@@ -1,65 +1,114 @@
-import 'package:workmanager/workmanager.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
+import '../database/drift_database.dart';
 import 'backup_service.dart';
+import 'cloud_account_service.dart';
 
-const String simplePeriodicTask = "simplePeriodicTask";
-const String syncTaskKey = "com.walletai.sync_task";
+const String syncTaskKey = 'com.walletai.autosync.backup';
+const String kAutoSyncEnabledKey = 'auto_sync_enabled';
+const String kAutoSyncFrequencyKey = 'auto_sync_frequency';
+const String kAutoSyncDestinationKey = 'auto_sync_destination';
+const String kAutoSyncLastStatusKey = 'auto_sync_last_status';
+const String kAutoSyncLastTimeKey = 'auto_sync_last_time';
 
+/// Destinos válidos para respaldo automático:
+/// - `cloud`: Cuenta WalletAI (Usuario/Contraseña)
+/// - `drive`: Google Drive
+/// - `local`: Carpeta Local persistente
+/// - `cloud_and_local`: Nube WalletAI + Local
+/// - `drive_and_local`: Google Drive + Local
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
+    if (task != syncTaskKey) return Future.value(true);
+
+    AppDatabase? bgDb;
     try {
-      if (task == syncTaskKey) {
-        // Verificar si hay usuario logueado (silenciosamente)
+      final prefs = await SharedPreferences.getInstance();
+      final destination = prefs.getString(kAutoSyncDestinationKey) ?? 'drive';
+      bgDb = AppDatabase();
+
+      final outcomes = <String>[];
+      bool allOk = true;
+
+      if (destination == 'cloud' || destination == 'cloud_and_local') {
+        final res = await CloudAccountService.uploadUnifiedBackup(
+          activeDb: bgDb,
+        );
+        if (!res.success) allOk = false;
+        outcomes.add(res.hasConflict ? 'Conflicto en nube' : res.message);
+      }
+
+      if (destination == 'drive' || destination == 'drive_and_local') {
         final user = await BackupService.getSignedInUser();
         if (user != null) {
-          // Intentar backup
-          final result = await BackupService.backupToDrive();
-          if (result.success) {
-            debugPrint("AutoSync: Éxito - ${result.message}");
-          } else {
-            debugPrint("AutoSync: Falló - ${result.message}");
-            return Future.value(false); // Reintentar si falló
-          }
+          final res = await BackupService.backupToDrive(activeDb: bgDb);
+          if (!res.success) allOk = false;
+          outcomes.add(res.success ? 'Drive OK' : res.message);
         } else {
-          debugPrint("AutoSync: No hay usuario logueado. Omitiendo.");
+          allOk = false;
+          outcomes.add('Drive sin sesión activa');
         }
       }
+
+      if (destination == 'local' ||
+          destination == 'cloud_and_local' ||
+          destination == 'drive_and_local') {
+        final res = await BackupService.backupLocally(activeDb: bgDb);
+        if (!res.success) allOk = false;
+        outcomes.add(res.success ? 'Local OK' : res.message);
+      }
+
+      await prefs.setString(
+        kAutoSyncLastTimeKey,
+        DateTime.now().toIso8601String(),
+      );
+      await prefs.setString(
+        kAutoSyncLastStatusKey,
+        outcomes.isEmpty ? 'Sin destino' : outcomes.join(' | '),
+      );
+
+      debugPrint('AutoSync [$destination]: $outcomes');
+      return Future.value(allOk);
     } catch (e) {
-      debugPrint("AutoSync: Error crítico - $e");
+      debugPrint('AutoSync error: $e');
       return Future.value(false);
+    } finally {
+      await bgDb?.close();
     }
-    return Future.value(true);
   });
 }
 
 class AutoSyncService {
+  static final AutoSyncService _instance = AutoSyncService._internal();
+  factory AutoSyncService() => _instance;
+  AutoSyncService._internal();
+
   Future<void> initialize() async {
     await Workmanager().initialize(callbackDispatcher);
   }
 
   Future<void> registerPeriodicTask({
     Duration frequency = const Duration(hours: 24),
+    String destination = 'cloud',
   }) async {
-    // Cancelar tarea previa para asegurar nueva frecuencia
-    await cancelTask();
-
+    final requiresNetwork = destination != 'local';
     await Workmanager().registerPeriodicTask(
-      syncTaskKey,
+      'wallet_ai_auto_backup_id',
       syncTaskKey,
       frequency: frequency,
       constraints: Constraints(
-        networkType: NetworkType.connected,
+        networkType: requiresNetwork
+            ? NetworkType.connected
+            : NetworkType.notRequired,
         requiresBatteryNotLow: true,
       ),
-    );
-    debugPrint(
-      "AutoSync: Tarea registrada con frecuencia ${frequency.inHours} horas",
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
     );
   }
 
   Future<void> cancelTask() async {
-    await Workmanager().cancelByUniqueName(syncTaskKey);
-    debugPrint("AutoSync: Tarea cancelada");
+    await Workmanager().cancelByUniqueName('wallet_ai_auto_backup_id');
   }
 }

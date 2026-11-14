@@ -107,6 +107,8 @@ class ThemeNotifier extends StateNotifier<ThemeState> {
     _load();
   }
 
+  Future<void> reload() => _load();
+
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final modeStr = prefs.getString(_kThemeMode) ?? 'system';

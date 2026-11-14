@@ -132,6 +132,8 @@ class DashboardLayoutNotifier extends Notifier<List<DashboardWidgetConfig>> {
     return _defaultLayout();
   }
 
+  Future<void> reload() => _loadLayout();
+
   Future<void> _loadLayout() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_prefsKey);

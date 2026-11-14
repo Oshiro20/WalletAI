@@ -1,13 +1,17 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../../data/datasources/backup_service.dart';
 import '../../../data/datasources/auto_sync_service.dart';
+import '../../../data/datasources/backup_package_service.dart';
+import '../../../data/datasources/backup_service.dart';
+import '../../../data/datasources/cloud_account_service.dart';
 import '../../../data/datasources/encrypted_backup_service.dart';
+import '../../providers/database_providers.dart';
 
 class BackupScreen extends ConsumerStatefulWidget {
   const BackupScreen({super.key});
@@ -17,67 +21,173 @@ class BackupScreen extends ConsumerStatefulWidget {
 }
 
 class _BackupScreenState extends ConsumerState<BackupScreen> {
+  // Google Drive
   GoogleSignInAccount? _googleUser;
   List<drive.File> _driveBackups = [];
-  bool _isLoading = false;
   bool _loadingDrive = false;
 
-  // Auto-Sync
+  // Cuenta Nube WalletAI (Opción A)
+  String? _cloudUsername;
+  String? _cloudLastSyncedAt;
+  CloudBackupMetadata? _cloudBackupMeta;
+  bool _loadingCloudStatus = false;
+
+  // Auto-Sync & Local
+  bool _isLoading = false;
   bool _autoSyncEnabled = false;
-  String _autoSyncFrequency = 'daily'; // daily, weekly
+  String _autoSyncFrequency = 'daily';
+  String _autoSyncDestination = 'cloud';
+  String? _autoSyncLastStatus;
+  String? _autoSyncLastTime;
+  String? _customLocalDir;
 
   @override
   void initState() {
     super.initState();
-    _checkGoogleSession();
-    _loadAutoSyncPrefs();
+    _loadInitialState();
+  }
+
+  Future<void> _loadInitialState() async {
+    await Future.wait([
+      _checkGoogleSession(),
+      _loadCloudSession(),
+      _loadAutoSyncPrefs(),
+      _loadLocalDirPref(),
+    ]);
+  }
+
+  Future<void> _loadLocalDirPref() async {
+    final customDir = await BackupPackageService.getCustomLocalBackupDir();
+    if (mounted) {
+      setState(() => _customLocalDir = customDir);
+    }
   }
 
   Future<void> _loadAutoSyncPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
-      _autoSyncEnabled = prefs.getBool('auto_sync_enabled') ?? false;
-      _autoSyncFrequency = prefs.getString('auto_sync_frequency') ?? 'daily';
+      _autoSyncEnabled = prefs.getBool(kAutoSyncEnabledKey) ?? false;
+      _autoSyncFrequency = prefs.getString(kAutoSyncFrequencyKey) ?? 'daily';
+      _autoSyncDestination =
+          prefs.getString(kAutoSyncDestinationKey) ?? 'cloud';
+      _autoSyncLastStatus = prefs.getString(kAutoSyncLastStatusKey);
+      _autoSyncLastTime = prefs.getString(kAutoSyncLastTimeKey);
     });
   }
 
-  Future<void> _updateAutoSync(bool enabled, String frequency) async {
+  Future<void> _loadCloudSession() async {
+    final session = await CloudAccountService.getSessionInfo();
+    if (!mounted) return;
+    setState(() {
+      _cloudUsername = session.username;
+      _cloudLastSyncedAt = session.lastSyncedAt;
+    });
+    if (session.token != null && session.token!.isNotEmpty) {
+      await _refreshCloudStatus();
+    }
+  }
+
+  Future<void> _refreshCloudStatus() async {
+    if (!mounted) return;
+    setState(() => _loadingCloudStatus = true);
+    final res = await CloudAccountService.fetchStatus();
+    if (!mounted) return;
+    setState(() {
+      _loadingCloudStatus = false;
+      if (res.success) {
+        _cloudBackupMeta = res.latestBackup;
+      }
+    });
+  }
+
+  String _formatIsoDate(String? iso) {
+    if (iso == null || iso.isEmpty) return '—';
+    try {
+      final dt = DateTime.parse(iso).toLocal();
+      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
+    } catch (_) {
+      return iso;
+    }
+  }
+
+  Duration _frequencyToDuration(String freq) {
+    switch (freq) {
+      case '12h':
+        return const Duration(hours: 12);
+      case 'weekly':
+        return const Duration(days: 7);
+      default:
+        return const Duration(hours: 24);
+    }
+  }
+
+  Future<void> _updateAutoSync({
+    required bool enabled,
+    required String frequency,
+    required String destination,
+  }) async {
     setState(() {
       _autoSyncEnabled = enabled;
       _autoSyncFrequency = frequency;
+      _autoSyncDestination = destination;
       _isLoading = true;
     });
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('auto_sync_enabled', enabled);
-    await prefs.setString('auto_sync_frequency', frequency);
+    await prefs.setBool(kAutoSyncEnabledKey, enabled);
+    await prefs.setString(kAutoSyncFrequencyKey, frequency);
+    await prefs.setString(kAutoSyncDestinationKey, destination);
 
     final service = AutoSyncService();
     if (enabled) {
-      if (_googleUser == null) await _signInGoogle();
+      final needsDrive =
+          destination == 'drive' || destination == 'drive_and_local';
+      final needsCloud =
+          destination == 'cloud' || destination == 'cloud_and_local';
 
-      if (_googleUser != null) {
-        final duration = frequency == 'weekly'
-            ? const Duration(days: 7)
-            : const Duration(hours: 24);
-        await service.registerPeriodicTask(frequency: duration);
-        _showResult(
-          const BackupResult(
-            success: true,
-            message: 'Respaldo automático configurado',
-          ),
-        );
-      } else {
-        // No se pudo loguear
-        setState(() => _autoSyncEnabled = false);
-        await prefs.setBool('auto_sync_enabled', false);
-        _showResult(
-          const BackupResult(
-            success: false,
-            message: 'Requiere inicio de sesión en Google',
-          ),
-        );
+      if (needsDrive && _googleUser == null) {
+        await _signInGoogle();
+        if (_googleUser == null) {
+          await prefs.setBool(kAutoSyncEnabledKey, false);
+          if (mounted) {
+            setState(() {
+              _autoSyncEnabled = false;
+              _isLoading = false;
+            });
+          }
+          return;
+        }
       }
+
+      if (needsCloud && _cloudUsername == null) {
+        await prefs.setBool(kAutoSyncEnabledKey, false);
+        if (mounted) {
+          setState(() {
+            _autoSyncEnabled = false;
+            _isLoading = false;
+          });
+          _showResult(
+            const BackupResult(
+              success: false,
+              message:
+                  'Inicia sesión primero con tu Cuenta WalletAI para activar el respaldo automático en la nube.',
+            ),
+          );
+        }
+        return;
+      }
+
+      await service.registerPeriodicTask(
+        frequency: _frequencyToDuration(frequency),
+        destination: destination,
+      );
+      _showResult(
+        const BackupResult(
+          success: true,
+          message: '✅ Respaldo automático configurado',
+        ),
+      );
     } else {
       await service.cancelTask();
       _showResult(
@@ -87,47 +197,282 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
         ),
       );
     }
-
-    setState(() => _isLoading = false);
-  }
-
-  Future<void> _checkGoogleSession() async {
-    try {
-      final user = await BackupService.getSignedInUser();
-      if (mounted) {
-        setState(() => _googleUser = user);
-        if (user != null) _loadDriveBackups();
-      }
-    } catch (e) {
-      debugPrint('Check session error: $e');
-    }
-  }
-
-  Future<void> _loadDriveBackups() async {
-    setState(() => _loadingDrive = true);
-    final backups = await BackupService.listDriveBackups();
-    if (mounted) {
-      setState(() {
-        _driveBackups = backups;
-        _loadingDrive = false;
-      });
-    }
   }
 
   void _showResult(BackupResult result) {
     if (!mounted) return;
-    setState(() {
-      _isLoading = false;
-    });
+    setState(() => _isLoading = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(result.message),
         backgroundColor: result.success
             ? Colors.green.shade600
             : Colors.red.shade600,
-        duration: const Duration(seconds: 4),
+        duration: const Duration(seconds: 5),
       ),
     );
+  }
+
+  // ─── CUENTA NUBE WALLETAI (OPCIÓN A) ─────────────────────────────────────
+
+  Future<void> _openCloudAuthDialog({required bool isRegister}) async {
+    final userCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    bool obscure = true;
+    String? errorMsg;
+    bool submitting = false;
+
+    final result =
+        await showDialog<
+          ({
+            bool success,
+            String message,
+            CloudBackupMetadata? latestBackup,
+            String username,
+          })
+        >(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => StatefulBuilder(
+            builder: (ctx, setDialogState) => AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.account_circle_outlined),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      isRegister
+                          ? 'Crear cuenta WalletAI'
+                          : 'Iniciar sesión WalletAI',
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    isRegister
+                        ? 'Crea un usuario y contraseña para respaldar tus finanzas y recuperarlas en otro celular.'
+                        : 'Ingresa tus credenciales para sincronizar o restaurar tu copia de seguridad.',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: userCtrl,
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Usuario o correo',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: obscure,
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      hintText: 'Mínimo 6 caracteres',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscure ? Icons.visibility : Icons.visibility_off,
+                        ),
+                        onPressed: () =>
+                            setDialogState(() => obscure = !obscure),
+                      ),
+                    ),
+                  ),
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorMsg!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: submitting ? null : () => Navigator.pop(ctx),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: submitting
+                      ? null
+                      : () async {
+                          final u = userCtrl.text.trim();
+                          final p = passCtrl.text;
+                          if (u.length < 3 || p.length < 6) {
+                            setDialogState(() {
+                              errorMsg =
+                                  'Usuario mínimo 3 caracteres y contraseña mínimo 6.';
+                            });
+                            return;
+                          }
+                          setDialogState(() {
+                            submitting = true;
+                            errorMsg = null;
+                          });
+                          final authRes =
+                              await CloudAccountService.authenticate(
+                                isRegister: isRegister,
+                                username: u,
+                                password: p,
+                              );
+                          if (!ctx.mounted) return;
+                          if (authRes.success) {
+                            Navigator.pop(ctx, (
+                              success: true,
+                              message: authRes.message,
+                              latestBackup: authRes.latestBackup,
+                              username: u.toLowerCase(),
+                            ));
+                          } else {
+                            setDialogState(() {
+                              submitting = false;
+                              errorMsg = authRes.message;
+                            });
+                          }
+                        },
+                  child: submitting
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(isRegister ? 'Registrar' : 'Entrar'),
+                ),
+              ],
+            ),
+          ),
+        );
+
+    if (result == null || !result.success || !mounted) return;
+
+    await _loadCloudSession();
+    _showResult(BackupResult(success: true, message: result.message));
+
+    // Detectar si existe copia previa en la nube (útil al iniciar sesión en nuevo celular)
+    final backup = result.latestBackup;
+    if (backup != null && backup.exists && mounted) {
+      final restoreNow = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.cloud_download, color: Colors.blue),
+              SizedBox(width: 8),
+              Flexible(child: Text('Copia de seguridad encontrada')),
+            ],
+          ),
+          content: Text(
+            'Se encontró un respaldo en tu cuenta (${result.username}):\n\n'
+            '• Dispositivo origen: ${backup.deviceName ?? "Otro equipo"}\n'
+            '• Fecha: ${_formatIsoDate(backup.updatedAt)}\n'
+            '• Contenido: ${backup.accountsCount} cuentas, '
+            '${backup.categoriesCount} categorías, '
+            '${backup.transactionsCount} movimientos.\n\n'
+            '¿Deseas restaurarlo ahora en este dispositivo?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Más tarde'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Restaurar ahora'),
+            ),
+          ],
+        ),
+      );
+
+      if (restoreNow == true && mounted) {
+        await _restoreFromCloudAccount(skipConfirm: true);
+      }
+    }
+  }
+
+  Future<void> _uploadToCloudAccount({bool force = false}) async {
+    setState(() => _isLoading = true);
+    final activeDb = ref.read(databaseProvider);
+    final res = await CloudAccountService.uploadUnifiedBackup(
+      activeDb: activeDb,
+      force: force,
+    );
+
+    if (!mounted) return;
+    if (res.hasConflict && res.serverBackup != null) {
+      setState(() => _isLoading = false);
+      final b = res.serverBackup!;
+      final action = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.sync_problem, color: Colors.orange),
+              SizedBox(width: 8),
+              Flexible(child: Text('Conflicto entre dispositivos')),
+            ],
+          ),
+          content: Text(
+            'Otro dispositivo (${b.deviceName ?? "Otro equipo"}) guardó un respaldo más reciente el ${_formatIsoDate(b.updatedAt)} '
+            '(${b.accountsCount} cuentas, ${b.transactionsCount} movimientos).\n\n'
+            'Si sobrescribes con este equipo, los cambios del otro dispositivo podrían perderse.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, 'download'),
+              child: const Text('Descargar nube'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.orange),
+              onPressed: () => Navigator.pop(ctx, 'force'),
+              child: const Text('Sobrescribir nube'),
+            ),
+          ],
+        ),
+      );
+      if (action == 'download') {
+        await _restoreFromCloudAccount(skipConfirm: true);
+      } else if (action == 'force') {
+        await _uploadToCloudAccount(force: true);
+      }
+      return;
+    }
+
+    await _loadCloudSession();
+    _showResult(BackupResult(success: res.success, message: res.message));
+  }
+
+  Future<void> _restoreFromCloudAccount({bool skipConfirm = false}) async {
+    if (!skipConfirm) {
+      final confirm = await _showRestoreConfirmDialog(
+        fileName: 'Respaldo en Nube (${_cloudUsername ?? ""})',
+      );
+      if (!confirm) return;
+    }
+    setState(() => _isLoading = true);
+    final res = await CloudAccountService.downloadAndRestore(ref: ref);
+    if (!mounted) return;
+    await _loadCloudSession();
+    await _loadAutoSyncPrefs();
+    _showResult(BackupResult(success: res.success, message: res.message));
+  }
+
+  Future<void> _signOutCloud() async {
+    await CloudAccountService.signOut();
+    if (!mounted) return;
+    setState(() {
+      _cloudUsername = null;
+      _cloudLastSyncedAt = null;
+      _cloudBackupMeta = null;
+    });
   }
 
   // ─── ENCRYPTED ────────────────────────────────────────────────────────────
@@ -138,7 +483,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     );
     if (password == null) return;
     setState(() => _isLoading = true);
-    final result = await EncryptedBackupService.encryptAndSave(password);
+    final result = await EncryptedBackupService.encryptAndSave(
+      password,
+      activeDb: ref.read(databaseProvider),
+    );
     _showResult(BackupResult(success: result.success, message: result.message));
   }
 
@@ -148,12 +496,14 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     );
     if (password == null) return;
     setState(() => _isLoading = true);
-    final result = await EncryptedBackupService.encryptAndShare(password);
+    final result = await EncryptedBackupService.encryptAndShare(
+      password,
+      activeDb: ref.read(databaseProvider),
+    );
     _showResult(BackupResult(success: result.success, message: result.message));
   }
 
   Future<void> _restoreEncrypted() async {
-    // 1. Seleccionar archivo
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.any,
       allowMultiple: false,
@@ -161,18 +511,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     if (picked == null || picked.files.single.path == null) return;
     final filePath = picked.files.single.path!;
 
-    if (!filePath.endsWith('.walletai')) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona un archivo .walletai de WalletAI'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // 2. Pedir contraseña
     final password = await _showPasswordDialog(
       title: 'Contraseña del backup cifrado',
       hint: 'Ingresa la contraseña con la que se cifró el backup',
@@ -180,20 +518,21 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     );
     if (password == null) return;
 
-    // 3. Confirmar restauración
-    final confirm = await _showRestoreConfirmDialog();
+    final confirm = await _showRestoreConfirmDialog(
+      fileName: picked.files.single.name,
+    );
     if (!confirm) return;
 
     setState(() => _isLoading = true);
     final result = await EncryptedBackupService.decryptAndRestore(
       filePath,
       password,
+      ref: ref,
     );
+    await _loadAutoSyncPrefs();
     _showResult(BackupResult(success: result.success, message: result.message));
   }
 
-  /// Muestra un diálogo de ingreso de contraseña.
-  /// En [confirmMode] = true, pide la contraseña dos veces para confirmar.
   Future<String?> _showPasswordDialog({
     required String title,
     String? hint,
@@ -295,13 +634,40 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   Future<void> _backupLocally() async {
     setState(() => _isLoading = true);
-    final result = await BackupService.backupLocally();
+    final result = await BackupService.backupLocally(
+      activeDb: ref.read(databaseProvider),
+    );
     _showResult(result);
+  }
+
+  Future<void> _exportWithPicker() async {
+    setState(() => _isLoading = true);
+    final result = await BackupService.exportWithFilePicker(
+      activeDb: ref.read(databaseProvider),
+    );
+    _showResult(result);
+  }
+
+  Future<void> _pickLocalDirectory() async {
+    final selected = await FilePicker.platform.getDirectoryPath(
+      dialogTitle: 'Elige carpeta para backups automáticos',
+    );
+    if (selected == null) return;
+    await BackupPackageService.setCustomLocalBackupDir(selected);
+    await _loadLocalDirPref();
+    _showResult(
+      BackupResult(
+        success: true,
+        message: 'Carpeta local configurada:\n$selected',
+      ),
+    );
   }
 
   Future<void> _shareBackup() async {
     setState(() => _isLoading = true);
-    final result = await BackupService.shareBackup();
+    final result = await BackupService.shareBackup(
+      activeDb: ref.read(databaseProvider),
+    );
     _showResult(result);
   }
 
@@ -309,16 +675,47 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final confirm = await _showRestoreConfirmDialog();
     if (!confirm) return;
     setState(() => _isLoading = true);
-    final result = await BackupService.restoreFromLocalFile();
+    final result = await BackupService.restoreFromLocalFile(
+      ref: ref,
+      promptPassword: () => _showPasswordDialog(
+        title: 'Contraseña del respaldo',
+        confirmMode: false,
+      ),
+    );
+    await _loadAutoSyncPrefs();
     _showResult(result);
   }
 
   // ─── GOOGLE DRIVE ─────────────────────────────────────────────────────────
 
+  Future<void> _checkGoogleSession() async {
+    try {
+      final user = await BackupService.getSignedInUser();
+      if (mounted) {
+        setState(() => _googleUser = user);
+        if (user != null) _loadDriveBackups();
+      }
+    } catch (e) {
+      debugPrint('Check session error: $e');
+    }
+  }
+
+  Future<void> _loadDriveBackups() async {
+    setState(() => _loadingDrive = true);
+    final backups = await BackupService.listDriveBackups();
+    if (mounted) {
+      setState(() {
+        _driveBackups = backups;
+        _loadingDrive = false;
+      });
+    }
+  }
+
   Future<void> _signInGoogle() async {
     setState(() => _isLoading = true);
     try {
       final user = await BackupService.signInWithGoogle();
+      if (!mounted) return;
       setState(() {
         _googleUser = user;
         _isLoading = false;
@@ -326,32 +723,43 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
       if (user != null) {
         _loadDriveBackups();
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Inicio de sesión cancelado o fallido'),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Error de Google Sign-In: $e\n(Posible falta de configuración SHA-1)',
-            ),
-            backgroundColor: Colors.red.shade600,
-            duration: const Duration(seconds: 5),
+          const SnackBar(
+            content: Text('Inicio de sesión cancelado por el usuario'),
           ),
         );
       }
+    } on PlatformException catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      final isDevError =
+          e.code == 'sign_in_failed' && (e.message?.contains('10') ?? false);
+      final msg = isDevError
+          ? 'Google Sign-In rechazado (código 10: OAuth/SHA-1). Registra el paquete com.finanzas.aplicativo_gastos y el SHA-1 release en Google Cloud Console.'
+          : 'Error Google Sign-In (${e.code}): ${e.message ?? e}';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error de Google Sign-In: $e'),
+          backgroundColor: Colors.red.shade600,
+          duration: const Duration(seconds: 5),
+        ),
+      );
     }
   }
 
   Future<void> _signOutGoogle() async {
     await BackupService.signOutGoogle();
+    if (!mounted) return;
     setState(() {
       _googleUser = null;
       _driveBackups = [];
@@ -360,7 +768,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   Future<void> _backupToDrive() async {
     setState(() => _isLoading = true);
-    final result = await BackupService.backupToDrive();
+    final result = await BackupService.backupToDrive(
+      activeDb: ref.read(databaseProvider),
+    );
     _showResult(result);
     if (result.success) _loadDriveBackups();
   }
@@ -369,7 +779,15 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     final confirm = await _showRestoreConfirmDialog(fileName: file.name);
     if (!confirm) return;
     setState(() => _isLoading = true);
-    final result = await BackupService.restoreFromDrive(file.id!);
+    final result = await BackupService.restoreFromDrive(
+      file.id!,
+      ref: ref,
+      promptPassword: () => _showPasswordDialog(
+        title: 'Contraseña del respaldo en Drive',
+        confirmMode: false,
+      ),
+    );
+    await _loadAutoSyncPrefs();
     _showResult(result);
   }
 
@@ -412,7 +830,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               children: [
                 Icon(Icons.warning_amber, color: Colors.orange),
                 SizedBox(width: 8),
-                Text('⚠️ Confirmar restauración'),
+                Flexible(child: Text('Confirmar restauración')),
               ],
             ),
             content: Column(
@@ -421,13 +839,13 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
               children: [
                 if (fileName != null)
                   Text(
-                    'Archivo: $fileName',
+                    'Origen: $fileName',
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Esto reemplazará TODOS tus datos actuales con los del backup.\n\n'
-                  'Se hará un respaldo automático de seguridad antes de restaurar.',
+                  'Se restaurarán tus cuentas, saldos, fechas de corte, categorías, subcategorías, transacciones y configuración de la app.\n\n'
+                  'Antes se creará un respaldo de seguridad automático.',
                 ),
               ],
             ),
@@ -452,6 +870,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Copias de Seguridad'),
@@ -474,22 +894,246 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
+              color: cs.primaryContainer,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               children: [
-                Icon(
-                  Icons.shield,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+                Icon(Icons.shield, color: cs.primary),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Haz backups regularmente para no perder tus datos financieros.',
+                    'Respaldo unificado v2: incluye cuentas, montos, cortes, categorías/subcategorías ampliadas, movimientos y preferencias de la app.',
                     style: TextStyle(
-                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      color: cs.onPrimaryContainer,
+                      fontSize: 13,
                     ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ─── CUENTA WALLETAI EN LA NUBE (OPCIÓN A) ───────────────────────
+          _SectionHeader(
+            icon: Icons.cloud_sync,
+            title: 'Cuenta WalletAI (Nube Multi-dispositivo)',
+          ),
+          const SizedBox(height: 12),
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: _cloudUsername == null
+                ? Column(
+                    children: [
+                      _ActionTile(
+                        icon: Icons.login,
+                        iconColor: cs.primary,
+                        title: 'Iniciar sesión con usuario y contraseña',
+                        subtitle:
+                            'Detecta y restaura tu copia al cambiar de celular',
+                        onTap: _isLoading
+                            ? null
+                            : () => _openCloudAuthDialog(isRegister: false),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      _ActionTile(
+                        icon: Icons.person_add_alt_1,
+                        iconColor: Colors.teal,
+                        title: 'Crear cuenta nueva en la nube',
+                        subtitle:
+                            'Guarda una copia unificada protegida para tus equipos',
+                        onTap: _isLoading
+                            ? null
+                            : () => _openCloudAuthDialog(isRegister: true),
+                      ),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: cs.primaryContainer,
+                          child: Icon(Icons.person, color: cs.primary),
+                        ),
+                        title: Text(
+                          _cloudUsername!,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          _loadingCloudStatus
+                              ? 'Consultando respaldo en la nube...'
+                              : (_cloudBackupMeta?.exists == true
+                                    ? 'Última copia: ${_formatIsoDate(_cloudBackupMeta!.updatedAt)} (${_cloudBackupMeta!.deviceName ?? "Equipo"})\n'
+                                          '${_cloudBackupMeta!.accountsCount} cuentas • ${_cloudBackupMeta!.transactionsCount} movs'
+                                    : (_cloudLastSyncedAt != null
+                                          ? 'Última sincronización local: ${_formatIsoDate(_cloudLastSyncedAt)}'
+                                          : 'Sin respaldo subido aún en la nube')),
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.logout, color: Colors.red),
+                          tooltip: 'Cerrar sesión',
+                          onPressed: _signOutCloud,
+                        ),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      _ActionTile(
+                        icon: Icons.cloud_upload,
+                        iconColor: Colors.blue,
+                        title: 'Subir copia ahora a mi cuenta',
+                        subtitle:
+                            'Con detección de conflictos si usas dos celulares',
+                        onTap: _isLoading
+                            ? null
+                            : () => _uploadToCloudAccount(),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      _ActionTile(
+                        icon: Icons.cloud_download,
+                        iconColor: Colors.green,
+                        title: 'Restaurar desde mi cuenta',
+                        subtitle:
+                            'Descarga cuentas, categorías, saldos y ajustes',
+                        onTap: (_isLoading || _cloudBackupMeta?.exists != true)
+                            ? null
+                            : () => _restoreFromCloudAccount(),
+                      ),
+                    ],
+                  ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // ─── RESPALDO AUTOMÁTICO CONFIGURABLE ────────────────────────────
+          _SectionHeader(
+            icon: Icons.schedule,
+            title: 'Respaldo Automático por Destino',
+          ),
+          const SizedBox(height: 12),
+          Card(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              children: [
+                SwitchListTile(
+                  secondary: Icon(Icons.sync, color: Colors.blue.shade700),
+                  title: const Text(
+                    'Activar respaldo automático',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    _autoSyncEnabled
+                        ? 'Activo ($_autoSyncFrequency → $_autoSyncDestination)'
+                        : 'Desactivado',
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                  value: _autoSyncEnabled,
+                  onChanged: _isLoading
+                      ? null
+                      : (val) => _updateAutoSync(
+                          enabled: val,
+                          frequency: _autoSyncFrequency,
+                          destination: _autoSyncDestination,
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+                  child: Column(
+                    children: [
+                      DropdownButtonFormField<String>(
+                        initialValue: _autoSyncDestination,
+                        decoration: const InputDecoration(
+                          labelText: 'Destino automático',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'cloud',
+                            child: Text('Cuenta WalletAI (Nube)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'drive',
+                            child: Text('Google Drive'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'local',
+                            child: Text('Carpeta Local persistente'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'cloud_and_local',
+                            child: Text('Cuenta WalletAI + Local'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'drive_and_local',
+                            child: Text('Google Drive + Local'),
+                          ),
+                        ],
+                        onChanged: _isLoading
+                            ? null
+                            : (val) {
+                                if (val != null) {
+                                  _updateAutoSync(
+                                    enabled: _autoSyncEnabled,
+                                    frequency: _autoSyncFrequency,
+                                    destination: val,
+                                  );
+                                }
+                              },
+                      ),
+                      const SizedBox(height: 10),
+                      DropdownButtonFormField<String>(
+                        initialValue: _autoSyncFrequency,
+                        decoration: const InputDecoration(
+                          labelText: 'Frecuencia',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: '12h',
+                            child: Text('Cada 12 horas'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'daily',
+                            child: Text('Diario (24h)'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'weekly',
+                            child: Text('Semanal (7 días)'),
+                          ),
+                        ],
+                        onChanged: _isLoading
+                            ? null
+                            : (val) {
+                                if (val != null) {
+                                  _updateAutoSync(
+                                    enabled: _autoSyncEnabled,
+                                    frequency: val,
+                                    destination: _autoSyncDestination,
+                                  );
+                                }
+                              },
+                      ),
+                      if (_autoSyncLastTime != null) ...[
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            'Última ejecución: ${_formatIsoDate(_autoSyncLastTime)} — ${_autoSyncLastStatus ?? ""}',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -501,7 +1145,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           // ─── BACKUP LOCAL ────────────────────────────────────────────────
           _SectionHeader(icon: Icons.phone_android, title: 'Backup Local'),
           const SizedBox(height: 12),
-
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -511,62 +1154,52 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 _ActionTile(
                   icon: Icons.save,
                   iconColor: Colors.blue,
-                  title: 'Guardar en el dispositivo',
-                  subtitle:
-                      'Guarda un archivo .db en la memoria de tu teléfono',
+                  title: 'Guardar respaldo completo (.wbackup)',
+                  subtitle: _customLocalDir != null
+                      ? 'Carpeta: $_customLocalDir'
+                      : 'Guarda en Download/WalletAI (sobrevive desinstalación)',
                   onTap: _isLoading ? null : _backupLocally,
+                ),
+                const Divider(height: 1, indent: 56),
+                _ActionTile(
+                  icon: Icons.drive_file_move_outline,
+                  iconColor: Colors.teal,
+                  title: 'Exportar eligiendo carpeta (Descargas / Documentos)',
+                  subtitle: 'Abre el selector nativo del sistema (SAF)',
+                  onTap: _isLoading ? null : _exportWithPicker,
+                ),
+                const Divider(height: 1, indent: 56),
+                _ActionTile(
+                  icon: Icons.folder_open,
+                  iconColor: Colors.amber.shade700,
+                  title: 'Configurar carpeta local automática',
+                  subtitle: _customLocalDir ?? 'Por defecto: Download/WalletAI',
+                  onTap: _isLoading ? null : _pickLocalDirectory,
                 ),
                 const Divider(height: 1, indent: 56),
                 _ActionTile(
                   icon: Icons.share,
                   iconColor: Colors.green,
-                  title: 'Compartir backup',
-                  subtitle: 'Envía vía WhatsApp, email, Terabox u otra app',
+                  title: 'Compartir por Correo, TeraBox o WhatsApp',
+                  subtitle: 'Envía tu copia unificada por la app que prefieras',
                   onTap: _isLoading ? null : _shareBackup,
                 ),
                 const Divider(height: 1, indent: 56),
                 _ActionTile(
                   icon: Icons.restore,
                   iconColor: Colors.orange,
-                  title: 'Restaurar desde archivo',
-                  subtitle:
-                      'Abre un archivo .db de tu galería o almacenamiento',
+                  title: 'Restaurar desde archivo (.wbackup / .walletai / .db)',
+                  subtitle: 'Importa y recarga todos los datos al instante',
                   onTap: _isLoading ? null : _restoreLocal,
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // ─── BACKUP CIFRADO ──────────────────────────────────────────────
           _SectionHeader(icon: Icons.lock, title: 'Backup Cifrado (AES-256)'),
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.purple.shade50,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.purple.shade100),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.enhanced_encryption,
-                  color: Colors.purple.shade700,
-                  size: 18,
-                ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Protege tu backup con una contraseña. '
-                    'Solo quien tenga la clave puede restaurarlo.',
-                    style: TextStyle(fontSize: 12),
-                  ),
-                ),
-              ],
-            ),
-          ),
           const SizedBox(height: 12),
           Card(
             shape: RoundedRectangleBorder(
@@ -577,18 +1210,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                 _ActionTile(
                   icon: Icons.lock_outline,
                   iconColor: Colors.purple,
-                  title: 'Guardar cifrado',
+                  title: 'Guardar cifrado (.walletai)',
                   subtitle:
-                      'Guarda un archivo .walletai protegido con contraseña',
+                      'Paquete completo (BD + ajustes) protegido con clave',
                   onTap: _isLoading ? null : _encryptAndSave,
                 ),
                 const Divider(height: 1, indent: 56),
                 _ActionTile(
                   icon: Icons.share,
                   iconColor: Colors.deepPurple,
-                  title: 'Cifrar y compartir',
-                  subtitle:
-                      'Comparte el backup cifrado vía WhatsApp, email, etc.',
+                  title: 'Cifrar y compartir (Email / TeraBox)',
+                  subtitle: 'Envía tu archivo .walletai protegido',
                   onTap: _isLoading ? null : _encryptAndShare,
                 ),
                 const Divider(height: 1, indent: 56),
@@ -596,20 +1228,18 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   icon: Icons.lock_open,
                   iconColor: Colors.indigo,
                   title: 'Restaurar backup cifrado',
-                  subtitle: 'Abre un archivo .walletai e ingresa la contraseña',
+                  subtitle: 'Abre .walletai V1 o V2 e ingresa la contraseña',
                   onTap: _isLoading ? null : _restoreEncrypted,
                 ),
               ],
             ),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
           // ─── GOOGLE DRIVE ────────────────────────────────────────────────
           _SectionHeader(icon: Icons.cloud, title: 'Google Drive'),
           const SizedBox(height: 12),
-
-          // Estado de sesión Google
           Card(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -617,11 +1247,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             child: _googleUser == null
                 ? _ActionTile(
                     icon: Icons.login,
-                    iconColor: Theme.of(context).colorScheme.primary,
+                    iconColor: cs.primary,
                     title: 'Iniciar sesión con Google',
-                    subtitle: 'Conecta tu cuenta para sincronizar con Drive',
+                    subtitle: 'Conecta tu cuenta para respaldar en Drive',
                     onTap: _isLoading ? null : _signInGoogle,
-                    trailing: const Icon(Icons.chevron_right),
                   )
                 : Column(
                     children: [
@@ -648,82 +1277,18 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                         ),
                       ),
                       const Divider(height: 1, indent: 72),
-                      SwitchListTile(
-                        secondary: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.sync,
-                            color: Colors.blue.shade700,
-                            size: 20,
-                          ),
-                        ),
-                        title: const Text(
-                          'Respaldo automático',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        subtitle: Text(
-                          _autoSyncEnabled
-                              ? (_autoSyncFrequency == 'daily'
-                                    ? 'Cada 24 horas'
-                                    : 'Semanalmente')
-                              : 'Desactivado',
-                        ),
-                        value: _autoSyncEnabled,
-                        onChanged: _isLoading
-                            ? null
-                            : (val) => _updateAutoSync(val, _autoSyncFrequency),
-                      ),
-                      if (_autoSyncEnabled)
-                        Padding(
-                          padding: const EdgeInsets.only(
-                            left: 72,
-                            right: 16,
-                            bottom: 12,
-                          ),
-                          child: DropdownButtonFormField<String>(
-                            initialValue: _autoSyncFrequency,
-                            decoration: const InputDecoration(
-                              labelText: 'Frecuencia',
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 8,
-                              ),
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            items: const [
-                              DropdownMenuItem(
-                                value: 'daily',
-                                child: Text('Diario (24h)'),
-                              ),
-                              DropdownMenuItem(
-                                value: 'weekly',
-                                child: Text('Semanal (7 días)'),
-                              ),
-                            ],
-                            onChanged: (val) {
-                              if (val != null) _updateAutoSync(true, val);
-                            },
-                          ),
-                        ),
-                      const Divider(height: 1, indent: 72),
                       _ActionTile(
                         icon: Icons.cloud_upload,
                         iconColor: Colors.blue,
-                        title: 'Subir backup a Drive',
+                        title: 'Subir backup completo a Drive',
                         subtitle:
-                            'Crea una nueva copia de seguridad en la nube',
+                            'Sube cuentas, categorías, movimientos y configuración',
                         onTap: _isLoading ? null : _backupToDrive,
                       ),
                     ],
                   ),
           ),
 
-          // Lista de backups en Drive
           if (_googleUser != null) ...[
             const SizedBox(height: 16),
             Row(
@@ -816,8 +1381,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                 _deleteDriveBackup(file);
                               }
                             },
-                            itemBuilder: (_) => [
-                              const PopupMenuItem(
+                            itemBuilder: (_) => const [
+                              PopupMenuItem(
                                 value: 'restore',
                                 child: Row(
                                   children: [
@@ -827,7 +1392,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                   ],
                                 ),
                               ),
-                              const PopupMenuItem(
+                              PopupMenuItem(
                                 value: 'delete',
                                 child: Row(
                                   children: [
@@ -861,8 +1426,6 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   }
 }
 
-// ─── WIDGETS AUXILIARES ────────────────────────────────────────────────────
-
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -894,7 +1457,6 @@ class _ActionTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback? onTap;
-  final Widget? trailing;
 
   const _ActionTile({
     required this.icon,
@@ -902,7 +1464,6 @@ class _ActionTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.onTap,
-    this.trailing,
   });
 
   @override
@@ -914,8 +1475,7 @@ class _ActionTile extends StatelessWidget {
       ),
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
       subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
-      trailing:
-          trailing ?? (onTap != null ? const Icon(Icons.chevron_right) : null),
+      trailing: onTap != null ? const Icon(Icons.chevron_right) : null,
       onTap: onTap,
       enabled: onTap != null,
     );
