@@ -13,6 +13,7 @@ import '../../data/database/daos/travels_dao.dart';
 import '../../data/database/drift_database.dart';
 import '../../data/datasources/currency_service.dart';
 import '../../presentation/providers/database_providers.dart';
+import '../utils/credit_card_calculator.dart';
 import '../utils/text_search_helper.dart';
 
 /// Construye un contexto financiero completo y actualizado a partir de todas las
@@ -53,23 +54,152 @@ class FinancialContextBuilder {
        _currencyService = currencyService ?? CurrencyService();
 
   static const Set<String> _stopWords = {
-    'a', 'al', 'algo', 'algun', 'alguna', 'algunas', 'algunos', 'ante',
-    'ano', 'anos', 'asi', 'aun', 'bajo', 'bien', 'cada', 'casi', 'como',
-    'con', 'contra', 'cual', 'cuales', 'cuando', 'cuanta', 'cuantas',
-    'cuanto', 'cuantos', 'de', 'del', 'desde', 'donde', 'dime', 'dame',
-    'el', 'ella', 'ellas', 'ellos', 'en', 'entre', 'era', 'es', 'esa',
-    'esas', 'ese', 'eso', 'esos', 'esta', 'estaba', 'estado', 'estan',
-    'estas', 'este', 'esto', 'estos', 'estoy', 'fue', 'fueron', 'gaste',
-    'gasto', 'gastos', 'general', 'hacer', 'hace', 'hacia', 'han', 'hasta',
-    'hay', 'he', 'hola', 'hoy', 'ingrese', 'ingreso', 'ingresos', 'la',
-    'las', 'le', 'les', 'lo', 'los', 'mas', 'me', 'mejor', 'menos', 'mes',
-    'meses', 'mi', 'mis', 'mucho', 'muy', 'nada', 'ni', 'no', 'nos',
-    'nosotros', 'nuestro', 'o', 'para', 'pasado', 'pero', 'poco', 'por',
-    'porque', 'puede', 'puedo', 'que', 'quien', 'quiero', 'real', 'resumen',
-    'saber', 'se', 'sea', 'segun', 'semana', 'ser', 'si', 'sin', 'sobre',
-    'soles', 'solo', 'son', 'soy', 'su', 'sus', 'tal', 'tambien', 'te',
-    'tengo', 'tiene', 'tienen', 'todo', 'todos', 'total', 'tu', 'tus', 'un',
-    'una', 'unas', 'uno', 'unos', 'va', 'van', 'ver', 'vez', 'y', 'ya', 'yo',
+    'a',
+    'al',
+    'algo',
+    'algun',
+    'alguna',
+    'algunas',
+    'algunos',
+    'ante',
+    'ano',
+    'anos',
+    'asi',
+    'aun',
+    'bajo',
+    'bien',
+    'cada',
+    'casi',
+    'como',
+    'con',
+    'contra',
+    'cual',
+    'cuales',
+    'cuando',
+    'cuanta',
+    'cuantas',
+    'cuanto',
+    'cuantos',
+    'de',
+    'del',
+    'desde',
+    'donde',
+    'dime',
+    'dame',
+    'el',
+    'ella',
+    'ellas',
+    'ellos',
+    'en',
+    'entre',
+    'era',
+    'es',
+    'esa',
+    'esas',
+    'ese',
+    'eso',
+    'esos',
+    'esta',
+    'estaba',
+    'estado',
+    'estan',
+    'estas',
+    'este',
+    'esto',
+    'estos',
+    'estoy',
+    'fue',
+    'fueron',
+    'gaste',
+    'gasto',
+    'gastos',
+    'general',
+    'hacer',
+    'hace',
+    'hacia',
+    'han',
+    'hasta',
+    'hay',
+    'he',
+    'hola',
+    'hoy',
+    'ingrese',
+    'ingreso',
+    'ingresos',
+    'la',
+    'las',
+    'le',
+    'les',
+    'lo',
+    'los',
+    'mas',
+    'me',
+    'mejor',
+    'menos',
+    'mes',
+    'meses',
+    'mi',
+    'mis',
+    'mucho',
+    'muy',
+    'nada',
+    'ni',
+    'no',
+    'nos',
+    'nosotros',
+    'nuestro',
+    'o',
+    'para',
+    'pasado',
+    'pero',
+    'poco',
+    'por',
+    'porque',
+    'puede',
+    'puedo',
+    'que',
+    'quien',
+    'quiero',
+    'real',
+    'resumen',
+    'saber',
+    'se',
+    'sea',
+    'segun',
+    'semana',
+    'ser',
+    'si',
+    'sin',
+    'sobre',
+    'soles',
+    'solo',
+    'son',
+    'soy',
+    'su',
+    'sus',
+    'tal',
+    'tambien',
+    'te',
+    'tengo',
+    'tiene',
+    'tienen',
+    'todo',
+    'todos',
+    'total',
+    'tu',
+    'tus',
+    'un',
+    'una',
+    'unas',
+    'uno',
+    'unos',
+    'va',
+    'van',
+    'ver',
+    'vez',
+    'y',
+    'ya',
+    'yo',
   };
 
   static const Map<String, int> _monthKeywords = {
@@ -130,16 +260,29 @@ class FinancialContextBuilder {
       double totalDebt = 0;
 
       for (final acc in accounts) {
-        final penBalance = TextSearchHelper.convertToPen(
-          acc.balance,
-          acc.currency,
-          rates,
-        );
         if (acc.type == 'credit_card') {
-          if (penBalance < 0) totalDebt += penBalance.abs();
+          final card = CreditCardCalculator.calculateCardBalance(
+            balance: acc.balance,
+            creditLimit: acc.creditLimit,
+          );
+          totalDebt += TextSearchHelper.convertToPen(
+            card.debt,
+            acc.currency,
+            rates,
+          );
         } else if (acc.type == 'savings' || acc.type == 'investment') {
+          final penBalance = TextSearchHelper.convertToPen(
+            acc.balance,
+            acc.currency,
+            rates,
+          );
           if (penBalance > 0) savingsInvestTotal += penBalance;
         } else {
+          final penBalance = TextSearchHelper.convertToPen(
+            acc.balance,
+            acc.currency,
+            rates,
+          );
           liquidTotal += penBalance;
         }
       }
@@ -148,11 +291,15 @@ class FinancialContextBuilder {
       final netWorth = totalAssets - totalDebt;
 
       sb.writeln('\n=== CUENTAS Y PATRIMONIO ===');
-      sb.writeln('Saldo líquido disponible (efectivo/banco/billetera): ${fmt.format(liquidTotal)}');
+      sb.writeln(
+        'Saldo líquido disponible (efectivo/banco/billetera): ${fmt.format(liquidTotal)}',
+      );
       if (savingsInvestTotal > 0) {
         sb.writeln('Ahorros e inversiones: ${fmt.format(savingsInvestTotal)}');
       }
-      sb.writeln('Deuda total en tarjetas de crédito: ${fmt.format(totalDebt)}');
+      sb.writeln(
+        'Deuda total en tarjetas de crédito: ${fmt.format(totalDebt)}',
+      );
       sb.writeln('Patrimonio neto estimado: ${fmt.format(netWorth)}');
 
       if (accounts.isEmpty) {
@@ -170,21 +317,25 @@ class FinancialContextBuilder {
               ? fmt.format(a.balance)
               : '$sym ${a.balance.toStringAsFixed(2)} (≈ ${fmt.format(penBal)})';
           if (a.type == 'credit_card') {
-            final debt = a.balance < 0 ? a.balance.abs() : 0.0;
+            final card = CreditCardCalculator.calculateCardBalance(
+              balance: a.balance,
+              creditLimit: a.creditLimit,
+            );
+            final debt = card.debt;
             final limitStr = a.creditLimit != null
                 ? ', límite: $sym ${a.creditLimit!.toStringAsFixed(2)}'
                 : '';
-            final utilStr =
-                (a.creditLimit != null && a.creditLimit! > 0)
-                    ? ', utilización: ${(debt / a.creditLimit! * 100).toStringAsFixed(0)}%'
-                    : '';
-            final teaStr = a.tea != null ? ', TEA: ${a.tea!.toStringAsFixed(1)}%' : '';
-            final datesStr =
-                (a.closingDay != null || a.paymentDueDay != null)
-                    ? ', corte día ${a.closingDay ?? "-"}, pago día ${a.paymentDueDay ?? "-"}'
-                    : '';
+            final utilStr = (a.creditLimit != null && a.creditLimit! > 0)
+                ? ', utilización: ${(debt / a.creditLimit! * 100).toStringAsFixed(0)}%'
+                : '';
+            final teaStr = a.tea != null
+                ? ', TEA: ${a.tea!.toStringAsFixed(1)}%'
+                : '';
+            final datesStr = (a.closingDay != null || a.paymentDueDay != null)
+                ? ', corte día ${a.closingDay ?? "-"}, pago día ${a.paymentDueDay ?? "-"}'
+                : '';
             sb.writeln(
-              '  - ${a.name} [Tarjeta de Crédito]: deuda actual $sym ${debt.toStringAsFixed(2)}$limitStr$utilStr$teaStr$datesStr',
+              '  - ${a.name} [Tarjeta de Crédito]: deuda actual $sym ${debt.toStringAsFixed(2)}, disponible $sym ${card.available.toStringAsFixed(2)}$limitStr$utilStr$teaStr$datesStr',
             );
           } else {
             sb.writeln('  - ${a.name} [${a.type}]: $origStr');
@@ -256,7 +407,10 @@ class FinancialContextBuilder {
       }
 
       // Totales exactos mes actual y anterior (para consistencia)
-      final currentTotalExp = currentCatExpenses.values.fold(0.0, (a, b) => a + b);
+      final currentTotalExp = currentCatExpenses.values.fold(
+        0.0,
+        (a, b) => a + b,
+      );
       final prevTotalExp = prevCatExpenses.values.fold(0.0, (a, b) => a + b);
       if (prevTotalExp > 0) {
         final diffPct = ((currentTotalExp - prevTotalExp) / prevTotalExp * 100);
@@ -288,7 +442,9 @@ class FinancialContextBuilder {
           ..sort((a, b) => b.value.compareTo(a.value));
         for (final entry in sortedSubs.take(10)) {
           final sub = subMap[entry.key];
-          final catName = sub != null ? (catMap[sub.categoryId]?.name ?? '') : '';
+          final catName = sub != null
+              ? (catMap[sub.categoryId]?.name ?? '')
+              : '';
           final label = sub != null
               ? (catName.isNotEmpty ? '$catName > ${sub.name}' : sub.name)
               : entry.key;
@@ -391,7 +547,8 @@ class FinancialContextBuilder {
               .fold<double>(
                 0.0,
                 (sum, t) =>
-                    sum + TextSearchHelper.convertToPen(t.amount, t.currency, rates),
+                    sum +
+                    TextSearchHelper.convertToPen(t.amount, t.currency, rates),
               );
           final status = tr.isActive ? 'ACTIVO' : 'Inactivo';
           sb.writeln(
@@ -401,7 +558,9 @@ class FinancialContextBuilder {
       }
 
       // ── 9. Búsqueda dinámica en TODO el historial para la pregunta actual ───
-      if (userQuery != null && userQuery.trim().isNotEmpty && allTxs.isNotEmpty) {
+      if (userQuery != null &&
+          userQuery.trim().isNotEmpty &&
+          allTxs.isNotEmpty) {
         final queryMatches = _findQueryMatches(
           userQuery: userQuery,
           now: now,
@@ -427,15 +586,15 @@ class FinancialContextBuilder {
             'Total movimientos coincidentes encontrados en historial: ${queryMatches.length} | Suma gastos: ${fmt.format(matchExpense)} | Suma ingresos: ${fmt.format(matchIncome)}',
           );
           for (final tx in queryMatches.take(20)) {
-            sb.writeln(
-              '  - ${_formatTxLine(tx, catMap, subMap, accMap, fmt)}',
-            );
+            sb.writeln('  - ${_formatTxLine(tx, catMap, subMap, accMap, fmt)}');
           }
         }
       }
 
       // ── 10. Movimientos más recientes ───────────────────────────────────────
-      final recentSource = currentMonthTxs.isNotEmpty ? currentMonthTxs : allTxs;
+      final recentSource = currentMonthTxs.isNotEmpty
+          ? currentMonthTxs
+          : allTxs;
       if (recentSource.isNotEmpty) {
         sb.writeln('\n=== ÚLTIMOS MOVIMIENTOS REGISTRADOS ===');
         for (final tx in recentSource.take(15)) {
@@ -453,7 +612,9 @@ class FinancialContextBuilder {
 
       return sb.toString();
     } catch (e, st) {
-      debugPrint('[FinancialContextBuilder] Error construyendo contexto: $e\n$st');
+      debugPrint(
+        '[FinancialContextBuilder] Error construyendo contexto: $e\n$st',
+      );
       return 'No se pudo cargar el detalle financiero completo por un error interno ($e).';
     }
   }
@@ -510,7 +671,8 @@ class FinancialContextBuilder {
 
     int? targetMonth;
     int? targetYear;
-    if (normalized.contains('mes pasado') || normalized.contains('mes anterior')) {
+    if (normalized.contains('mes pasado') ||
+        normalized.contains('mes anterior')) {
       final prev = DateTime(now.year, now.month - 1, 1);
       targetMonth = prev.month;
       targetYear = prev.year;
@@ -525,10 +687,12 @@ class FinancialContextBuilder {
     }
 
     final keywords = rawTokens
-        .where((t) =>
-            t.length >= 3 &&
-            !_stopWords.contains(t) &&
-            !_monthKeywords.containsKey(t))
+        .where(
+          (t) =>
+              t.length >= 3 &&
+              !_stopWords.contains(t) &&
+              !_monthKeywords.containsKey(t),
+        )
         .toList();
 
     if (keywords.isEmpty && targetMonth == null) return const [];
@@ -562,7 +726,9 @@ class FinancialContextBuilder {
   }
 }
 
-final financialContextBuilderProvider = Provider<FinancialContextBuilder>((ref) {
+final financialContextBuilderProvider = Provider<FinancialContextBuilder>((
+  ref,
+) {
   final db = ref.watch(databaseProvider);
   return FinancialContextBuilder(
     transactionsDao: db.transactionsDao,
@@ -576,4 +742,3 @@ final financialContextBuilderProvider = Provider<FinancialContextBuilder>((ref) 
     travelsDao: db.travelsDao,
   );
 });
-

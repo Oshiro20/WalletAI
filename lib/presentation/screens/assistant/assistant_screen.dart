@@ -68,6 +68,17 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
             .toList();
         if (list.isNotEmpty) {
           state = list;
+          _getGroq().loadHistory(
+            list
+                .where((m) => m.text != '...')
+                .map(
+                  (m) => {
+                    'role': m.isUser ? 'user' : 'assistant',
+                    'content': m.text,
+                  },
+                )
+                .toList(),
+          );
           return;
         }
       }
@@ -84,11 +95,11 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
 
   Future<void> _saveHistory(List<ChatMessage> messages) async {
     try {
-      // Filtrar el indicador de "escribiendo" antes de guardar
-      final toSave = messages
-          .where((m) => m.text != '...')
-          .take(_maxStoredMessages)
-          .toList();
+      // Guardar los últimos _maxStoredMessages mensajes reales (no '...')
+      final clean = messages.where((m) => m.text != '...').toList();
+      final toSave = clean.length > _maxStoredMessages
+          ? clean.sublist(clean.length - _maxStoredMessages)
+          : clean;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(
         _kHistoryKey,
@@ -113,24 +124,32 @@ class ChatNotifier extends StateNotifier<List<ChatMessage>> {
     );
     state = [...state, typing];
 
-    final contextBuilder = _ref.read(financialContextBuilderProvider);
-    final localAssistant = _ref.read(assistantServiceProvider);
-    final context = await contextBuilder.buildContext(userQuery: text);
-    final groq = _getGroq();
-    final response = await groq.sendMessage(
-      text,
-      financialContext: context,
-      offlineFallback: (q) => localAssistant.processQuestion(q),
-    );
+    String responseText;
+    try {
+      final contextBuilder = _ref.read(financialContextBuilderProvider);
+      final localAssistant = _ref.read(assistantServiceProvider);
+      final context = await contextBuilder.buildContext(userQuery: text);
+      final groq = _getGroq();
+      responseText = await groq.sendMessage(
+        text,
+        financialContext: context,
+        offlineFallback: (q) => localAssistant.processQuestion(q),
+      );
+    } catch (e) {
+      responseText = '❌ Ocurrió un error al consultar tus finanzas: $e';
+    } finally {
+      _isLoading = false;
+    }
 
     final msgs = [...state];
-    msgs.removeLast();
+    if (msgs.isNotEmpty && msgs.last.text == '...') {
+      msgs.removeLast();
+    }
     final finalMsgs = [
       ...msgs,
-      ChatMessage(text: response, isUser: false, timestamp: DateTime.now()),
+      ChatMessage(text: responseText, isUser: false, timestamp: DateTime.now()),
     ];
     state = finalMsgs;
-    _isLoading = false;
     await _saveHistory(finalMsgs);
   }
 
@@ -247,7 +266,7 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(16),
-              itemCount: messages.length + (isLoading ? 0 : 0),
+              itemCount: messages.length,
               itemBuilder: (context, i) {
                 final msg = messages[i];
                 return _MessageBubble(message: msg, cs: cs);
@@ -314,8 +333,8 @@ class _MessageBubble extends StatelessWidget {
               ),
               child: isTyping
                   ? _TypingIndicator(color: cs.onSurfaceVariant)
-                  : Text(
-                      message.text,
+                  : _FormattedMessageText(
+                      text: message.text,
                       style: TextStyle(
                         color: message.isUser ? cs.onPrimary : cs.onSurface,
                         fontSize: 14.5,
@@ -327,6 +346,53 @@ class _MessageBubble extends StatelessWidget {
           if (message.isUser) const SizedBox(width: 8),
         ],
       ),
+    );
+  }
+}
+
+class _FormattedMessageText extends StatelessWidget {
+  final String text;
+  final TextStyle style;
+
+  const _FormattedMessageText({required this.text, required this.style});
+
+  static final _tokenRegex = RegExp(r'\*\*(.+?)\*\*|_([^_\n]+)_');
+
+  @override
+  Widget build(BuildContext context) {
+    final spans = <InlineSpan>[];
+    int lastEnd = 0;
+
+    for (final match in _tokenRegex.allMatches(text)) {
+      if (match.start > lastEnd) {
+        spans.add(TextSpan(text: text.substring(lastEnd, match.start)));
+      }
+      final boldGroup = match.group(1);
+      final italicGroup = match.group(2);
+      if (boldGroup != null) {
+        spans.add(
+          TextSpan(
+            text: boldGroup,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        );
+      } else if (italicGroup != null) {
+        spans.add(
+          TextSpan(
+            text: italicGroup,
+            style: const TextStyle(fontStyle: FontStyle.italic),
+          ),
+        );
+      }
+      lastEnd = match.end;
+    }
+
+    if (lastEnd < text.length) {
+      spans.add(TextSpan(text: text.substring(lastEnd)));
+    }
+
+    return SelectableText.rich(
+      TextSpan(style: style, children: spans.isEmpty ? [TextSpan(text: text)] : spans),
     );
   }
 }

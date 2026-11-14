@@ -200,6 +200,21 @@ Reglas estrictas:
     _history.clear();
   }
 
+  /// Hidrata la memoria conversacional con mensajes previos persistidos
+  void loadHistory(List<Map<String, String>> messages) {
+    _history.clear();
+    final trimmed = messages.length > 20
+        ? messages.sublist(messages.length - 20)
+        : messages;
+    for (final m in trimmed) {
+      final role = m['role'];
+      final content = m['content'] ?? '';
+      if ((role == 'user' || role == 'assistant') && content.isNotEmpty) {
+        _history.add({'role': role!, 'content': content});
+      }
+    }
+  }
+
   /// PROCESAMIENTO OCR: Analiza el texto en bruto de una boleta y devuelve JSON estructurado
   Future<Map<String, dynamic>?> parseReceipt(
     String rawText, {
