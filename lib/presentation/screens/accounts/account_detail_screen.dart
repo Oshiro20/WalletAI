@@ -13,6 +13,7 @@ import 'package:uuid/uuid.dart';
 import '../../providers/transaction_repository_provider.dart';
 import 'package:drift/drift.dart' as drift;
 import '../../../core/utils/credit_card_calculator.dart';
+import '../../../data/datasources/notification_service.dart';
 import 'widgets/active_installments_card.dart';
 
 class _CreditCardMath {
@@ -50,118 +51,33 @@ final _statementInfoProvider = FutureProvider.autoDispose.family<_StatementInfo,
     return _StatementInfo(0.0, 0.0, DateTime.now(), null);
   }
 
-  final now = DateTime.now();
-  final closingDay = account.closingDay!;
-
-  // 1. Calculate the last absolute closing timestamp
-  DateTime lastClosingDate;
-  if (now.day > closingDay) {
-    // Already passed the closing day this month
-    lastClosingDate = DateTime(now.year, now.month, closingDay, 23, 59, 59);
-  } else {
-    // Closing day hasn't arrived this month, so last close was last month
-    var year = now.year;
-    var month = now.month - 1;
-    if (month == 0) {
-      month = 12;
-      year--;
-    }
-    // Handle Feb 28/29 cases
-    var day = closingDay;
-    if (month == 2 && day > 28) {
-      day = (year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)) ? 29 : 28;
-    } else if ((month == 4 || month == 6 || month == 9 || month == 11) &&
-        day > 30) {
-      day = 30;
-    }
-    lastClosingDate = DateTime(year, month, day, 23, 59, 59);
-  }
-
-  // 2. Calculate the payment due date for that specific cycle (usually next month)
-  DateTime? paymentDueDate;
-  if (account.paymentDueDay != null) {
-    var pYear = lastClosingDate.year;
-    var pMonth = lastClosingDate.month + 1;
-    if (pMonth > 12) {
-      pMonth = 1;
-      pYear++;
-    }
-    var pDay = account.paymentDueDay!;
-
-    // Check boundaries
-    if (pMonth == 2 && pDay > 28) {
-      pDay = (pYear % 4 == 0 && (pYear % 100 != 0 || pYear % 400 == 0))
-          ? 29
-          : 28;
-    } else if ((pMonth == 4 || pMonth == 6 || pMonth == 9 || pMonth == 11) &&
-        pDay > 30) {
-      pDay = 30;
-    }
-    paymentDueDate = DateTime(pYear, pMonth, pDay);
-
-    // Extremely quick cycles where payment happens the exact SAME month
-    var sameMonthPayDay = account.paymentDueDay!;
-    if (sameMonthPayDay > lastClosingDate.day) {
-      var sDay = sameMonthPayDay;
-      if (lastClosingDate.month == 2 && sDay > 28) {
-        sDay =
-            (lastClosingDate.year % 4 == 0 &&
-                (lastClosingDate.year % 100 != 0 ||
-                    lastClosingDate.year % 400 == 0))
-            ? 29
-            : 28;
-      } else if ((lastClosingDate.month == 4 ||
-              lastClosingDate.month == 6 ||
-              lastClosingDate.month == 9 ||
-              lastClosingDate.month == 11) &&
-          sDay > 30) {
-        sDay = 30;
-      }
-      var sameMonthPayDate = DateTime(
-        lastClosingDate.year,
-        lastClosingDate.month,
-        sDay,
-      );
-      if (sameMonthPayDate.difference(lastClosingDate).inDays >= 10) {
-        paymentDueDate = sameMonthPayDate;
-      }
-    }
-  }
-
-  // 3. Mathematical reverse-logic: Find all expenses AFTER the last closing date
   final dao = ref.read(transactionsDaoProvider);
   final txs = await dao.getTransactionsByAccount(
     account.id,
     limit: 1000,
-  ); // Need enough history
+  );
 
-  double recentExpensesSum = 0.0;
-  for (final tx in txs) {
-    if (tx.date.isAfter(lastClosingDate)) {
-      // If the CC was the source of funds, it's an expense that INCREASED total debt.
-      // (This excludes payments we made TO the CC, those reduced debt and we don't reverse them).
-      if (tx.accountId == account.id &&
-          (tx.type == 'expense' ||
-              tx.type == 'transfer' ||
-              tx.type == 'installment')) {
-        recentExpensesSum += tx.amount;
-      }
-    }
-  }
-
-  // 4. Calculate Current Total Debt using our dynamic math logic
-  final math = _CreditCardMath.calculate(account.balance, account.creditLimit);
-  final totalDebt = math.debt;
-
-  // 5. The true "Pago del Mes" is the Total Debt MINUS any recent expenses.
-  double statementDebt = totalDebt - recentExpensesSum;
-  if (statementDebt < 0) statementDebt = 0.0; // Paid off completely
+  final summary = CreditCardCalculator.calculateStatementCycle(
+    accountId: account.id,
+    balance: account.balance,
+    creditLimit: account.creditLimit,
+    closingDay: account.closingDay,
+    paymentDueDay: account.paymentDueDay,
+    transactions: txs.map(
+      (tx) => (
+        date: tx.date,
+        accountId: tx.accountId,
+        type: tx.type,
+        amount: tx.amount,
+      ),
+    ),
+  );
 
   return _StatementInfo(
-    statementDebt,
-    totalDebt,
-    lastClosingDate,
-    paymentDueDate,
+    summary.statementDebt,
+    summary.totalDebt,
+    summary.lastClosingDate,
+    summary.paymentDueDate,
   );
 });
 
@@ -983,6 +899,16 @@ class _CreditCardPaymentSheetState
         destinationAccountId: widget.destAccount.id,
       );
 
+      // Re-evaluar recordatorios de tarjetas tras el abono (ej. cancelar si quedó al día)
+      try {
+        final accounts = await ref.read(accountsDaoProvider).getAllAccounts();
+        await NotificationService().checkCreditCardDueDates(
+          accounts,
+          transactionsDao: ref.read(transactionsDaoProvider),
+          forceRefresh: true,
+        );
+      } catch (_) {}
+
       if (mounted) {
         Navigator.pop(context); // Cierra el modal
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1096,7 +1022,8 @@ class _CreditCardPaymentSheetState
                                     : Colors.green,
                               ),
                             ),
-                            if (info.paymentDueDate != null)
+                            if (info.paymentDueDate != null &&
+                                info.statementDebt > 0.01)
                               Padding(
                                 padding: const EdgeInsets.only(top: 4.0),
                                 child: Text(
@@ -1105,6 +1032,18 @@ class _CreditCardPaymentSheetState
                                     color: Theme.of(context).colorScheme.error,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            else if (info.statementDebt <= 0.01)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  'Al día al último corte',
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
@@ -1330,9 +1269,8 @@ class _CreditCardPaymentSheetState
                   .toList();
 
               return DropdownButtonFormField<String>(
-                initialValue: sourceAccounts.any(
-                  (a) => a.id == _selectedSourceAccountId,
-                )
+                initialValue:
+                    sourceAccounts.any((a) => a.id == _selectedSourceAccountId)
                     ? _selectedSourceAccountId
                     : null,
                 decoration: const InputDecoration(

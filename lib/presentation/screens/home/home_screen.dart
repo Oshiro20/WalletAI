@@ -78,11 +78,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Future<void> _checkCreditCardAlerts() async {
     final prefs = await SharedPreferences.getInstance();
     final lastCheck = prefs.getString('last_cc_alert_check');
-    final today = DateTime.now().toIso8601String().split('T')[0];
+    final now = DateTime.now();
+    final today =
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
 
     if (lastCheck != today && mounted) {
       final accounts = await ref.read(accountsStreamProvider.future);
-      await NotificationService().checkCreditCardDueDates(accounts);
+      final transactionsDao = ref.read(transactionsDaoProvider);
+      await NotificationService().checkCreditCardDueDates(
+        accounts,
+        transactionsDao: transactionsDao,
+      );
       await prefs.setString('last_cc_alert_check', today);
     }
   }

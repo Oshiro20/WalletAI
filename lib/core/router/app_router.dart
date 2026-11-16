@@ -254,7 +254,12 @@ final appRouter = GoRouter(
           initialCategoryId: extra?['categoryId'],
           initialSubcategoryId: extra?['subcategoryId'],
           initialAccountId: extra?['accountId'],
+          initialDestinationAccountId: extra?['destinationAccountId'],
+          initialCurrency: extra?['currency'],
           initialDate: date,
+          initialQuantity: (extra?['quantity'] as num?)?.toDouble(),
+          initialUnit: extra?['unit']?.toString(),
+          initialInstallments: (extra?['installments'] as num?)?.toInt(),
         );
       },
     ),

@@ -46,6 +46,24 @@ class InstallmentItem {
   });
 }
 
+/// Resumen del ciclo de facturación actual de una tarjeta de crédito
+class StatementCycleSummary {
+  final double statementDebt; // Deuda facturada pendiente al último corte
+  final double totalDebt; // Consumo / deuda total actual
+  final DateTime lastClosingDate; // Última fecha de corte cerrada
+  final DateTime? paymentDueDate; // Fecha de vencimiento correspondiente al corte
+
+  const StatementCycleSummary({
+    required this.statementDebt,
+    required this.totalDebt,
+    required this.lastClosingDate,
+    this.paymentDueDate,
+  });
+
+  /// Indica si realmente hay deuda facturada pendiente de pago (> 1 céntimo)
+  bool get hasStatementDebt => statementDebt > 0.01;
+}
+
 /// Utilidad matemática y financiera para tarjetas de crédito
 class CreditCardCalculator {
   /// Convierte una Tasa Efectiva Anual (TEA %) a Tasa Efectiva Mensual (TEM %)
@@ -81,6 +99,104 @@ class CreditCardCalculator {
     final available = balance;
     final debt = safeLimit > 0 ? math.max(0.0, safeLimit - available) : 0.0;
     return (debt: debt, available: available);
+  }
+
+  /// Calcula la última fecha de corte cerrada, fecha límite de pago y deuda
+  /// facturada pendiente (excluyendo consumos posteriores al último corte).
+  static StatementCycleSummary calculateStatementCycle({
+    required String accountId,
+    required double balance,
+    double? creditLimit,
+    int? closingDay,
+    int? paymentDueDay,
+    Iterable<({DateTime date, String accountId, String type, double amount})>
+    transactions = const [],
+    DateTime? referenceDate,
+  }) {
+    final now = referenceDate ?? DateTime.now();
+    final cardMath = calculateCardBalance(
+      balance: balance,
+      creditLimit: creditLimit,
+    );
+    final totalDebt = cardMath.debt;
+
+    if (closingDay == null) {
+      DateTime? dueDate;
+      if (paymentDueDay != null) {
+        dueDate = _createValidDate(now.year, now.month, paymentDueDay);
+      }
+      return StatementCycleSummary(
+        statementDebt: totalDebt,
+        totalDebt: totalDebt,
+        lastClosingDate: now,
+        paymentDueDate: dueDate,
+      );
+    }
+
+    // 1. Última fecha de corte cerrada (al final del día del corte)
+    final DateTime baseClosing;
+    if (now.day > closingDay) {
+      baseClosing = _createValidDate(now.year, now.month, closingDay);
+    } else {
+      var year = now.year;
+      var month = now.month - 1;
+      if (month == 0) {
+        month = 12;
+        year--;
+      }
+      baseClosing = _createValidDate(year, month, closingDay);
+    }
+    final lastClosingDate = DateTime(
+      baseClosing.year,
+      baseClosing.month,
+      baseClosing.day,
+      23,
+      59,
+      59,
+    );
+
+    // 2. Fecha de vencimiento correspondiente a ese corte
+    DateTime? paymentDueDate;
+    if (paymentDueDay != null) {
+      var pYear = lastClosingDate.year;
+      var pMonth = lastClosingDate.month + 1;
+      if (pMonth > 12) {
+        pMonth = 1;
+        pYear++;
+      }
+      paymentDueDate = _createValidDate(pYear, pMonth, paymentDueDay);
+
+      // Ciclos rápidos donde el pago ocurre el mismo mes del corte
+      final sameMonthPayDate = _createValidDate(
+        lastClosingDate.year,
+        lastClosingDate.month,
+        paymentDueDay,
+      );
+      if (paymentDueDay > lastClosingDate.day &&
+          sameMonthPayDate.difference(lastClosingDate).inDays >= 10) {
+        paymentDueDate = sameMonthPayDate;
+      }
+    }
+
+    // 3. Descontar consumos realizados DESPUÉS del último corte (corresponden al próximo ciclo)
+    double recentExpensesSum = 0.0;
+    for (final tx in transactions) {
+      if (tx.date.isAfter(lastClosingDate) &&
+          tx.accountId == accountId &&
+          (tx.type == 'expense' ||
+              tx.type == 'transfer' ||
+              tx.type == 'installment')) {
+        recentExpensesSum += tx.amount;
+      }
+    }
+
+    final statementDebt = math.max(0.0, totalDebt - recentExpensesSum);
+    return StatementCycleSummary(
+      statementDebt: statementDebt,
+      totalDebt: totalDebt,
+      lastClosingDate: lastClosingDate,
+      paymentDueDate: paymentDueDate,
+    );
   }
 
   /// Calcula el plan de cuotas y la TEA/TEM implícitas a partir de una cuota mensual fija

@@ -135,5 +135,86 @@ void main() {
       expect(next.month, equals(2));
       expect(next.day, equals(28));
     });
+
+    test('calculateStatementCycle no reporta deuda facturada si solo hay consumos posteriores al corte', () {
+      // Hoy 16 nov, corte día 10, pago día 25 (mismo mes, diff=15 >= 10)
+      final cycle = CreditCardCalculator.calculateStatementCycle(
+        accountId: 'tc1',
+        balance: -250.0,
+        creditLimit: 3000.0,
+        closingDay: 10,
+        paymentDueDay: 25,
+        referenceDate: DateTime(2026, 11, 16),
+        transactions: [
+          (
+            date: DateTime(2026, 11, 12), // después del corte del 10 nov
+            accountId: 'tc1',
+            type: 'expense',
+            amount: 250.0,
+          ),
+        ],
+      );
+
+      expect(cycle.lastClosingDate, equals(DateTime(2026, 11, 10, 23, 59, 59)));
+      expect(cycle.paymentDueDate, equals(DateTime(2026, 11, 25)));
+      expect(cycle.totalDebt, equals(250.0));
+      expect(cycle.statementDebt, equals(0.0));
+      expect(cycle.hasStatementDebt, isFalse);
+    });
+
+    test('calculateStatementCycle calcula solo lo facturado antes del último corte', () {
+      // Corte 20 oct, pago 10 nov; hoy 7 nov. Consumo de 300 en oct (antes del corte) y 150 el 25 oct (después).
+      final cycle = CreditCardCalculator.calculateStatementCycle(
+        accountId: 'tc1',
+        balance: -450.0,
+        creditLimit: 3000.0,
+        closingDay: 20,
+        paymentDueDay: 10,
+        referenceDate: DateTime(2026, 11, 7),
+        transactions: [
+          (
+            date: DateTime(2026, 10, 15),
+            accountId: 'tc1',
+            type: 'expense',
+            amount: 300.0,
+          ),
+          (
+            date: DateTime(2026, 10, 25),
+            accountId: 'tc1',
+            type: 'expense',
+            amount: 150.0,
+          ),
+        ],
+      );
+
+      expect(cycle.lastClosingDate, equals(DateTime(2026, 10, 20, 23, 59, 59)));
+      expect(cycle.paymentDueDate, equals(DateTime(2026, 11, 10)));
+      expect(cycle.totalDebt, equals(450.0));
+      expect(cycle.statementDebt, equals(300.0));
+      expect(cycle.hasStatementDebt, isTrue);
+    });
+
+    test('calculateStatementCycle queda en 0 al pagar lo facturado aunque existan consumos nuevos', () {
+      // Deuda restante de 150 corresponde solo al consumo del 25 oct (posterior al corte del 20 oct)
+      final cycle = CreditCardCalculator.calculateStatementCycle(
+        accountId: 'tc1',
+        balance: -150.0,
+        creditLimit: 3000.0,
+        closingDay: 20,
+        paymentDueDay: 10,
+        referenceDate: DateTime(2026, 11, 7),
+        transactions: [
+          (
+            date: DateTime(2026, 10, 25),
+            accountId: 'tc1',
+            type: 'expense',
+            amount: 150.0,
+          ),
+        ],
+      );
+
+      expect(cycle.statementDebt, equals(0.0));
+      expect(cycle.hasStatementDebt, isFalse);
+    });
   });
 }

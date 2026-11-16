@@ -609,63 +609,91 @@ Texto OCR a analizar:
     return null;
   }
 
+  /// Limpia bloques Markdown (```json ... ```) y extrae un objeto JSON válido.
+  static Map<String, dynamic>? decodeJsonObject(String raw) {
+    var clean = raw.trim();
+    if (clean.contains('```')) {
+      clean = clean.replaceAll(RegExp(r'^```(?:json)?\s*', multiLine: true), '');
+      clean = clean.replaceAll(RegExp(r'\s*```$', multiLine: true), '');
+      clean = clean.replaceAll(RegExp(r'```(?:json)?\s*'), '');
+      clean = clean.replaceAll('```', '');
+      clean = clean.trim();
+    }
+
+    final start = clean.indexOf('{');
+    final end = clean.lastIndexOf('}');
+    if (start != -1 && end > start) {
+      clean = clean.substring(start, end + 1);
+    }
+
+    try {
+      final decoded = jsonDecode(clean);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// PROCESAMIENTO VOZ: Analiza un texto dictado por el usuario y extrae información estructurada
   Future<Map<String, dynamic>?> parseVoiceTransaction(
     String rawVoice,
-    List<dynamic> categories,
-  ) async {
+    List<dynamic> categories, {
+    List<dynamic> accounts = const [],
+    DateTime? referenceDate,
+  }) async {
+    final now = referenceDate ?? DateTime.now();
+    final todayIso = DateFormat('yyyy-MM-dd').format(now);
+    final weekdayName = DateFormat('EEEE', 'es').format(now);
     final categoriesListStr = categories.map((c) => c.name).join(', ');
+    final accountsListStr = accounts.isEmpty
+        ? 'No especificadas'
+        : accounts
+              .map((a) {
+                final type = (a as dynamic).type?.toString() ?? '';
+                final typeLabel = switch (type) {
+                  'credit_card' => 'Tarjeta de Crédito',
+                  'bank' => 'Banco',
+                  'wallet' => 'Billetera',
+                  'cash' => 'Efectivo',
+                  _ => type,
+                };
+                return '${a.name} [$typeLabel]';
+              })
+              .join(', ');
 
     final prompt =
         '''
 1️⃣ ROL DEL SISTEMA
-Actúa como un Asistente Financiero Especializado en Procesamiento de Lenguaje Natural (NLP).
-Tu tarea es interpretar un texto dictado por voz por el usuario y extraer los datos para registrar una transacción.
+Eres el parser NLP financiero de WalletAI (Perú/Latam). Tu tarea es transformar un dictado de voz en lenguaje natural en un único objeto JSON estructurado para registrar la transacción sin errores.
 
-2️⃣ OBJETIVO Y FORMATO DE SALIDA (JSON EXACTO)
-Extraer datos y devolver ESTE JSON EXACTO:
+2️⃣ CONTEXTO ACTUAL DEL USUARIO
+- Fecha de hoy: $todayIso ($weekdayName)
+- Categorías válidas: $categoriesListStr
+- Cuentas/tarjetas del usuario: $accountsListStr
+
+3️⃣ FORMATO DE SALIDA (JSON EXACTO)
+Devuelve ÚNICAMENTE este objeto JSON con las mismas claves:
 {
-  "tipo": "expense", // 'expense', 'income' o 'transfer'
-  "monto": 0.00, // Detectar el monto numérico
-  "descripcion": "cadena del nombre del lugar o detalle general",
-  "producto": "cadena del producto específico (opcional, null si no hay un producto claro)",
-  "cantidad": 1, // Número de items comprados, por defecto 1 si no se menciona
-  "unidad": "UND", // Asignar UND, KG, LTR, GRS, CAJA o MTS. Por defecto UND si no hay unidad clara.
-  "categoria_sugerida": "cadena exacta de una de las categorías disponibles"
+  "tipo": "expense", // "expense", "income" o "transfer"
+  "monto": 0.00, // número decimal positivo
+  "moneda": "PEN", // "PEN" (soles/lucas), "USD" (dólares/verdes) o "EUR"
+  "descripcion": "Comercio o motivo limpio sin muletillas",
+  "producto": null, // nombre específico del producto/servicio o null
+  "cantidad": 1, // número (ej. 2 si dijo "2 kilos de pollo", sino 1)
+  "unidad": "UND", // "UND", "KG", "GRS", "LTR", "CAJA" o "MTS"
+  "categoria_sugerida": "Nombre exacto de una categoría válida",
+  "cuenta_sugerida": null, // nombre exacto de la cuenta/tarjeta origen o null
+  "cuenta_destino_sugerida": null, // nombre exacto de cuenta destino solo en "transfer" o pago de tarjeta, sino null
+  "fecha": "$todayIso", // formato YYYY-MM-DD (resuelve "ayer", "antier", "el lunes", etc.)
+  "cuotas": 1 // entero >= 1 (ej. 3 si dijo "en 3 cuotas", sino 1)
 }
 
-3️⃣ CATEGORÍAS DISPONIBLES PARA ASIGNAR:
-$categoriesListStr
-
-4️⃣ REGLAS DE EXTRACCIÓN
-- Si el usuario dice "Gasté 20 soles en 2 kilos de pollo en el mercado", debes extraer:
-  tipo: "expense"
-  monto: 20.00
-  descripcion: "Mercado"
-  producto: "Pollo"
-  cantidad: 2
-  unidad: "KG"
-  categoria_sugerida: "Alimentación" (u otra afín)
-- Si el usuario dice "Me pagaron 1500 de mi sueldo":
-  tipo: "income"
-  monto: 1500.00
-  descripcion: "Sueldo"
-  producto: null
-  cantidad: 1
-  unidad: "UND"
-  categoria_sugerida: "Salario" (o afín)
-- Si dice "Transferí 50 soles a mi hermano":
-  tipo: "transfer"
-  monto: 50.00
-  descripcion: "Transferencia a hermano"
-  producto: null
-  cantidad: 1
-  unidad: "UND"
-
-5️⃣ RESPUESTA
-Solo devuelve JSON válido. No incluyas explicaciones de texto ni bloques de Markdown (```json).
-
-Texto dictado:
+4️⃣ REGLAS ESTRICTAS
+- Limpia muletillas del campo "descripcion" ("gasté", "pagué", "en", "soles", "con mi tarjeta"): escribe el concepto/comercio limpio (ej: "Cena", "Supermercado Metro", "Taxi", "Pago tarjeta BCP").
+- Si menciona "transferí", "pasé", "envié" entre cuentas propias o "pagué mi tarjeta X con Y", usa "tipo": "transfer", "cuenta_sugerida": origen (Y) y "cuenta_destino_sugerida": destino (X).
+- Para "cuenta_sugerida" y "categoria_sugerida", elige el nombre MÁS CERCANO de las listas provistas arriba (sin inventar nombres fuera de ellas; si ninguna aplica para cuenta, usa null).
+- Si hay varias palabras numéricas, identifica correctamente cuál es el monto monetario y cuál es la cantidad/cuotas (ej. "2 kilos de pollo a 24 soles en 3 cuotas" -> monto: 24.0, cantidad: 2, unidad: "KG", cuotas: 3).
+- Responde SOLO JSON válido sin texto extra ni bloques Markdown.
 ''';
 
     try {
@@ -680,7 +708,7 @@ Texto dictado:
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final content = data['choices'][0]['message']['content'] as String;
-        return jsonDecode(content) as Map<String, dynamic>?;
+        return decodeJsonObject(content);
       }
     } catch (_) {
       // Si falla, retornar null para caer en logica fallback

@@ -32,6 +32,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     });
     _lifecycleListener = AppLifecycleListener(
       onResume: () {
+        ref.read(recurrenceServiceProvider).checkDuePayments();
         final db = ref.read(databaseProvider);
         EcosystemSyncService.importAllPendingTransactions(db).then((_) {
           EcosystemSyncService.publishSummary(db);

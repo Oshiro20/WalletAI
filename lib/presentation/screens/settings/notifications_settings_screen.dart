@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../data/datasources/notification_service.dart';
+import '../../providers/database_providers.dart';
 
-class NotificationsSettingsScreen extends StatefulWidget {
+class NotificationsSettingsScreen extends ConsumerStatefulWidget {
   const NotificationsSettingsScreen({super.key});
 
   @override
-  State<NotificationsSettingsScreen> createState() =>
+  ConsumerState<NotificationsSettingsScreen> createState() =>
       _NotificationsSettingsScreenState();
 }
 
 class _NotificationsSettingsScreenState
-    extends State<NotificationsSettingsScreen> {
+    extends ConsumerState<NotificationsSettingsScreen> {
   bool _enabled = false;
   TimeOfDay _time = const TimeOfDay(hour: 20, minute: 0);
+  bool _cardAlertsEnabled = true;
+  int _cardAlertsDaysBefore = 3;
   bool _loading = true;
 
   @override
@@ -24,13 +28,52 @@ class _NotificationsSettingsScreenState
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
+    final cardEnabled = await NotificationService().isCardAlertsEnabled();
+    final cardDays = await NotificationService().getCardAlertsDaysBefore();
+    if (!mounted) return;
     setState(() {
       _enabled = prefs.getBool('daily_reminder_enabled') ?? false;
       final h = prefs.getInt('daily_reminder_hour') ?? 20;
       final m = prefs.getInt('daily_reminder_min') ?? 0;
       _time = TimeOfDay(hour: h, minute: m);
+      _cardAlertsEnabled = cardEnabled;
+      _cardAlertsDaysBefore = cardDays;
       _loading = false;
     });
+  }
+
+  Future<void> _toggleCardAlerts(bool value) async {
+    setState(() => _cardAlertsEnabled = value);
+    await NotificationService().setCardAlertsEnabled(value);
+    final accounts = await ref.read(accountsDaoProvider).getAllAccounts();
+    await NotificationService().checkCreditCardDueDates(
+      accounts,
+      transactionsDao: ref.read(transactionsDaoProvider),
+      forceRefresh: false,
+    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value
+                ? '💳 Alertas de tarjetas activadas (solo si hay deuda al corte)'
+                : '🔕 Alertas de vencimiento de tarjetas desactivadas',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _changeCardDaysBefore(int days) async {
+    setState(() => _cardAlertsDaysBefore = days);
+    await NotificationService().setCardAlertsDaysBefore(days);
+    final accounts = await ref.read(accountsDaoProvider).getAllAccounts();
+    await NotificationService().checkCreditCardDueDates(
+      accounts,
+      transactionsDao: ref.read(transactionsDaoProvider),
+      forceRefresh: false,
+    );
   }
 
   Future<void> _toggleReminder(bool value) async {
@@ -138,6 +181,48 @@ class _NotificationsSettingsScreenState
                     onTap: _pickTime,
                   ),
                 ],
+                const Divider(),
+
+                // ─── Tarjetas de crédito ────────────────────────────────
+                _SectionHeader(title: 'Tarjetas de crédito'),
+                SwitchListTile(
+                  value: _cardAlertsEnabled,
+                  onChanged: _toggleCardAlerts,
+                  title: const Text('Recordatorio de pago de tarjeta'),
+                  subtitle: const Text(
+                    'Solo te avisa cuando hay saldo pendiente de tu último corte',
+                  ),
+                  secondary: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: cs.secondaryContainer,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.credit_card_outlined,
+                      color: cs.secondary,
+                      size: 22,
+                    ),
+                  ),
+                ),
+                if (_cardAlertsEnabled)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(72, 0, 16, 12),
+                    child: Wrap(
+                      spacing: 8,
+                      children: [1, 3, 5].map((days) {
+                        final selected = _cardAlertsDaysBefore == days;
+                        return ChoiceChip(
+                          label: Text(
+                            days == 1 ? '1 día antes' : '$days días antes',
+                          ),
+                          selected: selected,
+                          onSelected: (_) => _changeCardDaysBefore(days),
+                        );
+                      }).toList(),
+                    ),
+                  ),
                 const Divider(),
 
                 // ─── Info ────────────────────────────────────────────────

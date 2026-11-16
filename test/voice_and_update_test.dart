@@ -1,0 +1,47 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:wallet_ai/core/services/update_service.dart';
+import 'package:wallet_ai/data/datasources/groq_service.dart';
+
+void main() {
+  group('UpdateService.isVersionGreater', () {
+    test('compara versiones con prefijo v y sufijos +build/-pre', () {
+      expect(UpdateService.isVersionGreater('v1.4.2', '1.4.1+24'), isTrue);
+      expect(UpdateService.isVersionGreater('v1.4.10', '1.4.2'), isTrue);
+      expect(UpdateService.isVersionGreater('v1.4.2-beta', '1.4.2'), isFalse);
+      expect(UpdateService.isVersionGreater('v1.4.1', '1.4.1'), isFalse);
+    });
+  });
+
+  group('GroqService.decodeJsonObject', () {
+    test('limpia bloques markdown y extrae JSON válido de respuesta de voz', () {
+      const raw = '''Aquí está la transacción:
+```json
+{
+  "tipo": "expense",
+  "monto": 24.5,
+  "moneda": "PEN",
+  "descripcion": "Mercado",
+  "producto": "Pollo",
+  "cantidad": 2,
+  "unidad": "KG",
+  "categoria_sugerida": "Alimentación",
+  "cuenta_sugerida": "BCP",
+  "cuenta_destino_sugerida": null,
+  "fecha": "2026-11-16",
+  "cuotas": 1
+}
+```''';
+
+      final parsed = GroqService.decodeJsonObject(raw);
+      expect(parsed, isNotNull);
+      expect(parsed!['monto'], 24.5);
+      expect(parsed['cuenta_sugerida'], 'BCP');
+      expect(parsed['cantidad'], 2);
+      expect(parsed['unidad'], 'KG');
+    });
+
+    test('retorna null ante contenido no JSON', () {
+      expect(GroqService.decodeJsonObject('No entendí el audio'), isNull);
+    });
+  });
+}

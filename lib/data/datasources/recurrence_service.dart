@@ -6,29 +6,44 @@ import '../../presentation/providers/database_providers.dart';
 import '../../presentation/providers/transaction_repository_provider.dart';
 import '../database/drift_database.dart';
 import '../database/daos/recurring_payments_dao.dart';
+import 'notification_service.dart';
 
 class RecurrenceService {
   final Ref ref;
+  bool _isRunning = false;
 
   RecurrenceService(this.ref);
 
-  /// Verificar y procesar pagos vencidos
-  Future<void> checkDuePayments() async {
-    final dao = ref.read(recurringPaymentsDaoProvider);
-    final now = DateTime.now();
+  /// Verificar y procesar pagos vencidos. Retorna los nombres aplicados.
+  Future<List<String>> checkDuePayments() async {
+    if (_isRunning) return const [];
+    _isRunning = true;
+    final executed = <String>[];
+    try {
+      final dao = ref.read(recurringPaymentsDaoProvider);
+      final now = DateTime.now();
 
-    // Obtener pagos activos que vencen hoy o antes
-    final duePayments =
-        await (dao.select(dao.recurringPayments)..where(
-              (t) =>
-                  t.isActive.equals(true) &
-                  t.nextDueDate.isSmallerOrEqualValue(now),
-            ))
-            .get();
+      // Obtener pagos activos que vencen hoy o antes
+      final duePayments =
+          await (dao.select(dao.recurringPayments)..where(
+                (t) =>
+                    t.isActive.equals(true) &
+                    t.nextDueDate.isSmallerOrEqualValue(now),
+              ))
+              .get();
 
-    for (final payment in duePayments) {
-      await _processPayment(payment, dao);
+      for (final payment in duePayments) {
+        await _processPayment(payment, dao);
+        executed.add('${payment.name} (S/ ${payment.amount.toStringAsFixed(2)})');
+      }
+
+      if (executed.isNotEmpty) {
+        await NotificationService().notifyRecurringExecuted(executed);
+      }
+    } finally {
+      _isRunning = false;
     }
+    return executed;
   }
 
   /// Procesar un pago individual actualizando saldos mediante TransactionRepository

@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
 import '../database/drift_database.dart';
 import '../database/daos/transactions_dao.dart';
+import '../../core/utils/credit_card_calculator.dart';
 
 /// Servicio de notificaciones inteligentes del asesor financiero
 class NotificationService {
@@ -21,6 +22,30 @@ class NotificationService {
   static const _prefHour = 'daily_reminder_hour';
   static const _prefMin = 'daily_reminder_min';
   static const int _dailyReminderId = 9001;
+
+  static const prefCardAlertsEnabled = 'credit_card_alerts_enabled';
+  static const prefCardAlertsDaysBefore = 'credit_card_alerts_days_before';
+  static const int _recurringBatchId = 9004;
+
+  Future<bool> isCardAlertsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(prefCardAlertsEnabled) ?? true;
+  }
+
+  Future<void> setCardAlertsEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(prefCardAlertsEnabled, enabled);
+  }
+
+  Future<int> getCardAlertsDaysBefore() async {
+    final prefs = await SharedPreferences.getInstance();
+    return (prefs.getInt(prefCardAlertsDaysBefore) ?? 3).clamp(1, 7);
+  }
+
+  Future<void> setCardAlertsDaysBefore(int days) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(prefCardAlertsDaysBefore, days.clamp(1, 7));
+  }
 
   Future<void> initialize() async {
     if (_initialized) return;
@@ -255,48 +280,226 @@ class NotificationService {
     }
   }
 
-  /// Verificar fechas de vencimiento de tarjetas de crédito
-  Future<void> checkCreditCardDueDates(List<Account> accounts) async {
-    final now = DateTime.now();
+  int _cardBaseNotificationId(String accountId) {
+    final positiveHash = accountId.hashCode & 0x7FFFF;
+    return 200000 + (positiveHash * 10);
+  }
+
+  Future<void> cancelCreditCardAlerts(String accountId) async {
+    await initialize();
+    final baseId = _cardBaseNotificationId(accountId);
+    await _plugin.cancel(baseId + 1);
+    await _plugin.cancel(baseId + 2);
+    await _plugin.cancel(baseId + 3);
+    // Cancelar también el ID usado por versiones anteriores
+    await _plugin.cancel(accountId.hashCode + 200);
+  }
+
+  Future<void> cancelAllCreditCardAlerts(List<Account> accounts) async {
     for (final account in accounts) {
-      if (account.type != 'credit_card' || account.paymentDueDay == null) {
+      if (account.type == 'credit_card') {
+        await cancelCreditCardAlerts(account.id);
+      }
+    }
+  }
+
+  String _currencyPrefix(String currency) {
+    switch (currency.toUpperCase()) {
+      case 'USD':
+        return 'US\$ ';
+      case 'EUR':
+        return '€ ';
+      default:
+        return 'S/ ';
+    }
+  }
+
+  Future<void> _scheduleCardAlertAt({
+    required int id,
+    required DateTime targetDay,
+    required String title,
+    required String body,
+  }) async {
+    await _initTz();
+    final now = tz.TZDateTime.now(tz.local);
+    final scheduled = tz.TZDateTime(
+      tz.local,
+      targetDay.year,
+      targetDay.month,
+      targetDay.day,
+      9,
+      0,
+    );
+    if (!scheduled.isAfter(now)) return;
+
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'credit_card_alerts',
+        'Alertas de Tarjeta',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ),
+    );
+
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      scheduled,
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      uiLocalNotificationDateInterpretation:
+          UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  /// Verifica tarjetas de crédito y SOLO notifica o programa recordatorios
+  /// cuando existe deuda facturada pendiente al último corte (> S/ 0.01).
+  Future<void> checkCreditCardDueDates(
+    List<Account> accounts, {
+    required TransactionsDao transactionsDao,
+    bool forceRefresh = false,
+  }) async {
+    final enabled = await isCardAlertsEnabled();
+    if (!enabled) {
+      await cancelAllCreditCardAlerts(accounts);
+      return;
+    }
+
+    await initialize();
+    final daysBefore = await getCardAlertsDaysBefore();
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final todayKey =
+        '${today.year}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+    for (final account in accounts) {
+      if (account.type != 'credit_card') continue;
+
+      if (!account.isActive || account.paymentDueDay == null) {
+        await cancelCreditCardAlerts(account.id);
         continue;
       }
 
-      final dueDay = account.paymentDueDay!;
-      int maxDays = DateTime(now.year, now.month + 1, 0).day;
-      int actualDueDay = dueDay > maxDays ? maxDays : dueDay;
+      final txs = await transactionsDao.getTransactionsByAccount(
+        account.id,
+        limit: 1000,
+      );
 
-      final dueDate = DateTime(now.year, now.month, actualDueDay);
-      final difference = dueDate
-          .difference(DateTime(now.year, now.month, now.day))
-          .inDays;
+      final cycle = CreditCardCalculator.calculateStatementCycle(
+        accountId: account.id,
+        balance: account.balance,
+        creditLimit: account.creditLimit,
+        closingDay: account.closingDay,
+        paymentDueDay: account.paymentDueDay,
+        transactions: txs.map(
+          (tx) => (
+            date: tx.date,
+            accountId: tx.accountId,
+            type: tx.type,
+            amount: tx.amount,
+          ),
+        ),
+        referenceDate: now,
+      );
 
-      if (difference == 3) {
-        await _show(
-          id: account.id.hashCode + 200,
+      // Si no hay deuda facturada pendiente al último corte, limpiar alertas y no recordar
+      if (!cycle.hasStatementDebt || cycle.paymentDueDate == null) {
+        await cancelCreditCardAlerts(account.id);
+        continue;
+      }
+
+      final dueDate = DateTime(
+        cycle.paymentDueDate!.year,
+        cycle.paymentDueDate!.month,
+        cycle.paymentDueDate!.day,
+      );
+      final difference = dueDate.difference(today).inDays;
+      final baseId = _cardBaseNotificationId(account.id);
+      final amountLabel =
+          '${_currencyPrefix(account.currency)}${cycle.statementDebt.toStringAsFixed(2)}';
+
+      // Limpiar alertas programadas previas antes de evaluar/mostrar las actuales
+      await cancelCreditCardAlerts(account.id);
+
+      final notifiedPrefKey = 'cc_notified_${account.id}_$todayKey';
+      final alreadyNotifiedToday = prefs.getBool(notifiedPrefKey) ?? false;
+
+      if (forceRefresh || !alreadyNotifiedToday) {
+        String? title;
+        String? body;
+        int? immediateId;
+
+        if (difference == 0) {
+          immediateId = baseId + 3;
+          title = '🚨 Pago de tarjeta HOY';
+          body =
+              'Hoy vence tu tarjeta ${account.name}. Pendiente del corte: $amountLabel.';
+        } else if (difference == 1) {
+          immediateId = baseId + 2;
+          title = '⚠️ Tarjeta vence mañana';
+          body =
+              'Mañana vence tu tarjeta ${account.name}. Pendiente del corte: $amountLabel.';
+        } else if (difference == daysBefore) {
+          immediateId = baseId + 1;
+          title = '💳 Tarjeta por vencer';
+          body =
+              'Faltan $daysBefore días para pagar ${account.name}. Monto del corte: $amountLabel.';
+        }
+
+        if (immediateId != null && title != null && body != null) {
+          await _show(
+            id: immediateId,
+            title: title,
+            body: body,
+            channel: 'credit_card_alerts',
+            channelName: 'Alertas de Tarjeta',
+          );
+          await prefs.setBool(notifiedPrefKey, true);
+        }
+      }
+
+      // Reprogramar alertas locales futuras mientras exista saldo pendiente al corte
+      if (daysBefore > 1) {
+        await _scheduleCardAlertAt(
+          id: baseId + 1,
+          targetDay: dueDate.subtract(Duration(days: daysBefore)),
           title: '💳 Tarjeta por vencer',
-          body: 'Faltan 3 días para pagar tu tarjeta ${account.name}.',
-          channel: 'credit_card_alerts',
-          channelName: 'Alertas de Tarjeta',
-        );
-      } else if (difference == 1) {
-        await _show(
-          id: account.id.hashCode + 200,
-          title: '⚠️ Tarjeta vence mañana',
-          body: 'Recuerda pagar tu tarjeta ${account.name} mañana.',
-          channel: 'credit_card_alerts',
-          channelName: 'Alertas de Tarjeta',
-        );
-      } else if (difference == 0) {
-        await _show(
-          id: account.id.hashCode + 200,
-          title: '🚨 Pago de tarjeta HOY',
-          body: 'Hoy es el último día para pagar tu tarjeta ${account.name}.',
-          channel: 'credit_card_alerts',
-          channelName: 'Alertas de Tarjeta',
+          body:
+              'Faltan $daysBefore días para pagar ${account.name}. Monto del corte: $amountLabel.',
         );
       }
+      await _scheduleCardAlertAt(
+        id: baseId + 2,
+        targetDay: dueDate.subtract(const Duration(days: 1)),
+        title: '⚠️ Tarjeta vence mañana',
+        body:
+            'Mañana vence tu tarjeta ${account.name}. Pendiente del corte: $amountLabel.',
+      );
+      await _scheduleCardAlertAt(
+        id: baseId + 3,
+        targetDay: dueDate,
+        title: '🚨 Pago de tarjeta HOY',
+        body:
+            'Hoy vence tu tarjeta ${account.name}. Pendiente del corte: $amountLabel.',
+      );
     }
+  }
+
+  /// Notifica cuando se ejecutaron pagos recurrentes automáticos
+  Future<void> notifyRecurringExecuted(List<String> executedItems) async {
+    if (executedItems.isEmpty) return;
+    final body = executedItems.length == 1
+        ? 'Se registró automáticamente: ${executedItems.first}'
+        : 'Se registraron ${executedItems.length} movimientos automáticos: ${executedItems.take(2).join(', ')}';
+    await _show(
+      id: _recurringBatchId,
+      title: '🔁 Pagos recurrentes aplicados',
+      body: body,
+      channel: 'recurring_alerts',
+      channelName: 'Pagos Recurrentes',
+    );
   }
 }

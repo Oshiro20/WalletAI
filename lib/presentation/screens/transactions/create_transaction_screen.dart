@@ -16,6 +16,7 @@ import 'widgets/account_selector.dart';
 import 'widgets/category_selector.dart';
 import '../../../data/datasources/notification_service.dart';
 import '../../../data/datasources/location_service.dart';
+import '../../widgets/common/voice_input_button.dart';
 import 'widgets/add_receipt_items_screen.dart';
 import 'widgets/credit_card_installment_selector.dart';
 import '../../../core/utils/credit_card_calculator.dart';
@@ -28,9 +29,12 @@ class CreateTransactionScreen extends ConsumerStatefulWidget {
   final String? initialCategoryId;
   final String? initialSubcategoryId;
   final String? initialAccountId;
+  final String? initialDestinationAccountId;
+  final String? initialCurrency;
   final DateTime? initialDate;
   final double? initialQuantity;
   final String? initialUnit;
+  final int? initialInstallments;
 
   const CreateTransactionScreen({
     super.key,
@@ -41,9 +45,12 @@ class CreateTransactionScreen extends ConsumerStatefulWidget {
     this.initialCategoryId,
     this.initialSubcategoryId,
     this.initialAccountId,
+    this.initialDestinationAccountId,
+    this.initialCurrency,
     this.initialDate,
     this.initialQuantity,
     this.initialUnit,
+    this.initialInstallments,
   });
 
   @override
@@ -117,6 +124,17 @@ class _CreateTransactionScreenState
     }
     if (widget.initialAccountId != null) {
       _selectedAccountId = widget.initialAccountId;
+    }
+    if (widget.initialDestinationAccountId != null) {
+      _destinationAccountId = widget.initialDestinationAccountId;
+    }
+    if (widget.initialCurrency != null &&
+        ['PEN', 'USD', 'EUR'].contains(widget.initialCurrency)) {
+      _currency = widget.initialCurrency!;
+    }
+    if (widget.initialInstallments != null && widget.initialInstallments! > 1) {
+      _isInstallment = true;
+      _installmentsCount = widget.initialInstallments!;
     }
     if (widget.initialDate != null) {
       _selectedDate = widget.initialDate!;
@@ -630,8 +648,8 @@ class _CreateTransactionScreenState
             title: _productNameController.text.trim().isNotEmpty
                 ? _productNameController.text.trim()
                 : (_descriptionController.text.trim().isNotEmpty
-                    ? _descriptionController.text.trim()
-                    : 'Compra en cuotas'),
+                      ? _descriptionController.text.trim()
+                      : 'Compra en cuotas'),
             totalAmount: amount,
             totalInstallments: _installmentsCount,
             paidInstallments: const drift.Value(0),
@@ -711,11 +729,9 @@ class _CreateTransactionScreenState
           successMsg = 'Transacción y suscripción guardadas';
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(successMsg),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(successMsg)));
 
         // Cerrar pantalla INMEDIATAMENTE — las verificaciones corren en background
         Navigator.of(context).pop();
@@ -801,6 +817,67 @@ class _CreateTransactionScreenState
     }
   }
 
+  void _applyVoiceData(Map<String, dynamic> data) {
+    setState(() {
+      final type = data['type']?.toString();
+      if (type != null && ['expense', 'income', 'transfer'].contains(type)) {
+        _transactionType = type;
+      }
+      final amount = (data['amount'] as num?)?.toDouble();
+      if (amount != null && amount > 0) {
+        _amountController.text = amount.toStringAsFixed(2);
+      }
+      final currency = data['currency']?.toString();
+      if (currency != null && ['PEN', 'USD', 'EUR'].contains(currency)) {
+        _currency = currency;
+      }
+      final description = data['description']?.toString();
+      if (description != null && description.isNotEmpty) {
+        _descriptionController.text = description;
+      }
+      final productName = data['productName']?.toString();
+      if (productName != null && productName.isNotEmpty) {
+        _productNameController.text = productName;
+      }
+      final quantity = (data['quantity'] as num?)?.toDouble();
+      if (quantity != null && quantity > 0) {
+        _quantityController.text = quantity.toStringAsFixed(2);
+      }
+      final unit = data['unit']?.toString();
+      if (unit != null && unit.isNotEmpty) {
+        _unitController.text = unit;
+      }
+      if (data['categoryId'] != null) {
+        _selectedCategoryId = data['categoryId'].toString();
+      }
+      if (data['subcategoryId'] != null) {
+        _selectedSubcategoryId = data['subcategoryId'].toString();
+      }
+      if (data['accountId'] != null) {
+        _selectedAccountId = data['accountId'].toString();
+      }
+      if (data['destinationAccountId'] != null) {
+        _destinationAccountId = data['destinationAccountId'].toString();
+      }
+      final dateMs = data['date'] as int?;
+      if (dateMs != null) {
+        _selectedDate = DateTime.fromMillisecondsSinceEpoch(dateMs);
+      }
+      final installments = (data['installments'] as num?)?.toInt();
+      if (installments != null && installments > 1) {
+        _isInstallment = true;
+        _installmentsCount = installments;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🎙️ Datos completados desde tu audio'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsStreamProvider);
@@ -823,12 +900,14 @@ class _CreateTransactionScreenState
                 ),
               ),
             )
-          else
+          else ...[
+            VoiceInputButton(onVoiceExtracted: _applyVoiceData),
             IconButton(
               icon: const Icon(Icons.camera_alt),
               tooltip: 'Escanear Boleta',
               onPressed: () => _showScanOptions(context),
             ),
+          ],
           IconButton(
             icon: const Icon(Icons.check),
             onPressed: _saveTransaction,
@@ -855,19 +934,22 @@ class _CreateTransactionScreenState
             _buildAccountSelector(accountsAsync),
 
             // Selector interactivo de financiamiento/cuotas (solo si es tarjeta de crédito y es gasto)
-            if (_transactionType == 'expense' && _selectedAccountId != null) ...[
+            if (_transactionType == 'expense' &&
+                _selectedAccountId != null) ...[
               accountsAsync.maybeWhen(
                 data: (accounts) {
                   final selectedAcc = accounts
                       .where((a) => a.id == _selectedAccountId)
                       .firstOrNull;
-                  if (selectedAcc != null && selectedAcc.type == 'credit_card') {
+                  if (selectedAcc != null &&
+                      selectedAcc.type == 'credit_card') {
                     return Column(
                       children: [
                         const SizedBox(height: 16),
                         CreditCardInstallmentSelector(
                           account: selectedAcc,
-                          amount: double.tryParse(
+                          amount:
+                              double.tryParse(
                                 _amountController.text.replaceAll(',', '.'),
                               ) ??
                               0.0,
@@ -889,8 +971,7 @@ class _CreateTransactionScreenState
                           onTeaChanged: (_) => setState(() {}),
                           onManualMonthlyPaymentModeChanged: (val) =>
                               setState(() => _useManualMonthlyPayment = val),
-                          onManualMonthlyPaymentChanged: (_) =>
-                              setState(() {}),
+                          onManualMonthlyPaymentChanged: (_) => setState(() {}),
                         ),
                       ],
                     );
