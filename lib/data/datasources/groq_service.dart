@@ -703,7 +703,7 @@ Devuelve ÚNICAMENTE este objeto JSON con las mismas claves:
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'systemPrompt': prompt, 'userMessage': rawVoice}),
           )
-          .timeout(const Duration(seconds: 25));
+          .timeout(const Duration(seconds: 40));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
