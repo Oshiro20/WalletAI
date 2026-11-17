@@ -59,6 +59,7 @@ class VoiceService {
     required void Function(String text, bool isFinal) onResult,
     required void Function(String status) onStatus,
     void Function(String error)? onError,
+    bool onDevice = false,
   }) async {
     _statusListener = onStatus;
     _errorListener = onError;
@@ -77,13 +78,14 @@ class VoiceService {
       onResult: (result) {
         onResult(result.recognizedWords, result.finalResult);
       },
-      localeId: localeId,
+      localeId: onDevice ? null : localeId,
       listenFor: const Duration(seconds: 25),
-      pauseFor: const Duration(milliseconds: 950),
+      pauseFor: const Duration(milliseconds: 1400),
       listenOptions: SpeechListenOptions(
-        cancelOnError: true,
+        cancelOnError: false,
         partialResults: true,
-        listenMode: ListenMode.dictation,
+        onDevice: onDevice,
+        listenMode: ListenMode.confirmation,
       ),
     );
   }

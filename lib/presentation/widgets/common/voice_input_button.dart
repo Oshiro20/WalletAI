@@ -109,7 +109,8 @@ class VoiceInputButton extends ConsumerWidget {
 
           Map<String, dynamic>? payload;
 
-          final resolvedLocally = local.amount != null &&
+          final resolvedLocally =
+              local.amount != null &&
               local.amount! > 0 &&
               !local.isComplexPhrase &&
               local.description != null &&
@@ -136,7 +137,8 @@ class VoiceInputButton extends ConsumerWidget {
               showDialog(
                 context: context,
                 barrierDismissible: false,
-                builder: (_) => const Center(child: CircularProgressIndicator()),
+                builder: (_) =>
+                    const Center(child: CircularProgressIndicator()),
               );
             }
 
@@ -184,11 +186,12 @@ class VoiceInputButton extends ConsumerWidget {
 
               payload = {
                 'type': aiData['tipo']?.toString() ?? 'expense',
-                'amount': (aiData['monto'] as num?)?.toDouble() ??
+                'amount':
+                    (aiData['monto'] as num?)?.toDouble() ??
                     (local.amount ?? 0.0),
                 'currency': currency,
-                'description': aiData['descripcion']?.toString() ??
-                    local.description,
+                'description':
+                    aiData['descripcion']?.toString() ?? local.description,
                 'productName': parsedProductName ?? local.productName,
                 'quantity':
                     (aiData['cantidad'] as num?)?.toDouble() ?? local.quantity,
@@ -205,8 +208,8 @@ class VoiceInputButton extends ConsumerWidget {
                 'type': local.type ?? 'expense',
                 'amount': local.amount ?? 0.0,
                 'currency': local.currency,
-                'description': (local.description != null &&
-                        local.description!.isNotEmpty)
+                'description':
+                    (local.description != null && local.description!.isNotEmpty)
                     ? local.description
                     : result.trim(),
                 'productName': local.productName,
@@ -253,10 +256,12 @@ class VoiceListeningDialog extends ConsumerStatefulWidget {
 }
 
 class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
+  final TextEditingController _manualCtrl = TextEditingController();
   String _text = '';
   String _status = 'Iniciando micrófono...';
   bool _hasCompleted = false;
   bool _hasError = false;
+  bool _triedOnDevice = false;
   Timer? _autoSubmitTimer;
 
   @override
@@ -269,10 +274,20 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
   @override
   void dispose() {
     _autoSubmitTimer?.cancel();
+    _manualCtrl.dispose();
     if (!_hasCompleted) {
       ref.read(voiceServiceProvider).cancel();
     }
     super.dispose();
+  }
+
+  void _submitManualOrVoice(String raw) {
+    final clean = raw.trim();
+    if (clean.isEmpty || _hasCompleted || !mounted) return;
+    _hasCompleted = true;
+    _autoSubmitTimer?.cancel();
+    ref.read(voiceServiceProvider).stop();
+    Navigator.of(context).pop(clean);
   }
 
   void _scheduleAutoSubmit(Duration delay) {
@@ -293,18 +308,21 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
     }
   }
 
-  Future<void> _startListening() async {
+  Future<void> _startListening({bool onDevice = false}) async {
     _autoSubmitTimer?.cancel();
     if (mounted) {
       setState(() {
         _hasError = false;
-        _status = 'Escuchando...';
+        _status = onDevice
+            ? 'Escuchando en modo local sin red...'
+            : 'Escuchando...';
       });
     }
 
     final voiceService = ref.read(voiceServiceProvider);
 
     await voiceService.listen(
+      onDevice: onDevice,
       onResult: (text, isFinal) {
         if (!mounted || _hasCompleted) return;
         setState(() => _text = text);
@@ -338,7 +356,9 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
           });
         } else {
           setState(() {
-            _status = status == 'listening' ? 'Escuchando...' : status;
+            _status = status == 'listening'
+                ? (onDevice ? 'Escuchando (modo local)...' : 'Escuchando...')
+                : status;
           });
         }
       },
@@ -346,12 +366,24 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
         if (!mounted || _hasCompleted) return;
         if (_text.trim().isNotEmpty) {
           _scheduleAutoSubmit(const Duration(milliseconds: 200));
-        } else {
-          setState(() {
-            _hasError = true;
-            _status = 'No se pudo capturar el audio ($errorMsg)';
-          });
+          return;
         }
+        final isNetworkError = errorMsg.toLowerCase().contains('network');
+        if (isNetworkError && !_triedOnDevice) {
+          _triedOnDevice = true;
+          Future.microtask(() {
+            if (mounted && !_hasCompleted) {
+              _startListening(onDevice: true);
+            }
+          });
+          return;
+        }
+        setState(() {
+          _hasError = true;
+          _status = isNetworkError
+              ? 'Google Voz no respondió ($errorMsg). Puedes reintentar o usar el campo de texto / micro del teclado:'
+              : 'No se pudo capturar el audio ($errorMsg)';
+        });
       },
     );
   }
@@ -397,6 +429,25 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
               context,
             ).textTheme.bodySmall?.copyWith(color: Colors.grey),
           ),
+          if (_hasError) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _manualCtrl,
+              textInputAction: TextInputAction.send,
+              onSubmitted: _submitManualOrVoice,
+              decoration: InputDecoration(
+                hintText: 'Ej: 20 soles pollo con Yape',
+                isDense: true,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                suffixIcon: IconButton(
+                  icon: const Icon(Icons.send),
+                  onPressed: () => _submitManualOrVoice(_manualCtrl.text),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
       actions: [
@@ -411,7 +462,10 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
         ),
         if (_hasError)
           FilledButton.icon(
-            onPressed: _startListening,
+            onPressed: () {
+              _triedOnDevice = false;
+              _startListening();
+            },
             icon: const Icon(Icons.refresh, size: 18),
             label: const Text('Reintentar'),
           )
