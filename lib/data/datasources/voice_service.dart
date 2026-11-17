@@ -5,23 +5,35 @@ class VoiceService {
   final SpeechToText _speech = SpeechToText();
   final _logger = Logger();
   bool _isAvailable = false;
+  String? _cachedLocaleId;
+  Future<bool>? _initFuture;
   void Function(String)? _statusListener;
   void Function(String)? _errorListener;
 
-  Future<bool> initialize() async {
-    if (!_isAvailable) {
-      _isAvailable = await _speech.initialize(
-        onError: (val) {
-          _logger.e('onError: $val');
-          _errorListener?.call(val.errorMsg);
-        },
-        onStatus: (val) {
-          _logger.i('onStatus: $val');
-          _statusListener?.call(val);
-        },
-      );
-    }
-    return _isAvailable;
+  Future<bool> initialize() {
+    if (_isAvailable) return Future.value(true);
+    return _initFuture ??= _speech
+        .initialize(
+          onError: (val) {
+            _logger.e('onError: $val');
+            _errorListener?.call(val.errorMsg);
+          },
+          onStatus: (val) {
+            _logger.i('onStatus: $val');
+            _statusListener?.call(val);
+          },
+        )
+        .then((ok) async {
+          _isAvailable = ok;
+          if (ok && _cachedLocaleId == null) {
+            _cachedLocaleId = await _resolveSpanishLocaleId();
+          }
+          return ok;
+        })
+        .catchError((_) {
+          _initFuture = null;
+          return false;
+        });
   }
 
   Future<String?> _resolveSpanishLocaleId() async {
@@ -59,7 +71,7 @@ class VoiceService {
       }
     }
 
-    final localeId = await _resolveSpanishLocaleId();
+    final localeId = _cachedLocaleId ??= await _resolveSpanishLocaleId();
 
     await _speech.listen(
       onResult: (result) {
@@ -67,7 +79,7 @@ class VoiceService {
       },
       localeId: localeId,
       listenFor: const Duration(seconds: 25),
-      pauseFor: const Duration(milliseconds: 1600),
+      pauseFor: const Duration(milliseconds: 950),
       listenOptions: SpeechListenOptions(
         cancelOnError: true,
         partialResults: true,

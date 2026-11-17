@@ -7,6 +7,11 @@ class ParsedTransactionData {
   final String? subcategoryId;
   final String? accountId;
   final String? description;
+  final String? productName;
+  final double quantity;
+  final String unit;
+  final String currency;
+  final bool isComplexPhrase;
 
   ParsedTransactionData({
     this.amount,
@@ -15,7 +20,22 @@ class ParsedTransactionData {
     this.subcategoryId,
     this.accountId,
     this.description,
+    this.productName,
+    this.quantity = 1.0,
+    this.unit = 'UND',
+    this.currency = 'PEN',
+    this.isComplexPhrase = false,
   });
+
+  /// True cuando el parser local extrajo monto + concepto sin ambigüedades
+  /// (permite saltar el viaje de red a Groq y responder al instante).
+  bool get isHighConfidence =>
+      !isComplexPhrase &&
+      amount != null &&
+      amount! > 0 &&
+      description != null &&
+      description!.trim().isNotEmpty &&
+      (categoryId != null || accountId != null);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1022,26 +1042,92 @@ class TransactionParserService {
   }) {
     final lowerText = _normalize(text);
 
-    // 1. Detectar tipo
+    // 1. Detectar tipo y complejidad (frases con cuotas, transferencias o fechas relativas van a IA)
     String type = 'expense';
     if (lowerText.contains('ingreso') ||
         lowerText.contains('cobre') ||
         lowerText.contains('recibi') ||
         lowerText.contains('gane') ||
         lowerText.contains('me pagaron') ||
-        lowerText.contains('cobré') ||
-        lowerText.contains('recibí') ||
         lowerText.contains('me depositaron')) {
       type = 'income';
     }
+    final isComplexPhrase = RegExp(
+      r'\b(transferi|transfiri|pase|envie|cuotas?|ayer|antier|anteayer|lunes|martes|miercoles|jueves|viernes|sabado|domingo|mitad)\b',
+      caseSensitive: false,
+    ).hasMatch(lowerText);
 
-    // 2. Extraer monto
-    final amountRegex = RegExp(r'(\d+[.,]?\d*)');
-    final match = amountRegex.firstMatch(text);
+    // 1b. Detectar moneda
+    String currency = 'PEN';
+    if (RegExp(
+      r'(\$|\bd[oó]lares?\b|\busd\b|\bverdes\b)',
+      caseSensitive: false,
+    ).hasMatch(text)) {
+      currency = 'USD';
+    } else if (RegExp(r'(€|\beuros?\b|\beur\b)', caseSensitive: false)
+        .hasMatch(text)) {
+      currency = 'EUR';
+    }
+
+    // 2. Extraer cantidad + unidad de producto (ej: "2 kilos", "10 unidades", "500 gramos")
+    double quantity = 1.0;
+    String unit = 'UND';
+    final qtyUnitMatch = RegExp(
+      r'\b(\d+(?:[.,]\d+)?)\s*(kilos?|kg|gramos?|grs?|gr|litros?|lt?s?|ml|mililitros?|unidades?|und|uds|cajas?|paquetes?)\b',
+      caseSensitive: false,
+    ).firstMatch(text);
+    if (qtyUnitMatch != null) {
+      final q = double.tryParse(qtyUnitMatch.group(1)!.replaceAll(',', '.'));
+      final u = qtyUnitMatch.group(2)!.toLowerCase();
+      if (q != null && q > 0) {
+        quantity = q;
+        if (u.startsWith('k')) {
+          unit = 'KG';
+        } else if (u.startsWith('g')) {
+          unit = 'GRS';
+        } else if (u.startsWith('l') || u.startsWith('ml') || u.startsWith('mili')) {
+          unit = 'LTR';
+        } else if (u.startsWith('caja') || u.startsWith('paq')) {
+          unit = 'CAJA';
+        } else {
+          unit = 'UND';
+        }
+      }
+    }
+
+    // 2b. Extraer monto monetario (priorizando números acompañados de moneda)
     double? amount;
-    if (match != null) {
-      String amountStr = match.group(1)!.replaceAll(',', '.');
-      amount = double.tryParse(amountStr);
+    final moneyAfterRegex = RegExp(
+      r'(\d+(?:[.,]\d+)?)\s*(?:soles?|sol|pen|lucas?|d[oó]lares?|usd|euros?|eur|\$|€)\b',
+      caseSensitive: false,
+    );
+    final moneyBeforeRegex = RegExp(
+      r'(?:s\/\.?|pen|\$|usd|€|eur)\s*(\d+(?:[.,]\d+)?)',
+      caseSensitive: false,
+    );
+    final mAfter = moneyAfterRegex.firstMatch(text);
+    final mBefore = moneyBeforeRegex.firstMatch(text);
+    if (mAfter != null) {
+      amount = double.tryParse(mAfter.group(1)!.replaceAll(',', '.'));
+    } else if (mBefore != null) {
+      amount = double.tryParse(mBefore.group(1)!.replaceAll(',', '.'));
+    } else {
+      // Fallback: tomar el número que NO corresponda al match de cantidad+unidad
+      for (final m in RegExp(r'\b(\d+(?:[.,]\d+)?)\b').allMatches(text)) {
+        if (qtyUnitMatch != null &&
+            m.start >= qtyUnitMatch.start &&
+            m.end <= qtyUnitMatch.end) {
+          continue;
+        }
+        amount = double.tryParse(m.group(1)!.replaceAll(',', '.'));
+        if (amount != null) break;
+      }
+      amount ??= (() {
+        final first = RegExp(r'(\d+[.,]?\d*)').firstMatch(text);
+        return first == null
+            ? null
+            : double.tryParse(first.group(1)!.replaceAll(',', '.'));
+      })();
     }
 
     // 3. Detectar cuenta
@@ -1173,13 +1259,19 @@ class TransactionParserService {
       }
     }
 
+    final extractedDesc = _extractDescription(text, accounts);
     return ParsedTransactionData(
       amount: amount,
       type: type,
       categoryId: categoryId,
       subcategoryId: subcategoryId,
       accountId: accountId,
-      description: _extractDescription(text, accounts),
+      description: extractedDesc,
+      productName: extractedDesc,
+      quantity: quantity,
+      unit: unit,
+      currency: currency,
+      isComplexPhrase: isComplexPhrase,
     );
   }
 
@@ -1190,10 +1282,24 @@ class TransactionParserService {
   String _extractDescription(String text, List<Account> accounts) {
     String result = text;
 
-    // 1. Eliminar monto con unidad monetaria (ej: "20 soles", "S/. 15", "$ 10")
+    // 1. Eliminar monto + moneda y unidades explícitas (ej: "20 soles", "2 kilos de")
     result = result.replaceAll(
       RegExp(
-        r'\b\d+[.,]?\d*\s*(soles?|sol|pen|s\/\.?|d[oó]lares?|usd|\$|€|euros?)?\b',
+        r'\b\d+[.,]?\d*\s*(soles?|sol|pen|lucas?|d[oó]lares?|usd|\$|€|euros?)?\b',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    result = result.replaceAll(
+      RegExp(
+        r'^\s*(kilos?|kg|gramos?|grs?|gr|litros?|lts?|lt|ml|mililitros?|unidades?|und|uds|cajas?|paquetes?)(\s+de)?\s+',
+        caseSensitive: false,
+      ),
+      '',
+    );
+    result = result.replaceAll(
+      RegExp(
+        r'\b(kilos?|kg|gramos?|grs?|gr|litros?|lts?|lt|ml|mililitros?|unidades?|und|uds|cajas?|paquetes?)\s+de\s+',
         caseSensitive: false,
       ),
       '',

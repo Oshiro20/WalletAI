@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wallet_ai/core/services/update_service.dart';
+import 'package:wallet_ai/data/database/drift_database.dart';
 import 'package:wallet_ai/data/datasources/groq_service.dart';
+import 'package:wallet_ai/data/datasources/transaction_parser_service.dart';
 
 void main() {
   group('UpdateService.isVersionGreater', () {
@@ -42,6 +44,68 @@ void main() {
 
     test('retorna null ante contenido no JSON', () {
       expect(GroqService.decodeJsonObject('No entendí el audio'), isNull);
+    });
+  });
+
+  group('TransactionParserService (resolución local rápida)', () {
+    final parser = TransactionParserService();
+    final categories = [
+      Category(
+        id: 'cat_alimentacion',
+        name: 'Alimentación',
+        type: 'expense',
+        icon: '🍔',
+        color: '#00C896',
+        isSystem: true,
+        sortOrder: 0,
+        createdAt: DateTime(2026),
+      ),
+    ];
+    final accounts = [
+      Account(
+        id: 'acc_bcp',
+        name: 'BCP',
+        type: 'bank',
+        balance: 500,
+        currency: 'PEN',
+        color: '#0000FF',
+        icon: 'bank',
+        sortOrder: 0,
+        isActive: true,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      ),
+    ];
+
+    test('extrae monto monetario sin confundirlo con cantidad y marca alta confianza',
+        () {
+      final parsed = parser.parse(
+        'Compré 2 kilos de pollo a 24.5 soles con BCP',
+        categories,
+        accounts,
+      );
+
+      expect(parsed.amount, 24.5);
+      expect(parsed.quantity, 2.0);
+      expect(parsed.unit, 'KG');
+      expect(parsed.currency, 'PEN');
+      expect(parsed.accountId, 'acc_bcp');
+      expect(parsed.categoryId, 'cat_alimentacion');
+      expect(parsed.isComplexPhrase, isFalse);
+      expect(parsed.isHighConfidence, isTrue);
+    });
+
+    test('detecta frases con cuotas o transferencia como complejas para usar IA',
+        () {
+      final parsed = parser.parse(
+        'Pagué 300 soles en 3 cuotas ayer con BCP',
+        categories,
+        accounts,
+      );
+
+      expect(parsed.amount, 300.0);
+      expect(parsed.isComplexPhrase, isTrue);
+      expect(parsed.isHighConfidence, isFalse);
     });
   });
 }

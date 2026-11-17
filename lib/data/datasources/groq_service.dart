@@ -9,6 +9,18 @@ import '../../core/config/app_config.dart';
 class GroqService {
   static String get _baseUrl => AppConfig.apiBaseUrl;
 
+  /// Pre-calienta el servidor (útil para evitar cold starts de Render mientras el usuario habla).
+  static Future<void> warmUpServer() async {
+    try {
+      final healthUrl = _baseUrl.replaceFirst(RegExp(r'/api/?$'), '/health');
+      await http
+          .get(Uri.parse(healthUrl))
+          .timeout(const Duration(seconds: 4));
+    } catch (_) {
+      // Silencioso: solo intenta despertar el backend sin bloquear la UI.
+    }
+  }
+
   static const String _systemPrompt = '''
 Eres WalletAI, el asistente financiero personal inteligente integrado en la app de finanzas del usuario.
 Tu rol es analizar sus finanzas reales y responder con precisión usando sus datos del aplicativo.
@@ -640,6 +652,7 @@ Texto OCR a analizar:
     List<dynamic> categories, {
     List<dynamic> accounts = const [],
     DateTime? referenceDate,
+    Duration timeout = const Duration(seconds: 6),
   }) async {
     final now = referenceDate ?? DateTime.now();
     final todayIso = DateFormat('yyyy-MM-dd').format(now);
@@ -703,7 +716,7 @@ Devuelve ÚNICAMENTE este objeto JSON con las mismas claves:
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'systemPrompt': prompt, 'userMessage': rawVoice}),
           )
-          .timeout(const Duration(seconds: 40));
+          .timeout(timeout);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));

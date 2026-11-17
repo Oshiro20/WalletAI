@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../data/database/drift_database.dart';
+import '../../../data/datasources/groq_service.dart';
 import '../../providers/service_providers.dart';
 import '../../providers/database_providers.dart';
 
@@ -69,108 +70,156 @@ class VoiceInputButton extends ConsumerWidget {
           return;
         }
 
-        // Mostrar indicador de carga mientras la IA interpreta el audio
-        showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (_) => const Center(child: CircularProgressIndicator()),
-        );
+        var dialogOpen = false;
+        void closeDialogIfOpen() {
+          if (dialogOpen && context.mounted) {
+            dialogOpen = false;
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+        }
 
         try {
-          final groq = ref.read(groqServiceProvider);
           final categories = await ref.read(allCategoriesFutureProvider.future);
           final accounts = await ref.read(accountsDaoProvider).getAllAccounts();
+          final subcats = await ref
+              .read(subcategoriesDaoProvider)
+              .getAllSubcategories();
+          final db = ref.read(databaseProvider);
 
-          final aiData = await groq.parseVoiceTransaction(
+          // 1. Parseo local instantáneo (<10ms): resuelve dictados claros sin esperar red.
+          final parser = ref.read(transactionParserServiceProvider);
+          final local = parser.parse(
             result,
             categories,
-            accounts: accounts,
+            accounts,
+            subcategories: subcats,
           );
 
-          Map<String, dynamic> payload;
-
-          if (aiData != null) {
-            String? catId = _matchCategoryId(
-              aiData['categoria_sugerida']?.toString(),
-              categories,
+          String? localCatId = local.categoryId;
+          String? localSubcatId = local.subcategoryId;
+          final localProduct = local.productName;
+          if (localProduct != null && localProduct.isNotEmpty) {
+            final rule = await db.learningRulesDao.getRuleForProduct(
+              localProduct,
             );
-
-            // Override de aprendizaje persistente por producto
-            final parsedProductName = aiData['producto']?.toString();
-            if (parsedProductName != null && parsedProductName.isNotEmpty) {
-              final db = ref.read(databaseProvider);
-              final rule = await db.learningRulesDao.getRuleForProduct(
-                parsedProductName,
-              );
-              if (rule != null) {
-                catId = rule.categoryId;
-              }
+            if (rule != null) {
+              localCatId = rule.categoryId;
             }
+          }
 
-            final accountId = _matchAccountId(
-              aiData['cuenta_sugerida']?.toString(),
-              accounts,
-            );
-            final destinationAccountId = _matchAccountId(
-              aiData['cuenta_destino_sugerida']?.toString(),
-              accounts,
-            );
-            final parsedDate = aiData['fecha'] != null
-                ? DateTime.tryParse(aiData['fecha'].toString())
-                : null;
-            final rawCurrency =
-                aiData['moneda']?.toString().toUpperCase() ?? 'PEN';
-            final currency = ['PEN', 'USD', 'EUR'].contains(rawCurrency)
-                ? rawCurrency
-                : 'PEN';
-            final cuotas = (aiData['cuotas'] as num?)?.toInt() ?? 1;
+          Map<String, dynamic>? payload;
 
+          final resolvedLocally = local.amount != null &&
+              local.amount! > 0 &&
+              !local.isComplexPhrase &&
+              local.description != null &&
+              local.description!.trim().isNotEmpty &&
+              (localCatId != null || local.accountId != null);
+
+          if (resolvedLocally) {
             payload = {
-              'type': aiData['tipo']?.toString() ?? 'expense',
-              'amount': (aiData['monto'] as num?)?.toDouble() ?? 0.0,
-              'currency': currency,
-              'description': aiData['descripcion']?.toString(),
-              'productName': parsedProductName,
-              'quantity': (aiData['cantidad'] as num?)?.toDouble() ?? 1.0,
-              'unit': aiData['unidad']?.toString() ?? 'UND',
-              'categoryId': catId,
-              'accountId': accountId,
-              'destinationAccountId': destinationAccountId,
-              if (parsedDate != null) 'date': parsedDate.millisecondsSinceEpoch,
-              if (cuotas > 1) 'installments': cuotas,
+              'type': local.type ?? 'expense',
+              'amount': local.amount!,
+              'currency': local.currency,
+              'description': local.description,
+              'productName': local.productName,
+              'quantity': local.quantity,
+              'unit': local.unit,
+              'categoryId': localCatId,
+              'subcategoryId': localSubcatId,
+              'accountId': local.accountId,
             };
           } else {
-            // Respaldo offline automático con TransactionParserService
-            final parser = ref.read(transactionParserServiceProvider);
-            final subcats = await ref
-                .read(subcategoriesDaoProvider)
-                .getAllSubcategories();
-            final fallback = parser.parse(
+            // 2. Solo consultar IA si la frase es ambigua o compleja (cuotas, transfer, fechas).
+            if (context.mounted) {
+              dialogOpen = true;
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final groq = ref.read(groqServiceProvider);
+            final aiData = await groq.parseVoiceTransaction(
               result,
               categories,
-              accounts,
-              subcategories: subcats,
+              accounts: accounts,
+              timeout: const Duration(seconds: 6),
             );
 
-            payload = {
-              'type': fallback.type ?? 'expense',
-              'amount': fallback.amount ?? 0.0,
-              'description':
-                  (fallback.description != null &&
-                      fallback.description!.isNotEmpty)
-                  ? fallback.description
-                  : result.trim(),
-              'categoryId': fallback.categoryId,
-              'subcategoryId': fallback.subcategoryId,
-              'accountId': fallback.accountId,
-              'quantity': 1.0,
-              'unit': 'UND',
-            };
+            if (aiData != null) {
+              String? catId = _matchCategoryId(
+                aiData['categoria_sugerida']?.toString(),
+                categories,
+              );
+
+              final parsedProductName = aiData['producto']?.toString();
+              if (parsedProductName != null && parsedProductName.isNotEmpty) {
+                final rule = await db.learningRulesDao.getRuleForProduct(
+                  parsedProductName,
+                );
+                if (rule != null) {
+                  catId = rule.categoryId;
+                }
+              }
+
+              final accountId = _matchAccountId(
+                aiData['cuenta_sugerida']?.toString(),
+                accounts,
+              );
+              final destinationAccountId = _matchAccountId(
+                aiData['cuenta_destino_sugerida']?.toString(),
+                accounts,
+              );
+              final parsedDate = aiData['fecha'] != null
+                  ? DateTime.tryParse(aiData['fecha'].toString())
+                  : null;
+              final rawCurrency =
+                  aiData['moneda']?.toString().toUpperCase() ?? 'PEN';
+              final currency = ['PEN', 'USD', 'EUR'].contains(rawCurrency)
+                  ? rawCurrency
+                  : 'PEN';
+              final cuotas = (aiData['cuotas'] as num?)?.toInt() ?? 1;
+
+              payload = {
+                'type': aiData['tipo']?.toString() ?? 'expense',
+                'amount': (aiData['monto'] as num?)?.toDouble() ??
+                    (local.amount ?? 0.0),
+                'currency': currency,
+                'description': aiData['descripcion']?.toString() ??
+                    local.description,
+                'productName': parsedProductName ?? local.productName,
+                'quantity':
+                    (aiData['cantidad'] as num?)?.toDouble() ?? local.quantity,
+                'unit': aiData['unidad']?.toString() ?? local.unit,
+                'categoryId': catId ?? localCatId,
+                'accountId': accountId ?? local.accountId,
+                'destinationAccountId': destinationAccountId,
+                if (parsedDate != null)
+                  'date': parsedDate.millisecondsSinceEpoch,
+                if (cuotas > 1) 'installments': cuotas,
+              };
+            } else {
+              payload = {
+                'type': local.type ?? 'expense',
+                'amount': local.amount ?? 0.0,
+                'currency': local.currency,
+                'description': (local.description != null &&
+                        local.description!.isNotEmpty)
+                    ? local.description
+                    : result.trim(),
+                'productName': local.productName,
+                'quantity': local.quantity,
+                'unit': local.unit,
+                'categoryId': localCatId,
+                'subcategoryId': localSubcatId,
+                'accountId': local.accountId,
+              };
+            }
           }
 
-          if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop(); // cerrar loading
-          }
+          closeDialogIfOpen();
 
           if (!context.mounted) return;
 
@@ -180,8 +229,8 @@ class VoiceInputButton extends ConsumerWidget {
             context.push('/transactions/create', extra: payload);
           }
         } catch (e) {
+          closeDialogIfOpen();
           if (context.mounted) {
-            Navigator.of(context, rootNavigator: true).pop();
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Error al procesar audio: $e'),
@@ -213,6 +262,7 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
   @override
   void initState() {
     super.initState();
+    unawaited(GroqService.warmUpServer());
     Future.delayed(Duration.zero, _startListening);
   }
 
@@ -260,10 +310,10 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
         setState(() => _text = text);
         if (text.trim().isNotEmpty) {
           if (isFinal) {
-            _scheduleAutoSubmit(const Duration(milliseconds: 300));
+            _scheduleAutoSubmit(const Duration(milliseconds: 200));
           } else {
-            // Respaldo si el motor de voz no emite finalResult rápido tras pausar
-            _scheduleAutoSubmit(const Duration(milliseconds: 2200));
+            // Respaldo más ágil si el motor de voz tarda en emitir finalResult
+            _scheduleAutoSubmit(const Duration(milliseconds: 1150));
           }
         }
       },
