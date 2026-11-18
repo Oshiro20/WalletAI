@@ -18,7 +18,7 @@ class AppConfig {
   static const String appName = 'WalletAI';
 
   /// Versión de la app
-  static const String appVersion = '1.4.4';
+  static const String appVersion = '1.4.5';
 
   /// Máximo de mensajes en el historial del asistente
   static const int chatHistoryLimit = 30;
