@@ -20,6 +20,7 @@ import '../../widgets/common/voice_input_button.dart';
 import 'widgets/add_receipt_items_screen.dart';
 import 'widgets/credit_card_installment_selector.dart';
 import '../../../core/utils/credit_card_calculator.dart';
+import '../../../core/services/ecosystem_sync_service.dart';
 
 class CreateTransactionScreen extends ConsumerStatefulWidget {
   final String? initialType;
@@ -736,7 +737,10 @@ class _CreateTransactionScreenState
         // Cerrar pantalla INMEDIATAMENTE — las verificaciones corren en background
         Navigator.of(context).pop();
 
-        // 🧠 APRENDIZAJE PERSISTENTE + verificaciones — en background (unawaited)
+        // 🧠 APRENDIZAJE PERSISTENTE + sincronización ecosistema — en background (unawaited)
+        unawaited(
+          EcosystemSyncService.publishSummary(ref.read(databaseProvider)),
+        );
         if (_transactionType == 'expense') {
           unawaited(_checkBudgetAlerts());
           unawaited(_checkHighExpense(amount, _descriptionController.text));

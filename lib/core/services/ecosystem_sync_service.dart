@@ -170,31 +170,47 @@ class EcosystemSyncService {
       }
     }
 
-    // Últimos movimientos del mes para análisis IA en MyLifeOS
+    // Últimos movimientos del mes (ordenados por creación reciente) para MyLifeOS
     final monthTxs = await db.transactionsDao.getTransactionsByDateRange(
       startOfMonth,
       endOfMonth,
     );
-    final recentTransactions = monthTxs
+    final sortedRecent = monthTxs
         .where((tx) => tx.type == 'expense' || tx.type == 'income')
-        .take(15)
+        .toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final recentTransactions = sortedRecent
+        .take(25)
         .map((tx) {
           final cat = tx.categoryId != null
               ? categoryMap[tx.categoryId]
               : null;
+          final product = tx.productName?.trim();
+          final hasProduct = product != null && product.isNotEmpty;
           return {
             'id': tx.id,
             'name':
                 tx.description?.trim().isNotEmpty == true
                     ? tx.description!
-                    : (tx.productName?.trim().isNotEmpty == true
-                          ? tx.productName!
-                          : (cat?.name ?? 'Movimiento')),
+                    : (hasProduct ? product : (cat?.name ?? 'Movimiento')),
+            if (hasProduct) 'productName': product,
+            'quantity': tx.quantity,
+            'unit': tx.unit,
+            if (hasProduct)
+              'items': [
+                {
+                  'name': product,
+                  'quantity': tx.quantity,
+                  'unit': tx.unit,
+                  'price': tx.amount,
+                },
+              ],
             'category': cat?.name ?? 'General',
             'amount': tx.type == 'expense' ? -tx.amount : tx.amount,
             'type': tx.type,
             'currency': tx.currency,
             'date': tx.date.toIso8601String().split('T').first,
+            'createdAt': tx.createdAt.toIso8601String(),
           };
         })
         .toList();
