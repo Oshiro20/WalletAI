@@ -3,9 +3,32 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../core/config/app_config.dart';
 
-/// Servicio que conecta con Groq Cloud (Llama 3.3 70B) para responder
-/// preguntas financieras del usuario de forma gratuita y muy rápida.
-/// Obtén tu API key gratis en https://console.groq.com
+/// Resultado estructurado de la autocategorización IA (categoría + subcategoría
+/// existente o sugerencia de crear una nueva).
+class AiCategoryPrediction {
+  final String? categoryName;
+  final String? subcategoryName;
+  final bool isNewCategory;
+  final bool isNewSubcategory;
+  final String? iconEmoji;
+  final String? reason;
+
+  const AiCategoryPrediction({
+    this.categoryName,
+    this.subcategoryName,
+    this.isNewCategory = false,
+    this.isNewSubcategory = false,
+    this.iconEmoji,
+    this.reason,
+  });
+
+  bool get hasNewSuggestion =>
+      (isNewCategory && (categoryName?.trim().isNotEmpty ?? false)) ||
+      (isNewSubcategory && (subcategoryName?.trim().isNotEmpty ?? false));
+}
+
+/// Servicio que conecta con el router Multi-IA del backend de WalletAI
+/// (Cloudflare Workers AI, Gemini, OpenRouter, Mistral).
 class GroqService {
   static String get _baseUrl => AppConfig.apiBaseUrl;
 
@@ -118,12 +141,12 @@ Reglas estrictas:
         }
 
         if (response.statusCode == 401) {
-          return '🔑 API key de Groq configurada en el servidor no es válida o está ausente.';
+          return '🔑 Las credenciales de IA en el servidor no son válidas o están ausentes.';
         } else if (response.statusCode == 429) {
           return '⏳ Límite de consultas alcanzado. Espera un momento e intenta de nuevo.';
         }
 
-        return '❌ Error del servidor Groq (${response.statusCode}): $errorMsg';
+        return '❌ Error del servidor IA (${response.statusCode}): $errorMsg';
       }
     } catch (e) {
       _history.removeLast();
@@ -646,18 +669,41 @@ Texto OCR a analizar:
     }
   }
 
+  static String _buildCategoryTree(
+    List<dynamic> categories,
+    List<dynamic> subcategories,
+  ) {
+    if (categories.isEmpty) return 'Sin categorías registradas';
+    final subsByCat = <String, List<String>>{};
+    for (final s in subcategories) {
+      final catId = (s as dynamic).categoryId?.toString();
+      final name = (s as dynamic).name?.toString();
+      if (catId != null && name != null && name.trim().isNotEmpty) {
+        subsByCat.putIfAbsent(catId, () => []).add(name.trim());
+      }
+    }
+    return categories.map((c) {
+      final id = (c as dynamic).id?.toString() ?? '';
+      final name = (c as dynamic).name?.toString() ?? '';
+      final subs = subsByCat[id] ?? const <String>[];
+      return subs.isEmpty ? '- $name' : '- $name: [${subs.join(', ')}]';
+    }).join('\n');
+  }
+
   /// PROCESAMIENTO VOZ: Analiza un texto dictado por el usuario y extrae información estructurada
+  /// incluyendo categoría, subcategoría, sugerencias de creación y soporte multi-producto (`items`).
   Future<Map<String, dynamic>?> parseVoiceTransaction(
     String rawVoice,
     List<dynamic> categories, {
+    List<dynamic> subcategories = const [],
     List<dynamic> accounts = const [],
     DateTime? referenceDate,
-    Duration timeout = const Duration(seconds: 6),
+    Duration timeout = const Duration(seconds: 10),
   }) async {
     final now = referenceDate ?? DateTime.now();
     final todayIso = DateFormat('yyyy-MM-dd').format(now);
     final weekdayName = DateFormat('EEEE', 'es').format(now);
-    final categoriesListStr = categories.map((c) => c.name).join(', ');
+    final categoryTree = _buildCategoryTree(categories, subcategories);
     final accountsListStr = accounts.isEmpty
         ? 'No especificadas'
         : accounts
@@ -681,31 +727,36 @@ Eres el parser NLP financiero de WalletAI (Perú/Latam). Tu tarea es transformar
 
 2️⃣ CONTEXTO ACTUAL DEL USUARIO
 - Fecha de hoy: $todayIso ($weekdayName)
-- Categorías válidas: $categoriesListStr
+- Árbol de categorías y subcategorías del usuario:
+$categoryTree
 - Cuentas/tarjetas del usuario: $accountsListStr
 
 3️⃣ FORMATO DE SALIDA (JSON EXACTO)
 Devuelve ÚNICAMENTE este objeto JSON con las mismas claves:
 {
   "tipo": "expense", // "expense", "income" o "transfer"
-  "monto": 0.00, // número decimal positivo
+  "monto": 0.00, // monto total decimal positivo
   "moneda": "PEN", // "PEN" (soles/lucas), "USD" (dólares/verdes) o "EUR"
   "descripcion": "Comercio o motivo limpio sin muletillas",
-  "producto": null, // nombre específico del producto/servicio o null
+  "producto": null, // nombre específico del producto/servicio principal o null
   "cantidad": 1, // número (ej. 2 si dijo "2 kilos de pollo", sino 1)
   "unidad": "UND", // "UND", "KG", "GRS", "LTR", "CAJA" o "MTS"
-  "categoria_sugerida": "Nombre exacto de una categoría válida",
+  "categoria_sugerida": "Nombre exacto de categoría existente o propuesta si no existe ninguna adecuada",
+  "subcategoria_sugerida": null, // nombre exacto de subcategoría existente o propuesta si ninguna encaja
+  "es_nueva_categoria": false,
+  "es_nueva_subcategoria": false,
   "cuenta_sugerida": null, // nombre exacto de la cuenta/tarjeta origen o null
   "cuenta_destino_sugerida": null, // nombre exacto de cuenta destino solo en "transfer" o pago de tarjeta, sino null
   "fecha": "$todayIso", // formato YYYY-MM-DD (resuelve "ayer", "antier", "el lunes", etc.)
-  "cuotas": 1 // entero >= 1 (ej. 3 si dijo "en 3 cuotas", sino 1)
+  "cuotas": 1, // entero >= 1 (ej. 3 si dijo "en 3 cuotas", sino 1)
+  "items": [] // SOLO si el usuario dictó 2 o más productos con precios separados (ej. "2 kilos de pollo a 22 soles y 1 kilo de papa a 4 soles"): [{"nombre": "Pollo", "monto": 22.0, "cantidad": 2, "unidad": "KG", "categoria": "Alimentación", "subcategoria": "Mercado/Supermercado"}]
 }
 
 4️⃣ REGLAS ESTRICTAS
-- Limpia muletillas del campo "descripcion" ("gasté", "pagué", "en", "soles", "con mi tarjeta"): escribe el concepto/comercio limpio (ej: "Cena", "Supermercado Metro", "Taxi", "Pago tarjeta BCP").
+- Limpia muletillas del campo "descripcion" ("gasté", "pagué", "en", "soles", "con mi tarjeta"): escribe el concepto/comercio limpio.
 - Si menciona "transferí", "pasé", "envié" entre cuentas propias o "pagué mi tarjeta X con Y", usa "tipo": "transfer", "cuenta_sugerida": origen (Y) y "cuenta_destino_sugerida": destino (X).
-- Para "cuenta_sugerida" y "categoria_sugerida", elige el nombre MÁS CERCANO de las listas provistas arriba (sin inventar nombres fuera de ellas; si ninguna aplica para cuenta, usa null).
-- Si hay varias palabras numéricas, identifica correctamente cuál es el monto monetario y cuál es la cantidad/cuotas (ej. "2 kilos de pollo a 24 soles en 3 cuotas" -> monto: 24.0, cantidad: 2, unidad: "KG", cuotas: 3).
+- PRIORIZA categorías y subcategorías existentes del árbol de arriba. Solo pon "es_nueva_subcategoria": true (o "es_nueva_categoria": true) si realmente ninguna existente describe bien el producto.
+- Si dictó 2 o más productos con precios distintos en el mismo audio, llena "items" con cada producto y pon la suma en "monto". Si solo es 1 gasto, deja "items": [].
 - Responde SOLO JSON válido sin texto extra ni bloques Markdown.
 ''';
 
@@ -714,7 +765,11 @@ Devuelve ÚNICAMENTE este objeto JSON con las mismas claves:
           .post(
             Uri.parse('$_baseUrl/parse-voice'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'systemPrompt': prompt, 'userMessage': rawVoice}),
+            body: jsonEncode({
+              'systemPrompt': prompt,
+              'userMessage': rawVoice,
+              'taskType': 'fast_json',
+            }),
           )
           .timeout(timeout);
 
@@ -729,27 +784,44 @@ Devuelve ÚNICAMENTE este objeto JSON con las mismas claves:
     return null;
   }
 
-  /// PREDICCIÓN EN TIEMPO REAL: Analiza el nombre de un producto y sugiere una categoría rápidamente
-  Future<String?> predictCategoryFast(
+  /// PREDICCIÓN INTELIGENTE DE CATEGORÍA Y SUBCATEGORÍA (incluye sugerencia de crear nuevas si no encaja).
+  Future<AiCategoryPrediction?> predictCategoryAndSubcategory(
     String product,
     List<dynamic> categories,
-  ) async {
+    List<dynamic> subcategories, {
+    String? description,
+  }) async {
     if (product.trim().isEmpty) return null;
 
-    final categoriesListStr = categories.map((c) => c.name).join(', ');
+    final tree = _buildCategoryTree(categories, subcategories);
+    final userInput =
+        (description != null && description.trim().isNotEmpty)
+            ? 'Producto: ${product.trim()} | Comercio/Nota: ${description.trim()}'
+            : 'Producto/Gasto: ${product.trim()}';
+
     final prompt =
         '''
-Eres un categorizador financiero predictivo ultra-rápido.
-El usuario está escribiendo un gasto y necesitas decirle a qué categoría pertenece de acuerdo a su nombre o entidad.
+Eres el clasificador financiero inteligente de WalletAI (Perú/Latam).
+Analiza el producto/gasto del usuario y clasifícalo usando su árbol real de categorías y subcategorías.
 
-CATEGORÍAS DISPONIBLES:
-$categoriesListStr
+ÁRBOL ACTUAL DEL USUARIO:
+$tree
+
+DEVUELVE ÚNICAMENTE ESTE OBJETO JSON (sin markdown ni texto extra):
+{
+  "categoria": "Nombre exacto de categoría existente o nueva propuesta",
+  "subcategoria": "Nombre exacto de subcategoría existente o nueva propuesta (o null)",
+  "es_nueva_categoria": false,
+  "es_nueva_subcategoria": false,
+  "icono": "🏷️",
+  "razon": "Motivo breve de 5-8 palabras"
+}
 
 REGLAS ESTRICTAS:
-1. Devuelve SOLAMENTE el nombre EXACTO de UNA de las categorías disponibles.
-2. Si tienes dudas, trata de inferirlo por el contexto comercial (Ej. Netflix -> Entretenimiento, Starbucks -> Alimentación, Chifa -> Alimentación).
-3. Si es absolutamente imposible deducirlo o es ambiguo, devuelve la palabra: OTRO
-4. NUNCA des explicaciones, marcos de código ni comillas. Solo la palabra exacta.
+1. Prioriza SIEMPRE una categoría y subcategoría EXISTENTES del árbol.
+2. Si la categoría existe pero NINGUNA subcategoría actual encaja bien (ej. "Creatina" en "Deporte/Fitness" sin subcategoría "Suplementos", o "ChatGPT Plus" en "Servicios Digitales" sin "Suscripciones IA"), pon "es_nueva_subcategoria": true con un nombre limpio y útil en español.
+3. Solo pon "es_nueva_categoria": true si el gasto realmente no encaja en ninguna categoría existente (en vez de mandarlo a "Otro").
+4. Nunca devuelvas explicaciones fuera del JSON.
 ''';
 
     try {
@@ -757,20 +829,102 @@ REGLAS ESTRICTAS:
           .post(
             Uri.parse('$_baseUrl/parse-voice'),
             headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'systemPrompt': prompt, 'userMessage': product}),
+            body: jsonEncode({
+              'systemPrompt': prompt,
+              'userMessage': userInput,
+              'taskType': 'fast_json',
+            }),
           )
-          .timeout(
-            const Duration(seconds: 4),
-          ); // Timeout muy corto por ser predictivo
+          .timeout(const Duration(seconds: 7));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         final content = data['choices'][0]['message']['content'] as String;
-        return content.trim();
+        final obj = decodeJsonObject(content);
+        if (obj == null) return null;
+        return AiCategoryPrediction(
+          categoryName: obj['categoria']?.toString().trim(),
+          subcategoryName: obj['subcategoria']?.toString().trim(),
+          isNewCategory: obj['es_nueva_categoria'] == true,
+          isNewSubcategory: obj['es_nueva_subcategoria'] == true,
+          iconEmoji: obj['icono']?.toString().trim(),
+          reason: obj['razon']?.toString().trim(),
+        );
       }
-    } catch (_) {
-      // Si falla (timeout o red), retorna null silenciosamente para no arruinar la experiencia
-    }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Compatibilidad retroactiva para llamadas que solo solicitan el nombre de categoría.
+  Future<String?> predictCategoryFast(
+    String product,
+    List<dynamic> categories,
+  ) async {
+    final pred = await predictCategoryAndSubcategory(
+      product,
+      categories,
+      const [],
+    );
+    return pred?.categoryName;
+  }
+
+  /// Extrae una transacción desde un texto pegado de notificación Yape, Plin, BCP, Interbank, BBVA, etc.
+  Future<Map<String, dynamic>?> parseBankOrWalletText(
+    String pastedText,
+    List<dynamic> categories,
+    List<dynamic> subcategories,
+    List<dynamic> accounts,
+  ) async {
+    if (pastedText.trim().isEmpty) return null;
+    final todayIso = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final tree = _buildCategoryTree(categories, subcategories);
+    final accountsListStr = accounts.isEmpty
+        ? 'No especificadas'
+        : accounts.map((a) => (a as dynamic).name.toString()).join(', ');
+
+    final prompt =
+        '''
+Eres un extractor de notificaciones bancarias y billeteras peruanas (Yape, Plin, BCP, Interbank, BBVA, Scotiabank, Agora, etc.).
+Fecha de hoy: $todayIso
+Árbol de categorías y subcategorías del usuario:
+$tree
+Cuentas del usuario: $accountsListStr
+
+Analiza el mensaje pegado y devuelve ÚNICAMENTE este JSON EXACTO (sin markdown):
+{
+  "tipo": "expense", // "expense" si pagó/yapeó/compró, "income" si recibió dinero/abono, "transfer" si fue transferencia entre cuentas propias
+  "monto": 0.00,
+  "moneda": "PEN", // "PEN", "USD" o "EUR"
+  "descripcion": "Comercio o persona",
+  "producto": null,
+  "categoria_sugerida": "Categoría más adecuada del árbol o propuesta",
+  "subcategoria_sugerida": null,
+  "es_nueva_categoria": false,
+  "es_nueva_subcategoria": false,
+  "cuenta_sugerida": null, // ej. Yape, Plin, BCP según el mensaje y cuentas del usuario
+  "fecha": "$todayIso"
+}
+''';
+
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/parse-voice'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'systemPrompt': prompt,
+              'userMessage': pastedText.trim(),
+              'taskType': 'fast_json',
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        final content = data['choices'][0]['message']['content'] as String;
+        return decodeJsonObject(content);
+      }
+    } catch (_) {}
     return null;
   }
 }

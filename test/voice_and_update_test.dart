@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wallet_ai/core/services/subcategory_learning_service.dart';
 import 'package:wallet_ai/core/services/update_service.dart';
 import 'package:wallet_ai/data/database/drift_database.dart';
 import 'package:wallet_ai/data/datasources/groq_service.dart';
@@ -106,6 +108,29 @@ void main() {
       expect(parsed.amount, 300.0);
       expect(parsed.isComplexPhrase, isTrue);
       expect(parsed.isHighConfidence, isFalse);
+    });
+  });
+
+  group('SubcategoryLearningService & AiCategoryPrediction', () {
+    test('persiste y recupera subcategoría y cuenta aprendida por producto', () async {
+      SharedPreferences.setMockInitialValues({});
+      await SubcategoryLearningService.saveRule(
+        productName: '  Creatina Monohidratada  ',
+        subcategoryId: 'sub_suplementos',
+        accountId: 'acc_yape',
+      );
+      final loaded = await SubcategoryLearningService.getRule(
+        'creatina monohidratada',
+      );
+      expect(loaded.subcategoryId, 'sub_suplementos');
+      expect(loaded.accountId, 'acc_yape');
+
+      const sug = AiCategoryPrediction(
+        categoryName: 'Deporte/Fitness',
+        subcategoryName: 'Suplementos',
+        isNewSubcategory: true,
+      );
+      expect(sug.hasNewSuggestion, isTrue);
     });
   });
 }

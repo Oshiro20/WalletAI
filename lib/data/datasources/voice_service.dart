@@ -79,13 +79,13 @@ class VoiceService {
         onResult(result.recognizedWords, result.finalResult);
       },
       localeId: onDevice ? null : localeId,
-      listenFor: const Duration(seconds: 25),
-      pauseFor: const Duration(milliseconds: 1400),
+      listenFor: const Duration(seconds: 60),
+      pauseFor: const Duration(seconds: 5),
       listenOptions: SpeechListenOptions(
         cancelOnError: false,
         partialResults: true,
         onDevice: onDevice,
-        listenMode: ListenMode.confirmation,
+        listenMode: ListenMode.dictation,
       ),
     );
   }

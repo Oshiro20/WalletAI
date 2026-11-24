@@ -2,10 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/services/subcategory_learning_service.dart';
 import '../../../data/database/drift_database.dart';
 import '../../../data/datasources/groq_service.dart';
+import '../../../data/datasources/receipt_scanner_service.dart';
 import '../../providers/service_providers.dart';
 import '../../providers/database_providers.dart';
+import '../../screens/transactions/widgets/add_receipt_items_screen.dart';
 
 class VoiceInputButton extends ConsumerWidget {
   /// Si se provee (por ej. dentro de CreateTransactionScreen), aplica los datos
@@ -29,6 +32,30 @@ class VoiceInputButton extends ConsumerWidget {
           (c) =>
               c.name.toLowerCase().contains(clean) ||
               clean.contains(c.name.toLowerCase()),
+        )
+        .firstOrNull;
+    return partial?.id;
+  }
+
+  static String? _matchSubcategoryId(
+    String? suggestedName,
+    String? categoryId,
+    List<Subcategory> subcategories,
+  ) {
+    if (suggestedName == null || suggestedName.trim().isEmpty) return null;
+    final clean = suggestedName.trim().toLowerCase();
+    final scoped = categoryId == null
+        ? subcategories
+        : subcategories.where((s) => s.categoryId == categoryId).toList();
+    final exact = scoped
+        .where((s) => s.name.trim().toLowerCase() == clean)
+        .firstOrNull;
+    if (exact != null) return exact.id;
+    final partial = scoped
+        .where(
+          (s) =>
+              s.name.toLowerCase().contains(clean) ||
+              clean.contains(s.name.toLowerCase()),
         )
         .firstOrNull;
     return partial?.id;
@@ -63,6 +90,7 @@ class VoiceInputButton extends ConsumerWidget {
       onPressed: () async {
         final result = await showDialog<String>(
           context: context,
+          barrierDismissible: false,
           builder: (context) => const VoiceListeningDialog(),
         );
 
@@ -86,7 +114,7 @@ class VoiceInputButton extends ConsumerWidget {
               .getAllSubcategories();
           final db = ref.read(databaseProvider);
 
-          // 1. Parseo local instantáneo (<10ms): resuelve dictados claros sin esperar red.
+          // 1. Parseo local instantáneo (<10ms)
           final parser = ref.read(transactionParserServiceProvider);
           final local = parser.parse(
             result,
@@ -97,6 +125,7 @@ class VoiceInputButton extends ConsumerWidget {
 
           String? localCatId = local.categoryId;
           String? localSubcatId = local.subcategoryId;
+          String? localAccountId = local.accountId;
           final localProduct = local.productName;
           if (localProduct != null && localProduct.isNotEmpty) {
             final rule = await db.learningRulesDao.getRuleForProduct(
@@ -105,17 +134,34 @@ class VoiceInputButton extends ConsumerWidget {
             if (rule != null) {
               localCatId = rule.categoryId;
             }
+            final subRule = await SubcategoryLearningService.getRule(
+              localProduct,
+            );
+            if (subRule.subcategoryId != null) {
+              localSubcatId = subRule.subcategoryId;
+            }
+            localAccountId ??= subRule.accountId;
           }
 
+          // Detectar si el dictado menciona múltiples montos/productos para usar IA
+          final amountMentions = RegExp(
+            r'\b\d+(?:[.,]\d+)?\s*(?:soles|sol|s/|dolares|dólares|usd|lucas)\b',
+            caseSensitive: false,
+          ).allMatches(result).length;
+          final looksMultiItem = amountMentions >= 2;
+
           Map<String, dynamic>? payload;
+          List<ReceiptItem> multiItems = const [];
 
           final resolvedLocally =
+              !looksMultiItem &&
               local.amount != null &&
               local.amount! > 0 &&
               !local.isComplexPhrase &&
               local.description != null &&
               local.description!.trim().isNotEmpty &&
-              (localCatId != null || local.accountId != null);
+              localCatId != null &&
+              localSubcatId != null;
 
           if (resolvedLocally) {
             payload = {
@@ -128,10 +174,9 @@ class VoiceInputButton extends ConsumerWidget {
               'unit': local.unit,
               'categoryId': localCatId,
               'subcategoryId': localSubcatId,
-              'accountId': local.accountId,
+              'accountId': localAccountId,
             };
           } else {
-            // 2. Solo consultar IA si la frase es ambigua o compleja (cuotas, transfer, fechas).
             if (context.mounted) {
               dialogOpen = true;
               showDialog(
@@ -142,18 +187,39 @@ class VoiceInputButton extends ConsumerWidget {
               );
             }
 
-            final groq = ref.read(groqServiceProvider);
-            final aiData = await groq.parseVoiceTransaction(
+            final aiService = ref.read(groqServiceProvider);
+            final aiData = await aiService.parseVoiceTransaction(
               result,
               categories,
+              subcategories: subcats,
               accounts: accounts,
-              timeout: const Duration(seconds: 6),
+              timeout: const Duration(seconds: 10),
             );
 
             if (aiData != null) {
-              String? catId = _matchCategoryId(
-                aiData['categoria_sugerida']?.toString(),
-                categories,
+              final rawItems = aiData['items'];
+              if (rawItems is List && rawItems.length >= 2) {
+                multiItems = rawItems.whereType<Map>().map((m) {
+                  final map = Map<String, dynamic>.from(m);
+                  return ReceiptItem(
+                    name: map['nombre']?.toString() ?? 'Producto',
+                    price: (map['monto'] as num?)?.toDouble() ?? 0.0,
+                    quantity: (map['cantidad'] as num?)?.toDouble() ?? 1.0,
+                    unit: map['unidad']?.toString() ?? 'UND',
+                    category: map['categoria']?.toString(),
+                    subcategory: map['subcategoria']?.toString(),
+                  );
+                }).where((i) => i.price > 0).toList();
+              }
+
+              final suggestedCatName = aiData['categoria_sugerida']?.toString();
+              final suggestedSubName =
+                  aiData['subcategoria_sugerida']?.toString();
+              String? catId = _matchCategoryId(suggestedCatName, categories);
+              String? subcatId = _matchSubcategoryId(
+                suggestedSubName,
+                catId,
+                subcats,
               );
 
               final parsedProductName = aiData['producto']?.toString();
@@ -163,6 +229,12 @@ class VoiceInputButton extends ConsumerWidget {
                 );
                 if (rule != null) {
                   catId = rule.categoryId;
+                }
+                final subRule = await SubcategoryLearningService.getRule(
+                  parsedProductName,
+                );
+                if (subRule.subcategoryId != null) {
+                  subcatId = subRule.subcategoryId;
                 }
               }
 
@@ -184,6 +256,18 @@ class VoiceInputButton extends ConsumerWidget {
                   : 'PEN';
               final cuotas = (aiData['cuotas'] as num?)?.toInt() ?? 1;
 
+              final bool isNewCat =
+                  aiData['es_nueva_categoria'] == true ||
+                  (catId == null &&
+                      suggestedCatName != null &&
+                      suggestedCatName.trim().isNotEmpty &&
+                      suggestedCatName.trim().toUpperCase() != 'OTRO');
+              final bool isNewSub =
+                  aiData['es_nueva_subcategoria'] == true ||
+                  (subcatId == null &&
+                      suggestedSubName != null &&
+                      suggestedSubName.trim().isNotEmpty);
+
               payload = {
                 'type': aiData['tipo']?.toString() ?? 'expense',
                 'amount':
@@ -197,11 +281,19 @@ class VoiceInputButton extends ConsumerWidget {
                     (aiData['cantidad'] as num?)?.toDouble() ?? local.quantity,
                 'unit': aiData['unidad']?.toString() ?? local.unit,
                 'categoryId': catId ?? localCatId,
-                'accountId': accountId ?? local.accountId,
+                'subcategoryId': subcatId ?? localSubcatId,
+                'accountId': accountId ?? localAccountId,
                 'destinationAccountId': destinationAccountId,
                 if (parsedDate != null)
                   'date': parsedDate.millisecondsSinceEpoch,
                 if (cuotas > 1) 'installments': cuotas,
+                if (isNewCat || isNewSub)
+                  'aiSuggestion': AiCategoryPrediction(
+                    categoryName: suggestedCatName,
+                    subcategoryName: suggestedSubName,
+                    isNewCategory: isNewCat,
+                    isNewSubcategory: isNewSub,
+                  ),
               };
             } else {
               payload = {
@@ -217,7 +309,7 @@ class VoiceInputButton extends ConsumerWidget {
                 'unit': local.unit,
                 'categoryId': localCatId,
                 'subcategoryId': localSubcatId,
-                'accountId': local.accountId,
+                'accountId': localAccountId,
               };
             }
           }
@@ -225,6 +317,26 @@ class VoiceInputButton extends ConsumerWidget {
           closeDialogIfOpen();
 
           if (!context.mounted) return;
+
+          // Si se dictaron múltiples productos con precios separados, abrir pantalla multi-ítem
+          if (multiItems.length >= 2 && onVoiceExtracted == null) {
+            final total = multiItems.fold<double>(0, (s, i) => s + i.price);
+            await Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => AddReceiptItemsScreen(
+                  receipt: ScannedReceipt(
+                    amount: total,
+                    date: DateTime.now(),
+                    merchant: payload?['description']?.toString() ?? 'Dictado por voz',
+                    items: multiItems,
+                    currency: payload?['currency']?.toString() ?? 'PEN',
+                    rawText: result.trim(),
+                  ),
+                ),
+              ),
+            );
+            return;
+          }
 
           if (onVoiceExtracted != null) {
             onVoiceExtracted!(payload);
@@ -247,6 +359,9 @@ class VoiceInputButton extends ConsumerWidget {
   }
 }
 
+/// Diálogo de dictado continuo con control manual:
+/// nunca se corta ni se envía solo por pausas; el usuario revisa/edita
+/// y pulsa **Listo** cuando termina de hablar.
 class VoiceListeningDialog extends ConsumerStatefulWidget {
   const VoiceListeningDialog({super.key});
 
@@ -256,13 +371,14 @@ class VoiceListeningDialog extends ConsumerStatefulWidget {
 }
 
 class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
-  final TextEditingController _manualCtrl = TextEditingController();
-  String _text = '';
+  final TextEditingController _transcriptCtrl = TextEditingController();
+  String _committedText = '';
+  String _liveChunk = '';
   String _status = 'Iniciando micrófono...';
+  bool _isListening = false;
   bool _hasCompleted = false;
   bool _hasError = false;
   bool _triedOnDevice = false;
-  Timer? _autoSubmitTimer;
 
   @override
   void initState() {
@@ -273,35 +389,51 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
 
   @override
   void dispose() {
-    _autoSubmitTimer?.cancel();
-    _manualCtrl.dispose();
+    _transcriptCtrl.dispose();
     if (!_hasCompleted) {
       ref.read(voiceServiceProvider).cancel();
     }
     super.dispose();
   }
 
-  void _submitManualOrVoice(String raw) {
-    final clean = raw.trim();
+  void _syncControllerFromChunks() {
+    final combined = [
+      if (_committedText.trim().isNotEmpty) _committedText.trim(),
+      if (_liveChunk.trim().isNotEmpty) _liveChunk.trim(),
+    ].join(' ');
+    _transcriptCtrl.value = TextEditingValue(
+      text: combined,
+      selection: TextSelection.collapsed(offset: combined.length),
+    );
+  }
+
+  void _commitCurrentChunk() {
+    if (_liveChunk.trim().isNotEmpty) {
+      _committedText = [
+        if (_committedText.trim().isNotEmpty) _committedText.trim(),
+        _liveChunk.trim(),
+      ].join(' ');
+      _liveChunk = '';
+      _syncControllerFromChunks();
+    } else {
+      _committedText = _transcriptCtrl.text.trim();
+    }
+  }
+
+  Future<void> _pauseListening() async {
+    await ref.read(voiceServiceProvider).stop();
+    if (!mounted) return;
+    setState(() {
+      _commitCurrentChunk();
+      _isListening = false;
+      _status = 'En pausa · puedes editar, seguir hablando o tocar Listo';
+    });
+  }
+
+  Future<void> _completeAndSubmit() async {
+    final clean = _transcriptCtrl.text.trim();
     if (clean.isEmpty || _hasCompleted || !mounted) return;
     _hasCompleted = true;
-    _autoSubmitTimer?.cancel();
-    ref.read(voiceServiceProvider).stop();
-    Navigator.of(context).pop(clean);
-  }
-
-  void _scheduleAutoSubmit(Duration delay) {
-    if (_hasCompleted || _text.trim().isEmpty) return;
-    _autoSubmitTimer?.cancel();
-    _autoSubmitTimer = Timer(delay, _completeWithTranscript);
-  }
-
-  Future<void> _completeWithTranscript() async {
-    if (_hasCompleted || !mounted) return;
-    final clean = _text.trim();
-    if (clean.isEmpty) return;
-    _hasCompleted = true;
-    _autoSubmitTimer?.cancel();
     await ref.read(voiceServiceProvider).stop();
     if (mounted) {
       Navigator.of(context).pop(clean);
@@ -309,13 +441,15 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
   }
 
   Future<void> _startListening({bool onDevice = false}) async {
-    _autoSubmitTimer?.cancel();
+    _committedText = _transcriptCtrl.text.trim();
+    _liveChunk = '';
     if (mounted) {
       setState(() {
         _hasError = false;
+        _isListening = true;
         _status = onDevice
-            ? 'Escuchando en modo local sin red...'
-            : 'Escuchando...';
+            ? 'Escuchando en modo local... habla tranquilo y toca Listo al terminar'
+            : 'Escuchando... habla tranquilo y toca Listo al terminar';
       });
     }
 
@@ -325,20 +459,19 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
       onDevice: onDevice,
       onResult: (text, isFinal) {
         if (!mounted || _hasCompleted) return;
-        setState(() => _text = text);
-        if (text.trim().isNotEmpty) {
+        setState(() {
+          _liveChunk = text;
+          _syncControllerFromChunks();
           if (isFinal) {
-            _scheduleAutoSubmit(const Duration(milliseconds: 200));
-          } else {
-            // Respaldo más ágil si el motor de voz tarda en emitir finalResult
-            _scheduleAutoSubmit(const Duration(milliseconds: 1150));
+            _commitCurrentChunk();
           }
-        }
+        });
       },
       onStatus: (status) {
         if (!mounted || _hasCompleted) return;
         if (status == 'unavailable') {
           setState(() {
+            _isListening = false;
             _hasError = true;
             _status = 'Micrófono no disponible o permiso denegado';
           });
@@ -346,28 +479,25 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
         }
 
         final isFinished = status == 'done' || status == 'notListening';
-        if (isFinished && _text.trim().isNotEmpty) {
-          setState(() => _status = 'Procesando audio...');
-          _scheduleAutoSubmit(const Duration(milliseconds: 200));
-        } else if (status == 'done' && _text.trim().isEmpty) {
+        if (isFinished) {
           setState(() {
-            _hasError = true;
-            _status = 'No se detectó voz. Toca Reintentar para hablar.';
+            _commitCurrentChunk();
+            _isListening = false;
+            _status = _transcriptCtrl.text.trim().isNotEmpty
+                ? 'Pausado · toca "Seguir hablando" para agregar más o "Listo" para registrar'
+                : 'No se escuchó audio. Toca "Seguir hablando" o escribe abajo.';
           });
-        } else {
+        } else if (status == 'listening') {
           setState(() {
-            _status = status == 'listening'
-                ? (onDevice ? 'Escuchando (modo local)...' : 'Escuchando...')
-                : status;
+            _isListening = true;
+            _status = onDevice
+                ? 'Escuchando (modo local)... toca Listo cuando termines'
+                : 'Escuchando... toca Listo cuando termines';
           });
         }
       },
       onError: (errorMsg) {
         if (!mounted || _hasCompleted) return;
-        if (_text.trim().isNotEmpty) {
-          _scheduleAutoSubmit(const Duration(milliseconds: 200));
-          return;
-        }
         final isNetworkError = errorMsg.toLowerCase().contains('network');
         if (isNetworkError && !_triedOnDevice) {
           _triedOnDevice = true;
@@ -379,10 +509,12 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
           return;
         }
         setState(() {
-          _hasError = true;
-          _status = isNetworkError
-              ? 'Google Voz no respondió ($errorMsg). Puedes reintentar o usar el campo de texto / micro del teclado:'
-              : 'No se pudo capturar el audio ($errorMsg)';
+          _commitCurrentChunk();
+          _isListening = false;
+          _hasError = _transcriptCtrl.text.trim().isEmpty;
+          _status = _transcriptCtrl.text.trim().isNotEmpty
+              ? 'Micrófono en pausa · revisa tu texto y toca Listo o Seguir hablando'
+              : 'No se pudo capturar el audio ($errorMsg). Reintenta o escribe abajo:';
         });
       },
     );
@@ -390,90 +522,122 @@ class _VoiceListeningDialogState extends ConsumerState<VoiceListeningDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final hasText = _transcriptCtrl.text.trim().isNotEmpty;
+
     return AlertDialog(
-      title: Text(_hasError ? 'Entrada por voz' : 'Escuchando...'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
+      title: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: _hasError
-                  ? Theme.of(context).colorScheme.errorContainer
-                  : Theme.of(context).colorScheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _hasError ? Icons.mic_off : Icons.mic,
-              size: 32,
-              color: _hasError
-                  ? Theme.of(context).colorScheme.onErrorContainer
-                  : Theme.of(context).colorScheme.onPrimaryContainer,
-            ),
+          Icon(
+            _isListening ? Icons.graphic_eq_rounded : Icons.mic_rounded,
+            color: _isListening ? cs.primary : cs.onSurfaceVariant,
           ),
-          const SizedBox(height: 16),
-          Text(
-            _text.isEmpty
-                ? 'Ej: "Gasté 20 soles en 2 kilos de pollo con BCP"'
-                : _text,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _text.isNotEmpty && !_hasError
-                ? 'Se procesará automáticamente al terminar...'
-                : _status,
-            textAlign: TextAlign.center,
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.grey),
-          ),
-          if (_hasError) ...[
-            const SizedBox(height: 12),
-            TextField(
-              controller: _manualCtrl,
-              textInputAction: TextInputAction.send,
-              onSubmitted: _submitManualOrVoice,
-              decoration: InputDecoration(
-                hintText: 'Ej: 20 soles pollo con Yape',
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+          const SizedBox(width: 8),
+          Text(_isListening ? 'Escuchando...' : 'Dictado por voz'),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: _isListening
+                  ? _pauseListening
+                  : () {
+                      _triedOnDevice = false;
+                      _startListening();
+                    },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: _isListening
+                      ? cs.primaryContainer
+                      : (_hasError
+                            ? cs.errorContainer
+                            : cs.surfaceContainerHighest),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: _isListening
+                        ? cs.primary
+                        : cs.outlineVariant.withValues(alpha: 0.4),
+                    width: _isListening ? 2.5 : 1,
+                  ),
                 ),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: () => _submitManualOrVoice(_manualCtrl.text),
+                child: Icon(
+                  _isListening
+                      ? Icons.pause_rounded
+                      : (_hasError ? Icons.mic_off : Icons.mic_rounded),
+                  size: 32,
+                  color: _isListening
+                      ? cs.primary
+                      : (_hasError ? cs.error : cs.onSurfaceVariant),
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            Text(
+              _status,
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _transcriptCtrl,
+              maxLines: 4,
+              minLines: 2,
+              onChanged: (_) => setState(() {}),
+              decoration: InputDecoration(
+                hintText:
+                    'Ej: "Gasté 25 soles en 2 kilos de pollo con Yape"\nO varios: "Pollo 22 soles y papa 4 soles con BCP"',
+                hintStyle: const TextStyle(fontSize: 12.5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                filled: true,
+                suffixIcon: hasText
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 18),
+                        tooltip: 'Limpiar',
+                        onPressed: () {
+                          setState(() {
+                            _committedText = '';
+                            _liveChunk = '';
+                            _transcriptCtrl.clear();
+                          });
+                        },
+                      )
+                    : null,
+              ),
+            ),
           ],
-        ],
+        ),
       ),
       actions: [
         TextButton(
           onPressed: () {
             _hasCompleted = true;
-            _autoSubmitTimer?.cancel();
             ref.read(voiceServiceProvider).cancel();
             Navigator.of(context).pop();
           },
           child: const Text('Cancelar'),
         ),
-        if (_hasError)
-          FilledButton.icon(
+        if (!_isListening)
+          OutlinedButton.icon(
             onPressed: () {
               _triedOnDevice = false;
               _startListening();
             },
-            icon: const Icon(Icons.refresh, size: 18),
-            label: const Text('Reintentar'),
-          )
-        else
-          FilledButton(
-            onPressed: _text.trim().isNotEmpty ? _completeWithTranscript : null,
-            child: const Text('Listo'),
+            icon: const Icon(Icons.mic, size: 16),
+            label: Text(hasText ? 'Seguir' : 'Hablar'),
           ),
+        FilledButton.icon(
+          onPressed: hasText ? _completeAndSubmit : null,
+          icon: const Icon(Icons.check, size: 18),
+          label: const Text('Listo'),
+        ),
       ],
     );
   }
