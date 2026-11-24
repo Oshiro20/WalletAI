@@ -15,6 +15,7 @@ import '../../data/datasources/currency_service.dart';
 import '../../presentation/providers/database_providers.dart';
 import '../utils/credit_card_calculator.dart';
 import '../utils/text_search_helper.dart';
+import 'financial_planning_service.dart';
 
 /// Construye un contexto financiero completo y actualizado a partir de todas las
 /// tablas reales de WalletAI (cuentas, transacciones históricas, categorías,
@@ -245,6 +246,8 @@ class FinancialContextBuilder {
       final installments = await _creditInstallmentsDao.getAllInstallments();
       final travels = await _travelsDao.getAllTravels();
       final allTxs = await _transactionsDao.getAllTransactions(limit: 5000);
+      final incomeOverrides =
+          await FinancialPlanningService.loadIncomeOverrides();
 
       final catMap = {for (final c in categories) c.id: c};
       final subMap = {for (final s in subcategories) s.id: s};
@@ -358,13 +361,17 @@ class FinancialContextBuilder {
 
       for (int i = 0; i < 6; i++) {
         final mStart = DateTime(now.year, now.month - i, 1);
-        final mEnd = DateTime(now.year, now.month - i + 1, 0, 23, 59, 59);
         double inc = 0;
         double exp = 0;
         int count = 0;
 
         for (final tx in allTxs) {
-          if (!tx.date.isBefore(mStart) && !tx.date.isAfter(mEnd)) {
+          if (FinancialPlanningService.belongsToBudgetMonth(
+            tx,
+            mStart.year,
+            mStart.month,
+            incomeOverrides,
+          )) {
             count++;
             final amt = TextSearchHelper.convertToPen(
               tx.amount,
@@ -491,16 +498,31 @@ class FinancialContextBuilder {
 
       // ── 5. Metas de ahorro ──────────────────────────────────────────────────
       if (goals.isNotEmpty) {
-        sb.writeln('\n=== METAS DE AHORRO ACTIVAS ===');
+        final totalMonthlySuggested =
+            FinancialPlanningService.totalSuggestedMonthlySavings(
+              goals,
+              now: now,
+            );
+        sb.writeln(
+          '\n=== METAS DE AHORRO ACTIVAS${totalMonthlySuggested > 0 ? ' (aporte mensual sugerido total: ${fmt.format(totalMonthlySuggested)}/mes)' : ''} ===',
+        );
         for (final g in goals) {
           final pct = g.targetAmount > 0
               ? (g.currentAmount / g.targetAmount * 100).toStringAsFixed(0)
               : '0';
+          final plan = FinancialPlanningService.computeGoalPlan(g, now: now);
           final deadlineStr = g.deadline != null
               ? ', fecha límite: ${DateFormat('dd/MM/yyyy').format(g.deadline!)}'
               : '';
+          final monthlyStr = plan.suggestedMonthlyAmount != null &&
+                  plan.suggestedMonthlyAmount! > 0
+              ? ', cuota sugerida: ${fmt.format(plan.suggestedMonthlyAmount)}/mes'
+              : '';
+          final accStr = g.accountId != null && accMap[g.accountId] != null
+              ? ', cuenta: ${accMap[g.accountId]!.name}'
+              : '';
           sb.writeln(
-            '  - ${g.name}: ${fmt.format(g.currentAmount)} / ${fmt.format(g.targetAmount)} ($pct%$deadlineStr)',
+            '  - ${g.name}: ${fmt.format(g.currentAmount)} / ${fmt.format(g.targetAmount)} ($pct%$deadlineStr$monthlyStr$accStr)',
           );
         }
       }

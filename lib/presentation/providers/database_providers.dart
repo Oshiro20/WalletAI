@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/database/drift_database.dart';
 import '../../data/datasources/currency_service.dart';
-
+import '../../core/services/financial_planning_service.dart';
 import '../../core/utils/period_filter.dart';
 
 /// Filtros para transacciones
@@ -235,6 +235,11 @@ final savingsGoalsDaoProvider = Provider((ref) {
   return database.savingsGoalsDao;
 });
 
+/// Stream reactivo de metas de ahorro activas (compartido entre Inicio y Metas)
+final savingsGoalsStreamProvider = StreamProvider<List<SavingsGoal>>((ref) {
+  return ref.watch(savingsGoalsDaoProvider).watchActiveGoals();
+});
+
 /// Provider de RecurringPaymentsDao
 final recurringPaymentsDaoProvider = Provider((ref) {
   final database = ref.watch(databaseProvider);
@@ -392,32 +397,121 @@ final totalBalanceProvider = StreamProvider<double>((ref) {
   });
 });
 
-/// Provider CONSOLIDADO del mes actual — hace UNA sola query DB y retorna income+expense+balance.
-/// Los tres providers individuales derivan de éste sin tocar la BD de nuevo.
+/// Notifier reactivo que guarda qué ingresos (ej. sueldo pagado el 28–31)
+/// cuentan contablemente para el presupuesto del mes siguiente (`txId -> YYYY-MM`).
+class IncomeMonthOverridesNotifier extends StateNotifier<Map<String, String>> {
+  IncomeMonthOverridesNotifier() : super(const {}) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final loaded = await FinancialPlanningService.loadIncomeOverrides();
+    if (mounted) state = loaded;
+  }
+
+  Future<void> assignToNextMonth(String txId, DateTime txDate) async {
+    final next = FinancialPlanningService.nextMonthOf(txDate);
+    final updated = Map<String, String>.from(state)..[txId] = next.key;
+    state = updated;
+    await FinancialPlanningService.saveIncomeOverrides(updated);
+  }
+
+  Future<void> clearOverride(String txId) async {
+    if (!state.containsKey(txId)) return;
+    final updated = Map<String, String>.from(state)..remove(txId);
+    state = updated;
+    await FinancialPlanningService.saveIncomeOverrides(updated);
+  }
+}
+
+final incomeMonthOverridesProvider =
+    StateNotifierProvider<IncomeMonthOverridesNotifier, Map<String, String>>(
+      (ref) => IncomeMonthOverridesNotifier(),
+    );
+
+/// Notifier reactivo de la regla de distribución de presupuesto (50/30/20, etc.).
+class BudgetRulePresetNotifier extends StateNotifier<BudgetRulePreset> {
+  BudgetRulePresetNotifier() : super(BudgetRulePreset.balanced503020) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final loaded = await FinancialPlanningService.loadBudgetRulePreset();
+    if (mounted) state = loaded;
+  }
+
+  Future<void> setPreset(BudgetRulePreset preset) async {
+    state = preset;
+    await FinancialPlanningService.saveBudgetRulePreset(preset);
+  }
+}
+
+final budgetRulePresetProvider =
+    StateNotifierProvider<BudgetRulePresetNotifier, BudgetRulePreset>(
+      (ref) => BudgetRulePresetNotifier(),
+    );
+
+/// Provider CONSOLIDADO del mes actual — hace UNA sola query DB y retorna
+/// income + expense + balance + goalSavings, respetando sueldos de fin de mes
+/// asignados al mes siguiente.
 final currentMonthSummaryProvider = StreamProvider<Map<String, double>>((ref) {
   final dao = ref.watch(transactionsDaoProvider);
+  final overrides = ref.watch(incomeMonthOverridesProvider);
+  final accounts = ref.watch(accountsStreamProvider).valueOrNull ?? const [];
+  final savingsAccountIds = accounts
+      .where((a) => a.type == 'savings' || a.type == 'investment')
+      .map((a) => a.id)
+      .toSet();
+
   final now = DateTime.now();
-  final startOfMonth = DateTime(now.year, now.month, 1);
+  // Ventana ampliada desde el mes anterior para capturar sueldos del 25-31
+  // asignados contablemente a este mes.
+  final queryStart = DateTime(now.year, now.month - 1, 1);
   final endOfMonth = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
 
   return dao
-      .watchFilteredTransactions(startDate: startOfMonth, endDate: endOfMonth)
+      .watchFilteredTransactions(startDate: queryStart, endDate: endOfMonth)
       .map((transactions) {
         double income = 0;
         double expense = 0;
+        double goalSavings = 0;
         final rates = ref.read(exchangeRatesProvider).value ?? {'PEN': 1.0};
 
         for (final t in transactions) {
+          if (!FinancialPlanningService.belongsToBudgetMonth(
+            t,
+            now.year,
+            now.month,
+            overrides,
+          )) {
+            continue;
+          }
           final amount = _convertToPen(t.amount, t.currency, rates);
-          if (t.type == 'income') income += amount;
-          if (t.type == 'expense') expense += amount;
+          if (t.type == 'income') {
+            income += amount;
+          } else if (t.type == 'expense') {
+            expense += amount;
+          } else if (FinancialPlanningService.isSavingsTransfer(
+            t,
+            savingsAccountIds: savingsAccountIds,
+          )) {
+            goalSavings += amount;
+          }
         }
         return {
           'income': income,
           'expense': expense,
           'balance': income - expense,
+          'goalSavings': goalSavings,
         };
       });
+});
+
+/// Provider de ahorro real transferido a metas/cuentas de ahorro en el mes actual
+final currentMonthGoalSavingsProvider = Provider<AsyncValue<double>>((ref) {
+  return ref
+      .watch(currentMonthSummaryProvider)
+      .whenData((s) => s['goalSavings'] ?? 0.0);
 });
 
 /// Provider de balance del mes actual (derivado del provider consolidado)
@@ -441,18 +535,19 @@ final currentMonthExpensesProvider = Provider<AsyncValue<double>>((ref) {
       .whenData((s) => s['expense'] ?? 0.0);
 });
 
-/// Provider CONSOLIDADO del mes anterior
+/// Provider CONSOLIDADO del mes anterior (respeta overrides de mes contable)
 final previousMonthSummaryProvider = StreamProvider<Map<String, double>>((ref) {
   final dao = ref.watch(transactionsDaoProvider);
+  final overrides = ref.watch(incomeMonthOverridesProvider);
   final now = DateTime.now();
   final prevMonth = now.month == 1 ? 12 : now.month - 1;
   final prevYear = now.month == 1 ? now.year - 1 : now.year;
-  final startOfPrevMonth = DateTime(prevYear, prevMonth, 1);
+  final queryStart = DateTime(prevYear, prevMonth - 1, 1);
   final endOfPrevMonth = DateTime(prevYear, prevMonth + 1, 0, 23, 59, 59);
 
   return dao
       .watchFilteredTransactions(
-        startDate: startOfPrevMonth,
+        startDate: queryStart,
         endDate: endOfPrevMonth,
       )
       .map((transactions) {
@@ -461,6 +556,14 @@ final previousMonthSummaryProvider = StreamProvider<Map<String, double>>((ref) {
         final rates = ref.read(exchangeRatesProvider).value ?? {'PEN': 1.0};
 
         for (final t in transactions) {
+          if (!FinancialPlanningService.belongsToBudgetMonth(
+            t,
+            prevYear,
+            prevMonth,
+            overrides,
+          )) {
+            continue;
+          }
           final amount = _convertToPen(t.amount, t.currency, rates);
           if (t.type == 'income') income += amount;
           if (t.type == 'expense') expense += amount;
@@ -529,19 +632,22 @@ final selectedAnalyticsPeriodProvider = StateProvider<TimePeriod>((ref) {
   return TimePeriod.month;
 });
 
-/// Provider de resumen del periodo seleccionado (con conversión)
+/// Provider de resumen del periodo seleccionado (con conversión y overrides de mes)
 final analyticsSummaryProvider =
     FutureProvider.autoDispose<Map<String, double>>((ref) async {
       final date = ref.watch(selectedDateProvider);
       final period = ref.watch(selectedAnalyticsPeriodProvider);
       final dao = ref.watch(transactionsDaoProvider);
+      final overrides = ref.watch(incomeMonthOverridesProvider);
       final rates = await ref.watch(exchangeRatesProvider.future);
 
       final range = period.calculateRange(date);
+      final queryStart = period == TimePeriod.month
+          ? DateTime(date.year, date.month - 1, 1)
+          : range.start;
 
-      // Obtenemos TODAS las transacciones del rango para convertirlas
       final transactions = await dao.getTransactionsByDateRange(
-        range.start,
+        queryStart,
         range.end,
       );
 
@@ -549,6 +655,15 @@ final analyticsSummaryProvider =
       double expense = 0;
 
       for (var t in transactions) {
+        if (period == TimePeriod.month &&
+            !FinancialPlanningService.belongsToBudgetMonth(
+              t,
+              date.year,
+              date.month,
+              overrides,
+            )) {
+          continue;
+        }
         final amountInPen = _convertToPen(t.amount, t.currency, rates);
         if (t.type == 'income') {
           income += amountInPen;
