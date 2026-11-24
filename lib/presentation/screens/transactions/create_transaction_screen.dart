@@ -21,8 +21,10 @@ import 'widgets/add_receipt_items_screen.dart';
 import 'widgets/credit_card_installment_selector.dart';
 import '../../../core/utils/credit_card_calculator.dart';
 import '../../../core/services/ecosystem_sync_service.dart';
+import '../../../core/services/financial_planning_service.dart';
 import '../../../core/services/subcategory_learning_service.dart';
 import '../../../data/datasources/groq_service.dart';
+import 'package:go_router/go_router.dart';
 
 class CreateTransactionScreen extends ConsumerStatefulWidget {
   final String? initialType;
@@ -98,6 +100,9 @@ class _CreateTransactionScreenState
   // Variables para pagos recurrentes
   bool _isRecurring = false;
   String _frequency = 'monthly'; // monthly, weekly, yearly
+
+  // Asignar ingreso de fin de mes (ej. sueldo día 28-31) al mes siguiente
+  bool _assignIncomeToNextMonth = false;
 
   // Variables para compras con Tarjeta de Crédito (cuotas / financiamiento)
   bool _isInstallment = false;
@@ -1031,19 +1036,58 @@ class _CreateTransactionScreenState
         creditInstallment: creditInstallmentCompanion,
       );
 
+      // Si es ingreso marcado para el presupuesto del próximo mes (ej. sueldo del 28-31)
+      if (_transactionType == 'income' && _assignIncomeToNextMonth) {
+        await ref
+            .read(incomeMonthOverridesProvider.notifier)
+            .assignToNextMonth(transactionId, _selectedDate);
+      }
+
+      // Calcular sugerencia de ahorro mensual si el usuario registró un ingreso relevante
+      double suggestedMonthlyGoals = 0;
+      if (_transactionType == 'income' && amount >= 200) {
+        try {
+          final activeGoals = await ref
+              .read(savingsGoalsDaoProvider)
+              .getActiveGoals();
+          suggestedMonthlyGoals =
+              FinancialPlanningService.totalSuggestedMonthlySavings(
+                activeGoals,
+              );
+        } catch (_) {}
+      }
+
       if (mounted) {
         String successMsg = 'Transacción guardada exitosamente';
         if (creditInstallmentId != null && installmentPlan != null) {
           final fee = installmentPlan.monthlyPayment.toStringAsFixed(2);
           successMsg =
               'Compra registrada en $_installmentsCount cuotas de $_currency $fee';
+        } else if (_transactionType == 'income' && _assignIncomeToNextMonth) {
+          final nextInfo = FinancialPlanningService.nextMonthOf(_selectedDate);
+          successMsg =
+              '💰 Ingreso guardado (contará en ${nextInfo.label})'
+              '${suggestedMonthlyGoals > 0 ? ' · Metas sugieren separar S/ ${suggestedMonthlyGoals.toStringAsFixed(0)}/mes' : ''}';
+        } else if (_transactionType == 'income' && suggestedMonthlyGoals > 0) {
+          successMsg =
+              '💰 Ingreso guardado · Tus metas sugieren separar S/ ${suggestedMonthlyGoals.toStringAsFixed(0)} este mes';
         } else if (_isRecurring) {
           successMsg = 'Transacción y suscripción guardadas';
         }
 
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(successMsg)));
+        final messenger = ScaffoldMessenger.of(context);
+        final router = GoRouter.of(context);
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(successMsg),
+            action: (_transactionType == 'income' && suggestedMonthlyGoals > 0)
+                ? SnackBarAction(
+                    label: 'Ver Metas',
+                    onPressed: () => router.push('/savings'),
+                  )
+                : null,
+          ),
+        );
 
         // Cerrar pantalla INMEDIATAMENTE — las verificaciones corren en background
         Navigator.of(context).pop();
@@ -1364,6 +1408,11 @@ class _CreateTransactionScreenState
             // Selector de fecha
             _buildDateSelector(),
 
+            if (_transactionType == 'income') ...[
+              const SizedBox(height: 12),
+              _buildNextMonthIncomeToggle(),
+            ],
+
             const SizedBox(height: 16),
 
             // Botón de ubicación GPS
@@ -1422,6 +1471,49 @@ class _CreateTransactionScreenState
             // Botón guardar
             _buildSaveButton(),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNextMonthIncomeToggle() {
+    final nextInfo = FinancialPlanningService.nextMonthOf(_selectedDate);
+    final isEndOfMonth = FinancialPlanningService.isEndOfMonthPayWindow(
+      _selectedDate,
+    );
+    final accent = const Color(0xFF00C896);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: (_assignIncomeToNextMonth || isEndOfMonth)
+            ? accent.withValues(alpha: 0.08)
+            : Theme.of(context).colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: (_assignIncomeToNextMonth || isEndOfMonth)
+              ? accent.withValues(alpha: 0.4)
+              : Theme.of(context).colorScheme.outlineVariant
+                    .withValues(alpha: 0.3),
+        ),
+      ),
+      child: SwitchListTile(
+        value: _assignIncomeToNextMonth,
+        onChanged: (v) => setState(() => _assignIncomeToNextMonth = v),
+        activeThumbColor: accent,
+        secondary: Icon(
+          Icons.calendar_month_rounded,
+          color: (_assignIncomeToNextMonth || isEndOfMonth) ? accent : null,
+        ),
+        title: Text(
+          'Contar para el presupuesto de ${nextInfo.label}',
+          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+        ),
+        subtitle: Text(
+          isEndOfMonth
+              ? '💡 ¿Es tu sueldo de fin de mes? Mantiene su fecha real (${DateFormat('dd/MM').format(_selectedDate)}), pero suma como ingreso de ${nextInfo.label}.'
+              : 'Opcional: útil para sueldos cobrados a fin de mes que financian el mes siguiente.',
+          style: const TextStyle(fontSize: 11.5),
         ),
       ),
     );

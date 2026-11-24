@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:uuid/uuid.dart';
 import '../../../core/utils/credit_card_calculator.dart';
+import '../../../core/services/financial_planning_service.dart';
 import '../../../data/database/drift_database.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/transaction_repository_provider.dart';
@@ -39,6 +40,7 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
   String? _selectedSubcategoryId;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _assignIncomeToNextMonth = false;
 
   // Cuotas de tarjeta de crédito
   CreditInstallment? _existingInstallment;
@@ -96,6 +98,9 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
         _destinationAccountId = t.destinationAccountId;
         _selectedCategoryId = t.categoryId;
         _selectedSubcategoryId = t.subcategoryId;
+        final overrides = ref.read(incomeMonthOverridesProvider);
+        _assignIncomeToNextMonth =
+            t.type == 'income' && overrides.containsKey(t.id);
 
         if (existingInst != null) {
           _isInstallment = true;
@@ -293,6 +298,16 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
       final repository = ref.read(transactionRepositoryProvider);
 
       await repository.updateTransaction(updated);
+
+      if (_transactionType == 'income' && _assignIncomeToNextMonth) {
+        await ref
+            .read(incomeMonthOverridesProvider.notifier)
+            .assignToNextMonth(updated.id, _selectedDate);
+      } else {
+        await ref
+            .read(incomeMonthOverridesProvider.notifier)
+            .clearOverride(updated.id);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -636,6 +651,56 @@ class _EditTransactionScreenState extends ConsumerState<EditTransactionScreen> {
                 ),
                 if (_selectedCategoryId != null)
                   _buildSubcategorySelector(_selectedCategoryId!),
+              ],
+
+              if (_transactionType == 'income') ...[
+                const SizedBox(height: 16),
+                Builder(
+                  builder: (context) {
+                    final nextInfo = FinancialPlanningService.nextMonthOf(
+                      _selectedDate,
+                    );
+                    const accent = Color(0xFF00C896);
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: _assignIncomeToNextMonth
+                            ? accent.withValues(alpha: 0.08)
+                            : Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _assignIncomeToNextMonth
+                              ? accent.withValues(alpha: 0.4)
+                              : Theme.of(context).colorScheme.outlineVariant
+                                    .withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: SwitchListTile(
+                        value: _assignIncomeToNextMonth,
+                        onChanged: (v) =>
+                            setState(() => _assignIncomeToNextMonth = v),
+                        activeThumbColor: accent,
+                        secondary: const Icon(
+                          Icons.calendar_month_rounded,
+                          color: accent,
+                        ),
+                        title: Text(
+                          'Contar para el presupuesto de ${nextInfo.label}',
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Mantiene fecha real (${DateFormat('dd/MM/yyyy').format(_selectedDate)}) y suma como ingreso de ${nextInfo.label}.',
+                          style: const TextStyle(fontSize: 11.5),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ],
 
               const SizedBox(height: 32),

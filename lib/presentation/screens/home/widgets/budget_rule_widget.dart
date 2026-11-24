@@ -2,39 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../core/services/financial_planning_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../providers/database_providers.dart';
 
-/// Widget de distribución de gastos 50/30/20
-/// Necesidades (50%) / Deseos (30%) / Ahorro (20%)
+/// Widget de distribución de presupuesto personalizable (50/30/20, 60/20/20, etc.)
+/// Cruza nombres reales de categorías e incluye transferencias reales a Metas de Ahorro.
 class BudgetRuleWidget extends ConsumerWidget {
   const BudgetRuleWidget({super.key});
 
-  // Categorías agrupadas por tipo de necesidad
   static const _necessityCategoryNames = [
-    'Vivienda',
-    'Alimentación',
-    'Transporte',
-    'Salud',
-    'Servicios',
-    'Supermercado',
-    'Agua',
-    'Luz',
-    'Gas',
-    'Internet',
-    'Hogar',
-    'Educación',
-  ];
-
-  static const _wantsCategoryNames = [
-    'Entretenimiento',
-    'Restaurantes',
-    'Ocio',
-    'Compras',
-    'Suscripciones',
-    'Ropa',
-    'Viajes',
-    'Delivery',
+    'vivienda',
+    'alojamiento',
+    'alimentación',
+    'alimentacion',
+    'transporte',
+    'salud',
+    'servicios',
+    'supermercado',
+    'mercado',
+    'agua',
+    'luz',
+    'gas',
+    'internet',
+    'hogar',
+    'educación',
+    'educacion',
+    'trabajo',
+    'vehículo',
+    'vehiculo',
+    'cuidado personal',
+    'mascotas',
   ];
 
   @override
@@ -43,6 +41,13 @@ class BudgetRuleWidget extends ConsumerWidget {
     final expensesByCatAsync = ref.watch(
       currentMonthExpensesByCategoryProvider,
     );
+    final goalSavings =
+        ref.watch(currentMonthGoalSavingsProvider).valueOrNull ?? 0.0;
+    final categories =
+        ref.watch(allCategoriesFutureProvider).valueOrNull ?? const [];
+    final preset = ref.watch(budgetRulePresetProvider);
+
+    final catNameById = {for (final c in categories) c.id: c.name};
 
     return incomeAsync.when(
       data: (income) {
@@ -52,34 +57,36 @@ class BudgetRuleWidget extends ConsumerWidget {
           data: (categoryExpenses) {
             double necessities = 0;
             double wants = 0;
-            double savings = 0;
 
             for (final entry in categoryExpenses.entries) {
-              final catName = entry.key;
+              final catName = (catNameById[entry.key] ?? entry.key)
+                  .toLowerCase();
               final amount = entry.value.abs();
 
-              if (_necessityCategoryNames.any(
-                (n) => catName.toLowerCase().contains(n.toLowerCase()),
-              )) {
+              if (_necessityCategoryNames.any(catName.contains)) {
                 necessities += amount;
-              } else if (_wantsCategoryNames.any(
-                (n) => catName.toLowerCase().contains(n.toLowerCase()),
-              )) {
-                wants += amount;
               } else {
-                wants += amount; // Default to wants
+                wants += amount;
               }
             }
 
-            // Lo que queda de ingresos menos gastos = ahorro
             final totalExpenses = necessities + wants;
-            savings = (income - totalExpenses).clamp(0, double.infinity);
+            final leftover = (income - totalExpenses - goalSavings).clamp(
+              0.0,
+              double.infinity,
+            );
+            // Ahorro efectivo = transferencias reales a ahorro/metas + remanente del mes
+            final savings = goalSavings + leftover;
 
             return _RuleCard(
               income: income,
               necessities: necessities,
               wants: wants,
               savings: savings,
+              transferredSavings: goalSavings,
+              preset: preset,
+              onSelectPreset: (next) =>
+                  ref.read(budgetRulePresetProvider.notifier).setPreset(next),
             );
           },
           loading: () => const SizedBox.shrink(),
@@ -97,12 +104,18 @@ class _RuleCard extends StatelessWidget {
   final double necessities;
   final double wants;
   final double savings;
+  final double transferredSavings;
+  final BudgetRulePreset preset;
+  final ValueChanged<BudgetRulePreset> onSelectPreset;
 
   const _RuleCard({
     required this.income,
     required this.necessities,
     required this.wants,
     required this.savings,
+    required this.transferredSavings,
+    required this.preset,
+    required this.onSelectPreset,
   });
 
   @override
@@ -120,7 +133,6 @@ class _RuleCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             children: [
               Container(
@@ -136,19 +148,61 @@ class _RuleCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              Text(
-                'Regla 50/30/20',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.onSurface,
+              Expanded(
+                child: Text(
+                  'Regla ${preset.label}',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.onSurface,
+                  ),
+                ),
+              ),
+              PopupMenuButton<BudgetRulePreset>(
+                tooltip: 'Cambiar regla',
+                onSelected: onSelectPreset,
+                itemBuilder: (_) => BudgetRulePreset.values
+                    .map(
+                      (p) => PopupMenuItem(
+                        value: p,
+                        child: Text('${p.label} · ${p.subtitle}'),
+                      ),
+                    )
+                    .toList(),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        preset.subtitle,
+                        style: GoogleFonts.manrope(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primarySoft,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(
+                        Icons.arrow_drop_down,
+                        size: 16,
+                        color: AppColors.primarySoft,
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
 
-          // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: SizedBox(
@@ -173,10 +227,9 @@ class _RuleCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Items
           _RuleItem(
             label: 'Necesidades',
-            ideal: 50,
+            ideal: preset.needsPct.toDouble(),
             actual: necessitiesPercent,
             amount: format.format(necessities),
             color: const Color(0xFF60A5FA),
@@ -184,18 +237,21 @@ class _RuleCard extends StatelessWidget {
           const SizedBox(height: 10),
           _RuleItem(
             label: 'Deseos',
-            ideal: 30,
+            ideal: preset.wantsPct.toDouble(),
             actual: wantsPercent,
             amount: format.format(wants),
             color: const Color(0xFFFBBF24),
           ),
           const SizedBox(height: 10),
           _RuleItem(
-            label: 'Ahorro',
-            ideal: 20,
+            label: transferredSavings > 0
+                ? 'Ahorro (${format.format(transferredSavings)} en metas)'
+                : 'Ahorro',
+            ideal: preset.savingsPct.toDouble(),
             actual: savingsPercent,
             amount: format.format(savings),
             color: AppColors.income,
+            isSavings: true,
           ),
         ],
       ),
@@ -209,6 +265,7 @@ class _RuleItem extends StatelessWidget {
   final double actual;
   final String amount;
   final Color color;
+  final bool isSavings;
 
   const _RuleItem({
     required this.label,
@@ -216,11 +273,12 @@ class _RuleItem extends StatelessWidget {
     required this.actual,
     required this.amount,
     required this.color,
+    this.isSavings = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final isOver = actual > ideal;
+    final isWarning = isSavings ? actual < ideal : actual > ideal;
 
     return Row(
       children: [
@@ -238,6 +296,8 @@ class _RuleItem extends StatelessWidget {
               color: AppColors.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
         Text(
@@ -245,7 +305,7 @@ class _RuleItem extends StatelessWidget {
           style: GoogleFonts.plusJakartaSans(
             fontSize: 14,
             fontWeight: FontWeight.w700,
-            color: isOver ? AppColors.expense : AppColors.onSurface,
+            color: isWarning ? AppColors.expense : AppColors.onSurface,
           ),
         ),
         Text(

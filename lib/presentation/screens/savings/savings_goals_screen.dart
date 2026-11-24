@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' as drift;
-import '../../../data/database/drift_database.dart';
+import '../../../core/services/financial_planning_service.dart';
 import '../../../core/utils/amount_input_helper.dart';
+import '../../../data/database/drift_database.dart';
 import '../../providers/database_providers.dart';
 import '../../providers/transaction_repository_provider.dart';
 
@@ -14,6 +15,8 @@ class SavingsGoalsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goalsAsync = ref.watch(savingsGoalsStreamProvider);
+    final accounts = ref.watch(accountsStreamProvider).valueOrNull ?? const [];
+    final accountNames = {for (final a in accounts) a.id: a.name};
 
     return Scaffold(
       appBar: AppBar(
@@ -47,7 +50,8 @@ class SavingsGoalsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Define cuánto quieres ahorrar',
+                    'Define cuánto quieres ahorrar y te sugerimos tu aporte mensual',
+                    textAlign: TextAlign.center,
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
@@ -63,20 +67,77 @@ class SavingsGoalsScreen extends ConsumerWidget {
               ),
             );
           }
-          return ListView.builder(
+
+          final totalMonthlySuggested =
+              FinancialPlanningService.totalSuggestedMonthlySavings(goals);
+
+          return ListView(
             padding: const EdgeInsets.all(16),
-            itemCount: goals.length,
-            itemBuilder: (context, i) => _GoalCard(
-              goal: goals[i],
-              onDelete: () async {
-                final dao = ref.read(savingsGoalsDaoProvider);
-                await dao.deleteGoal(goals[i].id);
-              },
-              onEdit: () =>
-                  _showCreateGoalDialog(context, ref, existing: goals[i]),
-              onAddProgress: () =>
-                  _showAddProgressDialog(context, ref, goals[i]),
-            ),
+            children: [
+              if (totalMonthlySuggested > 0) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C896).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF00C896).withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.savings_outlined,
+                        color: Color(0xFF00C896),
+                        size: 24,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Plan mensual sugerido: S/ ${totalMonthlySuggested.toStringAsFixed(2)}/mes',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13.5,
+                                color: Color(0xFF00C896),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Los abonos a cuentas de ahorro se registran como transferencia (no inflan tus gastos ni bajan tu patrimonio).',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              for (final goal in goals)
+                _GoalCard(
+                  goal: goal,
+                  linkedAccountName: goal.accountId != null
+                      ? accountNames[goal.accountId]
+                      : null,
+                  onDelete: () async {
+                    final dao = ref.read(savingsGoalsDaoProvider);
+                    await dao.deleteGoal(goal.id);
+                  },
+                  onEdit: () =>
+                      _showCreateGoalDialog(context, ref, existing: goal),
+                  onAddProgress: () =>
+                      _showAddProgressDialog(context, ref, goal),
+                ),
+            ],
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -116,12 +177,14 @@ class SavingsGoalsScreen extends ConsumerWidget {
 
 class _GoalCard extends StatelessWidget {
   final SavingsGoal goal;
+  final String? linkedAccountName;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
   final VoidCallback onAddProgress;
 
   const _GoalCard({
     required this.goal,
+    this.linkedAccountName,
     required this.onDelete,
     required this.onEdit,
     required this.onAddProgress,
@@ -129,9 +192,11 @@ class _GoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pct = (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0);
+    final pct = goal.targetAmount > 0
+        ? (goal.currentAmount / goal.targetAmount).clamp(0.0, 1.0)
+        : 0.0;
     final isCompleted = goal.isCompleted || pct >= 1.0;
-    final remaining = goal.targetAmount - goal.currentAmount;
+    final plan = FinancialPlanningService.computeGoalPlan(goal);
 
     Color goalColor = Colors.blue;
     try {
@@ -140,12 +205,12 @@ class _GoalCard extends StatelessWidget {
       }
     } catch (_) {}
 
-    // Days remaining
     String? daysText;
     if (goal.deadline != null && !isCompleted) {
       final daysLeft = goal.deadline!.difference(DateTime.now()).inDays;
       if (daysLeft > 0) {
-        daysText = '$daysLeft días restantes';
+        daysText =
+            '$daysLeft días restantes (${DateFormat('dd/MM/yyyy').format(goal.deadline!)})';
       } else {
         daysText = '⚠️ Fecha límite vencida';
       }
@@ -185,11 +250,20 @@ class _GoalCard extends StatelessWidget {
                           fontSize: 15,
                         ),
                       ),
+                      if (linkedAccountName != null)
+                        Text(
+                          '🏦 Cuenta ahorro: $linkedAccountName',
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: Color(0xFF00C896),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       if (daysText != null)
                         Text(
                           daysText,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: 11.5,
                             color: daysText.contains('vencida')
                                 ? Colors.red
                                 : Theme.of(
@@ -215,7 +289,7 @@ class _GoalCard extends StatelessWidget {
                     itemBuilder: (_) => [
                       const PopupMenuItem(
                         value: 'add',
-                        child: Text('➕ Agregar ahorro'),
+                        child: Text('💸 Transferir / Abonar'),
                       ),
                       const PopupMenuItem(value: 'edit', child: Text('Editar')),
                       const PopupMenuItem(
@@ -257,17 +331,42 @@ class _GoalCard extends StatelessWidget {
                 ),
               ),
             ),
-            if (!isCompleted && remaining > 0)
+            if (!isCompleted && plan.remainingAmount > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 6),
                 child: Text(
-                  'Faltan S/ ${remaining.toStringAsFixed(2)} para tu meta',
+                  'Faltan S/ ${plan.remainingAmount.toStringAsFixed(2)} para tu meta',
                   style: TextStyle(
                     fontSize: 12,
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
                 ),
               ),
+            if (!isCompleted &&
+                plan.suggestedMonthlyAmount != null &&
+                plan.suggestedMonthlyAmount! > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C896).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '🎯 Aporte sugerido: S/ ${plan.suggestedMonthlyAmount!.toStringAsFixed(2)}/mes '
+                  '(~S/ ${plan.suggestedWeeklyAmount!.toStringAsFixed(0)}/sem · ${plan.monthsRemaining} mes${plan.monthsRemaining == 1 ? '' : 'es'})',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF00C896),
+                  ),
+                ),
+              ),
+            ],
             if (!isCompleted)
               Padding(
                 padding: const EdgeInsets.only(top: 10),
@@ -275,10 +374,15 @@ class _GoalCard extends StatelessWidget {
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: onAddProgress,
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Agregar ahorro'),
+                    icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                    label: Text(
+                      plan.suggestedMonthlyAmount != null &&
+                              plan.suggestedMonthlyAmount! > 0
+                          ? 'Transferir cuota (S/ ${plan.suggestedMonthlyAmount!.toStringAsFixed(0)})'
+                          : 'Transferir / Abonar ahorro',
+                    ),
                     style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
                     ),
                   ),
                 ),
@@ -290,7 +394,7 @@ class _GoalCard extends StatelessWidget {
   }
 }
 
-// ─── Add Progress Dialog ──────────────────────────────────────────────────────
+// ─── Add Progress Dialog (Transferencia real a cuenta de ahorro o apartado) ───
 
 class _AddProgressDialog extends ConsumerStatefulWidget {
   final SavingsGoal goal;
@@ -302,8 +406,20 @@ class _AddProgressDialog extends ConsumerStatefulWidget {
 
 class _AddProgressDialogState extends ConsumerState<_AddProgressDialog> {
   final _ctrl = TextEditingController();
-  String? _selectedAccountId;
+  String? _sourceAccountId;
+  String? _destinationAccountId; // null = solo apartar sin mover cuenta
   bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _destinationAccountId = widget.goal.accountId;
+    final plan = FinancialPlanningService.computeGoalPlan(widget.goal);
+    if (plan.suggestedMonthlyAmount != null &&
+        plan.suggestedMonthlyAmount! > 0) {
+      _ctrl.text = plan.suggestedMonthlyAmount!.toStringAsFixed(2);
+    }
+  }
 
   @override
   void dispose() {
@@ -314,9 +430,10 @@ class _AddProgressDialogState extends ConsumerState<_AddProgressDialog> {
   @override
   Widget build(BuildContext context) {
     final accountsAsync = ref.watch(accountsStreamProvider);
+    final plan = FinancialPlanningService.computeGoalPlan(widget.goal);
 
     return AlertDialog(
-      title: Text('Agregar a "${widget.goal.name}"'),
+      title: Text('Abonar a "${widget.goal.name}"'),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -325,56 +442,160 @@ class _AddProgressDialogState extends ConsumerState<_AddProgressDialog> {
             TextField(
               controller: _ctrl,
               onTap: () => clearAmountIfZero(_ctrl),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               decoration: const InputDecoration(
-                labelText: 'Monto a agregar (S/)',
+                labelText: 'Monto a transferir (S/)',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.attach_money),
               ),
               autofocus: true,
               enabled: !_isSaving,
             ),
-            const SizedBox(height: 16),
+            if (plan.suggestedMonthlyAmount != null &&
+                plan.suggestedMonthlyAmount! > 0) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                children: [
+                  ActionChip(
+                    label: Text(
+                      'Cuota mes: S/ ${plan.suggestedMonthlyAmount!.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 11.5),
+                    ),
+                    onPressed: () => setState(
+                      () => _ctrl.text = plan.suggestedMonthlyAmount!
+                          .toStringAsFixed(2),
+                    ),
+                  ),
+                  ActionChip(
+                    label: Text(
+                      'Cuota sem: S/ ${plan.suggestedWeeklyAmount!.toStringAsFixed(0)}',
+                      style: const TextStyle(fontSize: 11.5),
+                    ),
+                    onPressed: () => setState(
+                      () => _ctrl.text = plan.suggestedWeeklyAmount!
+                          .toStringAsFixed(2),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 14),
             accountsAsync.when(
               data: (accounts) {
-                if (accounts.isEmpty) {
+                final activeAccounts = accounts
+                    .where((a) => a.isActive && a.type != 'credit_card')
+                    .toList();
+                if (activeAccounts.isEmpty) {
                   return const Text(
-                    '⚠️ No tienes cuentas activas registradas',
-                    style: TextStyle(color: Colors.red, fontSize: 13),
+                    'Se actualizará solo el avance de la meta.',
+                    style: TextStyle(fontSize: 12),
                   );
                 }
-                // Si la meta tiene cuenta asociada por defecto y existe en la lista, usarla
-                if (_selectedAccountId == null) {
-                  if (widget.goal.accountId != null &&
-                      accounts.any((a) => a.id == widget.goal.accountId)) {
-                    _selectedAccountId = widget.goal.accountId;
-                  } else {
-                    _selectedAccountId = accounts.first.id;
-                  }
+
+                // Destino por defecto: cuenta vinculada a la meta o cuenta de ahorro existente
+                if (_destinationAccountId != null &&
+                    !activeAccounts.any((a) => a.id == _destinationAccountId)) {
+                  _destinationAccountId = null;
+                }
+                if (_sourceAccountId == null) {
+                  final liquid = activeAccounts
+                      .where(
+                        (a) =>
+                            a.id != _destinationAccountId &&
+                            (a.type == 'bank' ||
+                                a.type == 'wallet' ||
+                                a.type == 'cash'),
+                      )
+                      .firstOrNull;
+                  _sourceAccountId = liquid?.id ?? activeAccounts.first.id;
                 }
 
-                return DropdownButtonFormField<String>(
-                  initialValue: _selectedAccountId,
-                  decoration: const InputDecoration(
-                    labelText: 'Cuenta de origen',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.account_balance_wallet),
-                  ),
-                  items: accounts
-                      .map(
-                        (a) => DropdownMenuItem(
-                          value: a.id,
-                          child: Text('${a.name} (S/ ${a.balance.toStringAsFixed(2)})'),
+                final isRealTransfer =
+                    _destinationAccountId != null &&
+                    _sourceAccountId != null &&
+                    _destinationAccountId != _sourceAccountId;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DropdownButtonFormField<String?>(
+                      initialValue: _destinationAccountId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Cuenta destino (Ahorro)',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.savings_outlined),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text(
+                            'Solo apartar (sin mover saldos)',
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      )
-                      .toList(),
-                  onChanged: _isSaving
-                      ? null
-                      : (v) {
-                          if (v != null) {
-                            setState(() => _selectedAccountId = v);
-                          }
-                        },
+                        ...activeAccounts.map(
+                          (a) => DropdownMenuItem<String?>(
+                            value: a.id,
+                            child: Text(
+                              '${a.name} (S/ ${a.balance.toStringAsFixed(2)})',
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ],
+                      onChanged: _isSaving
+                          ? null
+                          : (v) => setState(() => _destinationAccountId = v),
+                    ),
+                    if (_destinationAccountId != null) ...[
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        initialValue: _sourceAccountId,
+                        isExpanded: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Transferir desde (Origen)',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.account_balance_wallet),
+                        ),
+                        items: activeAccounts
+                            .map(
+                              (a) => DropdownMenuItem(
+                                value: a.id,
+                                child: Text(
+                                  '${a.name} (S/ ${a.balance.toStringAsFixed(2)})',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            )
+                            .toList(),
+                        onChanged: _isSaving
+                            ? null
+                            : (v) {
+                                if (v != null) {
+                                  setState(() => _sourceAccountId = v);
+                                }
+                              },
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      isRealTransfer
+                          ? '✅ Se registrará como transferencia hacia tu cuenta de ahorro (no cuenta como gasto y protege tu patrimonio).'
+                          : _destinationAccountId == null
+                          ? 'ℹ️ Solo suma al progreso de la meta sin descontar ni crear un gasto falso.'
+                          : '⚠️ Elige una cuenta de origen distinta a la cuenta destino para transferir.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: isRealTransfer
+                            ? const Color(0xFF00C896)
+                            : Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 );
               },
               loading: () => const LinearProgressIndicator(),
@@ -389,85 +610,99 @@ class _AddProgressDialogState extends ConsumerState<_AddProgressDialog> {
           child: const Text('Cancelar'),
         ),
         ElevatedButton(
-          onPressed: _isSaving
-              ? null
-              : () async {
-                  final amount = double.tryParse(_ctrl.text.replaceAll(',', '.'));
-                  if (amount == null || amount <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Ingresa un monto válido')),
-                    );
-                    return;
-                  }
-                  if (_selectedAccountId == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Selecciona una cuenta de origen')),
-                    );
-                    return;
-                  }
-
-                  setState(() => _isSaving = true);
-
-                  try {
-                    final repo = ref.read(transactionRepositoryProvider);
-                    final dao = ref.read(savingsGoalsDaoProvider);
-                    final transactionId = const Uuid().v4();
-
-                    // 1. Crear transacción contable que descuenta de la cuenta de origen
-                    final transactionCompanion = TransactionsCompanion.insert(
-                      id: transactionId,
-                      type: 'expense',
-                      amount: amount,
-                      accountId: _selectedAccountId!,
-                      productName: drift.Value('Ahorro: ${widget.goal.name}'),
-                      description: drift.Value('Abono a meta de ahorro: ${widget.goal.name}'),
-                      date: DateTime.now(),
-                      createdAt: DateTime.now(),
-                      updatedAt: DateTime.now(),
-                    );
-
-                    await repo.addTransaction(
-                      transaction: transactionCompanion,
-                      accountId: _selectedAccountId!,
-                      amount: amount,
-                      type: 'expense',
-                    );
-
-                    // 2. Actualizar el progreso acumulado de la meta
-                    final newAmount = widget.goal.currentAmount + amount;
-                    await dao.updateGoalProgress(widget.goal.id, newAmount);
-
-                    if (newAmount >= widget.goal.targetAmount) {
-                      await dao.completeGoal(widget.goal.id);
-                    }
-
-                    if (!context.mounted) return;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'S/ ${amount.toStringAsFixed(2)} abonados a "${widget.goal.name}"',
-                        ),
-                      ),
-                    );
-                    Navigator.of(context).pop();
-                  } catch (e) {
-                    if (!context.mounted) return;
-                    setState(() => _isSaving = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error al abonar a la meta: $e')),
-                    );
-                  }
-                },
+          onPressed: _isSaving ? null : _submit,
           child: _isSaving
               ? const SizedBox(
-                  width: 20,
-                  height: 20,
+                  width: 18,
+                  height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('Agregar'),
+              : Text(
+                  _destinationAccountId != null ? 'Transferir' : 'Abonar',
+                ),
         ),
       ],
     );
+  }
+
+  Future<void> _submit() async {
+    final amount = double.tryParse(_ctrl.text.replaceAll(',', '.'));
+    if (amount == null || amount <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Ingresa un monto válido')),
+      );
+      return;
+    }
+
+    if (_destinationAccountId != null &&
+        _sourceAccountId == _destinationAccountId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'La cuenta de origen y destino deben ser distintas (o elige "Solo apartar").',
+          ),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final repo = ref.read(transactionRepositoryProvider);
+      final dao = ref.read(savingsGoalsDaoProvider);
+
+      // Si hay cuenta destino + origen distintas: TRANSFERENCIA REAL (nunca gasto falso)
+      if (_destinationAccountId != null && _sourceAccountId != null) {
+        final transactionId = const Uuid().v4();
+        final transactionCompanion = TransactionsCompanion.insert(
+          id: transactionId,
+          type: 'transfer',
+          amount: amount,
+          accountId: _sourceAccountId!,
+          destinationAccountId: drift.Value(_destinationAccountId),
+          productName: drift.Value('Ahorro: ${widget.goal.name}'),
+          description: drift.Value(
+            'Transferencia a meta de ahorro: ${widget.goal.name}',
+          ),
+          date: DateTime.now(),
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        );
+
+        await repo.addTransaction(
+          transaction: transactionCompanion,
+          accountId: _sourceAccountId!,
+          amount: amount,
+          type: 'transfer',
+          destinationAccountId: _destinationAccountId,
+        );
+      }
+
+      final newAmount = widget.goal.currentAmount + amount;
+      await dao.updateGoalProgress(widget.goal.id, newAmount);
+      if (newAmount >= widget.goal.targetAmount) {
+        await dao.completeGoal(widget.goal.id);
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _destinationAccountId != null
+                ? '✅ S/ ${amount.toStringAsFixed(2)} transferidos a "${widget.goal.name}"'
+                : '✅ S/ ${amount.toStringAsFixed(2)} apartados en "${widget.goal.name}"',
+          ),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al abonar a la meta: $e')),
+        );
+      }
+    }
   }
 }
 
@@ -486,6 +721,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
   final _targetCtrl = TextEditingController();
   String _icon = '🎯';
   DateTime? _deadline;
+  String? _linkedAccountId;
 
   static const _icons = [
     '🎯',
@@ -510,6 +746,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
       _targetCtrl.text = widget.existing!.targetAmount.toStringAsFixed(2);
       _icon = widget.existing!.icon ?? '🎯';
       _deadline = widget.existing!.deadline;
+      _linkedAccountId = widget.existing!.accountId;
     }
   }
 
@@ -523,6 +760,27 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
+    final accounts = ref.watch(accountsStreamProvider).valueOrNull ?? const [];
+    final activeAccounts = accounts
+        .where((a) => a.isActive && a.type != 'credit_card')
+        .toList();
+
+    final parsedTarget =
+        double.tryParse(_targetCtrl.text.replaceAll(',', '.')) ?? 0.0;
+    final previewPlan = (parsedTarget > 0 && _deadline != null)
+        ? FinancialPlanningService.computeGoalPlan(
+            SavingsGoal(
+              id: 'preview',
+              name: _nameCtrl.text,
+              targetAmount: parsedTarget,
+              currentAmount: widget.existing?.currentAmount ?? 0,
+              deadline: _deadline,
+              isCompleted: false,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+            ),
+          )
+        : null;
 
     return Padding(
       padding: EdgeInsets.only(
@@ -540,13 +798,13 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
               isEdit ? 'Editar Meta' : 'Nueva Meta de Ahorro',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
-            // Icon picker
             const Text('Ícono', style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
+              runSpacing: 6,
               children: _icons
                   .map(
                     (ic) => GestureDetector(
@@ -577,7 +835,6 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
             ),
             const SizedBox(height: 16),
 
-            // Name
             TextFormField(
               controller: _nameCtrl,
               decoration: const InputDecoration(
@@ -586,12 +843,12 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                 prefixIcon: Icon(Icons.flag),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // Target amount
             TextFormField(
               controller: _targetCtrl,
               onTap: () => clearAmountIfZero(_targetCtrl),
+              onChanged: (_) => setState(() {}),
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
@@ -601,16 +858,48 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
                 prefixIcon: Icon(Icons.attach_money),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
 
-            // Deadline
+            if (activeAccounts.isNotEmpty) ...[
+              DropdownButtonFormField<String?>(
+                initialValue: activeAccounts.any(
+                  (a) => a.id == _linkedAccountId,
+                )
+                    ? _linkedAccountId
+                    : null,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Cuenta destino de ahorro (opcional)',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.savings_outlined),
+                ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Sin cuenta vinculada'),
+                  ),
+                  ...activeAccounts.map(
+                    (a) => DropdownMenuItem<String?>(
+                      value: a.id,
+                      child: Text(
+                        '${a.name} (${a.type == 'savings' ? 'Ahorro' : a.type})',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (v) => setState(() => _linkedAccountId = v),
+              ),
+              const SizedBox(height: 10),
+            ],
+
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.calendar_today),
               title: Text(
                 _deadline != null
                     ? 'Fecha límite: ${DateFormat('dd/MM/yyyy').format(_deadline!)}'
-                    : 'Sin fecha límite (opcional)',
+                    : 'Fecha límite (para calcular cuota mensual)',
               ),
               trailing: _deadline != null
                   ? IconButton(
@@ -621,15 +910,39 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
               onTap: () async {
                 final picked = await showDatePicker(
                   context: context,
-                  initialDate: DateTime.now().add(const Duration(days: 30)),
+                  initialDate:
+                      _deadline ?? DateTime.now().add(const Duration(days: 90)),
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
                 );
                 if (picked != null) setState(() => _deadline = picked);
               },
             ),
-            const SizedBox(height: 24),
 
+            if (previewPlan?.suggestedMonthlyAmount != null &&
+                previewPlan!.suggestedMonthlyAmount! > 0) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF00C896).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '🎯 Para lograrlo en ${previewPlan.monthsRemaining} mes(es), separa aprox. '
+                  'S/ ${previewPlan.suggestedMonthlyAmount!.toStringAsFixed(2)}/mes '
+                  '(~S/ ${previewPlan.suggestedWeeklyAmount!.toStringAsFixed(0)}/sem).',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF00C896),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+
+            const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -655,7 +968,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
 
     if (name.isEmpty || target == null || target <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Completa todos los campos')),
+        const SnackBar(content: Text('Completa nombre y monto válido')),
       );
       return;
     }
@@ -670,6 +983,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
           targetAmount: target,
           icon: drift.Value(_icon),
           deadline: drift.Value(_deadline),
+          accountId: drift.Value(_linkedAccountId),
           updatedAt: now,
         ),
       );
@@ -681,6 +995,7 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
           targetAmount: target,
           icon: drift.Value(_icon),
           deadline: drift.Value(_deadline),
+          accountId: drift.Value(_linkedAccountId),
           createdAt: now,
           updatedAt: now,
         ),
@@ -691,10 +1006,3 @@ class _CreateGoalSheetState extends ConsumerState<_CreateGoalSheet> {
     Navigator.of(context).pop();
   }
 }
-
-// ─── Provider ─────────────────────────────────────────────────────────────────
-
-final savingsGoalsStreamProvider = StreamProvider<List<SavingsGoal>>((ref) {
-  final dao = ref.watch(savingsGoalsDaoProvider);
-  return dao.watchActiveGoals();
-});

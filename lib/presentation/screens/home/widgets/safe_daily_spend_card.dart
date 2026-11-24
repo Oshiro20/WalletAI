@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import '../../../../core/services/financial_planning_service.dart';
 import '../../../providers/database_providers.dart';
 import 'budget_summary_widget.dart';
 
 /// Tarjeta compacta de "Cuota diaria segura" en el Inicio:
-/// cruza presupuestos activos del mes (o ingresos del mes) menos gastos actuales
-/// y pagos recurrentes pendientes del mes entre los días que faltan del mes.
+/// cruza presupuestos activos del mes (o ingresos del mes, incluyendo sueldos
+/// de fin de mes asignados a este mes) menos gastos actuales, pagos recurrentes
+/// pendientes y la cuota mensual pendiente de tus Metas de Ahorro ("Págate a ti primero").
 class SafeDailySpendCard extends ConsumerWidget {
   final AsyncValue<double> monthIncomeAsync;
   final AsyncValue<double> monthExpensesAsync;
@@ -22,11 +24,15 @@ class SafeDailySpendCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final budgetsAsync = ref.watch(budgetsStreamProvider);
     final recurringAsync = ref.watch(recurringPaymentsStreamProvider);
+    final goalsAsync = ref.watch(savingsGoalsStreamProvider);
+    final goalSavingsThisMonth =
+        ref.watch(currentMonthGoalSavingsProvider).valueOrNull ?? 0.0;
 
     final income = monthIncomeAsync.asData?.value ?? 0.0;
     final expenses = monthExpensesAsync.asData?.value ?? 0.0;
     final budgets = budgetsAsync.asData?.value ?? const [];
     final recurring = recurringAsync.asData?.value ?? const [];
+    final goals = goalsAsync.asData?.value ?? const [];
 
     final now = DateTime.now();
     final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
@@ -40,7 +46,6 @@ class SafeDailySpendCard extends ConsumerWidget {
     final ceiling = hasBudgetCeiling ? monthlyBudgetsTotal : income;
     if (ceiling <= 0) return const SizedBox.shrink();
 
-    // Pagos recurrentes activos de gasto que vencen en lo que queda del mes
     final endOfMonth = DateTime(now.year, now.month, daysInMonth, 23, 59, 59);
     final pendingRecurring = recurring
         .where(
@@ -51,13 +56,26 @@ class SafeDailySpendCard extends ConsumerWidget {
         )
         .fold<double>(0.0, (sum, r) => sum + r.amount);
 
-    final remainingRoom = ceiling - expenses - pendingRecurring;
+    final totalMonthlyGoals =
+        FinancialPlanningService.totalSuggestedMonthlySavings(goals, now: now);
+    final pendingGoalSavings = (totalMonthlyGoals - goalSavingsThisMonth).clamp(
+      0.0,
+      double.infinity,
+    );
+
+    final remainingRoom =
+        ceiling - expenses - pendingRecurring - pendingGoalSavings;
     final safePerDay = remainingRoom > 0 ? remainingRoom / remainingDays : 0.0;
     final isTight = remainingRoom <= 0;
 
     final fmt = NumberFormat.currency(locale: 'es_PE', symbol: 'S/ ');
     final cs = Theme.of(context).colorScheme;
     final accent = isTight ? Colors.orangeAccent : const Color(0xFF00C896);
+
+    final reserveNotes = <String>[
+      if (pendingRecurring > 0) '${fmt.format(pendingRecurring)} fijos',
+      if (pendingGoalSavings > 0) '${fmt.format(pendingGoalSavings)} metas',
+    ];
 
     return InkWell(
       borderRadius: BorderRadius.circular(14),
@@ -95,8 +113,9 @@ class SafeDailySpendCard extends ConsumerWidget {
                   const SizedBox(height: 2),
                   Text(
                     isTight
-                        ? 'Quedan $remainingDays día(s) · gastos + fijos superan ${hasBudgetCeiling ? 'tus presupuestos' : 'tus ingresos'}'
-                        : 'Quedan $remainingDays día(s) · ${fmt.format(remainingRoom)} libres${pendingRecurring > 0 ? ' (tras ${fmt.format(pendingRecurring)} fijos)' : ''}',
+                        ? 'Quedan $remainingDays día(s) · gastos y reservas superan ${hasBudgetCeiling ? 'tus presupuestos' : 'tus ingresos'}'
+                        : 'Quedan $remainingDays día(s) · ${fmt.format(remainingRoom)} libres'
+                              '${reserveNotes.isNotEmpty ? ' (reservando ${reserveNotes.join(' + ')})' : ''}',
                     style: TextStyle(
                       fontSize: 11.5,
                       color: cs.onSurface.withValues(alpha: 0.7),
