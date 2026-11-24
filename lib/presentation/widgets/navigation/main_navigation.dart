@@ -128,6 +128,52 @@ class _MainNavigationState extends State<MainNavigation> {
         },
       ),
       extendBody: true,
+      floatingActionButton: location == '/assistant'
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Material(
+                elevation: 8,
+                shadowColor: AppColors.primary.withValues(alpha: 0.45),
+                borderRadius: BorderRadius.circular(24),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(24),
+                  onTap: () => context.go('/assistant'),
+                  child: Ink(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: AppColors.primaryGradient,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.22),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Consultor IA',
+                          style: GoogleFonts.manrope(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
       bottomNavigationBar: _IndigoVaultNavBar(
         currentIndex: _currentIndex,
         onTap: _onItemTapped,

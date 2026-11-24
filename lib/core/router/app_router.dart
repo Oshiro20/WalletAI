@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import '../../data/datasources/groq_service.dart';
 import '../../presentation/screens/home/home_screen.dart';
 import '../../presentation/screens/accounts/accounts_screen.dart';
 import '../../presentation/screens/accounts/account_detail_screen.dart';
@@ -260,6 +261,7 @@ final appRouter = GoRouter(
           initialQuantity: (extra?['quantity'] as num?)?.toDouble(),
           initialUnit: extra?['unit']?.toString(),
           initialInstallments: (extra?['installments'] as num?)?.toInt(),
+          initialAiSuggestion: extra?['aiSuggestion'] as AiCategoryPrediction?,
         );
       },
     ),

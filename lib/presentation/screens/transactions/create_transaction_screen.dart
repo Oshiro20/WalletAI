@@ -21,6 +21,8 @@ import 'widgets/add_receipt_items_screen.dart';
 import 'widgets/credit_card_installment_selector.dart';
 import '../../../core/utils/credit_card_calculator.dart';
 import '../../../core/services/ecosystem_sync_service.dart';
+import '../../../core/services/subcategory_learning_service.dart';
+import '../../../data/datasources/groq_service.dart';
 
 class CreateTransactionScreen extends ConsumerStatefulWidget {
   final String? initialType;
@@ -36,6 +38,7 @@ class CreateTransactionScreen extends ConsumerStatefulWidget {
   final double? initialQuantity;
   final String? initialUnit;
   final int? initialInstallments;
+  final AiCategoryPrediction? initialAiSuggestion;
 
   const CreateTransactionScreen({
     super.key,
@@ -52,6 +55,7 @@ class CreateTransactionScreen extends ConsumerStatefulWidget {
     this.initialQuantity,
     this.initialUnit,
     this.initialInstallments,
+    this.initialAiSuggestion,
   });
 
   @override
@@ -78,9 +82,12 @@ class _CreateTransactionScreenState
   String? _selectedSubcategoryId;
   bool _isLoading = false;
 
-  // Variables para prediccion de IA
+  // Variables para prediccion de IA (categoría + subcategoría + sugerencias nuevas)
   Timer? _predictionTimer;
   bool _isPredictingCategory = false;
+  AiCategoryPrediction? _pendingAiSuggestion;
+  bool _isCreatingSuggestedCat = false;
+  bool _isParsingClipboard = false;
 
   // Variables para GPS
   double? _latitude;
@@ -150,6 +157,10 @@ class _CreateTransactionScreenState
     } else {
       _unitController.text = 'UND';
     }
+    if (widget.initialAiSuggestion != null &&
+        widget.initialAiSuggestion!.hasNewSuggestion) {
+      _pendingAiSuggestion = widget.initialAiSuggestion;
+    }
 
     _productNameFocusNode.addListener(_onProductNameFocusChanged);
   }
@@ -164,13 +175,20 @@ class _CreateTransactionScreenState
       if (name.isNotEmpty) {
         final db = ref.read(databaseProvider);
         final rule = await db.learningRulesDao.getRuleForProduct(name);
+        final subRule = await SubcategoryLearningService.getRule(name);
 
         if (rule != null && mounted) {
           setState(() {
             _selectedCategoryId = rule.categoryId;
+            if (subRule.subcategoryId != null) {
+              _selectedSubcategoryId = subRule.subcategoryId;
+            }
+            if (_selectedAccountId == null && subRule.accountId != null) {
+              _selectedAccountId = subRule.accountId;
+            }
+            _pendingAiSuggestion = null;
           });
 
-          // Mostrar un pequeño feedback visual
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Categoría auto-asignada por aprendizaje: $name'),
@@ -183,86 +201,163 @@ class _CreateTransactionScreenState
     }
   }
 
+  Subcategory? _findSubcategoryByName(
+    String? suggested,
+    String categoryId,
+    List<Subcategory> allSubcats,
+  ) {
+    if (suggested == null || suggested.trim().isEmpty) return null;
+    final lower = suggested.trim().toLowerCase();
+    final scoped =
+        allSubcats.where((s) => s.categoryId == categoryId).toList();
+    for (final s in scoped) {
+      if (s.name.trim().toLowerCase() == lower) return s;
+    }
+    for (final s in scoped) {
+      final n = s.name.trim().toLowerCase();
+      if (n.contains(lower) || lower.contains(n)) return s;
+    }
+    return null;
+  }
+
   void _onProductNameChanged(String value) {
     // Solo auto-categorizar por IA / aprendizaje si es un Gasto
     if (_transactionType != 'expense') return;
 
     if (value.trim().isEmpty) {
       _predictionTimer?.cancel();
-      if (_isPredictingCategory) {
-        setState(() => _isPredictingCategory = false);
+      if (_isPredictingCategory || _pendingAiSuggestion != null) {
+        setState(() {
+          _isPredictingCategory = false;
+          _pendingAiSuggestion = null;
+        });
       }
       return;
     }
 
-    // Cancelar el timer anterior si el usuario sigue escribiendo
     _predictionTimer?.cancel();
 
-    // Iniciar un nuevo timer de 800ms para hacer debounce
     _predictionTimer = Timer(const Duration(milliseconds: 800), () async {
       final name = value.trim();
 
-      // 1. Primero intentar autocompletar con reglas locales
+      // 1. Primero intentar autocompletar con reglas locales (categoría + subcategoría)
       final db = ref.read(databaseProvider);
       final rule = await db.learningRulesDao.getRuleForProduct(name);
+      final subRule = await SubcategoryLearningService.getRule(name);
 
       if (rule != null && mounted) {
         setState(() {
           _selectedCategoryId = rule.categoryId;
+          if (subRule.subcategoryId != null) {
+            _selectedSubcategoryId = subRule.subcategoryId;
+          }
+          if (_selectedAccountId == null && subRule.accountId != null) {
+            _selectedAccountId = subRule.accountId;
+          }
+          _pendingAiSuggestion = null;
         });
-        return; // Si encontró regla local, ya no llama a la API
+        return;
       }
 
-      // 2. Si no hay regla local, usar IA Predictiva (Fast)
+      // 2. Si no hay regla local, usar IA Predictiva con árbol de categorías + subcategorías
       if (mounted) {
         setState(() {
           _isPredictingCategory = true;
+          _pendingAiSuggestion = null;
         });
       }
 
       try {
-        final groqService = ref.read(groqServiceProvider);
-        final categoriesList = await db.categoriesDao.getAllCategories();
-        final predictedCategoryName = await groqService.predictCategoryFast(
+        final aiService = ref.read(groqServiceProvider);
+        final categoriesList = await db.categoriesDao.getCategoriesByType(
+          'expense',
+        );
+        final subcatsList = await db.subcategoriesDao.getAllSubcategories();
+        final prediction = await aiService.predictCategoryAndSubcategory(
           name,
           categoriesList,
+          subcatsList,
+          description: _descriptionController.text,
         );
 
-        if (predictedCategoryName != null && mounted) {
-          final category = await db.categoriesDao.findCategoryByName(
-            predictedCategoryName,
-          );
-          if (category != null && mounted) {
-            setState(() {
-              _selectedCategoryId = category.id;
-            });
-            // Mostrar un pequeño feedback visual de éxito
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Row(
-                  children: [
-                    const Icon(
-                      Icons.auto_awesome,
-                      color: Colors.amber,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text('IA detectó la categoría: ${category.name}'),
-                    ),
-                  ],
-                ),
-                duration: const Duration(seconds: 2),
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
+        if (prediction != null && mounted) {
+          Category? matchedCat;
+          if (prediction.categoryName != null &&
+              prediction.categoryName!.isNotEmpty) {
+            matchedCat = await db.categoriesDao.findCategoryByName(
+              prediction.categoryName!,
             );
           }
+
+          Subcategory? matchedSub;
+          if (matchedCat != null &&
+              prediction.subcategoryName != null &&
+              prediction.subcategoryName!.isNotEmpty) {
+            matchedSub = _findSubcategoryByName(
+              prediction.subcategoryName,
+              matchedCat.id,
+              subcatsList,
+            );
+          }
+
+          final needsNewCat =
+              matchedCat == null &&
+              prediction.categoryName != null &&
+              prediction.categoryName!.trim().isNotEmpty &&
+              prediction.categoryName!.trim().toUpperCase() != 'OTRO';
+          final needsNewSub =
+              matchedSub == null &&
+              prediction.subcategoryName != null &&
+              prediction.subcategoryName!.trim().isNotEmpty &&
+              prediction.subcategoryName!.trim().toUpperCase() != 'OTRO';
+
+          if (mounted) {
+            setState(() {
+              if (matchedCat != null) {
+                _selectedCategoryId = matchedCat.id;
+                _selectedSubcategoryId = matchedSub?.id;
+              }
+              if (needsNewCat || needsNewSub) {
+                _pendingAiSuggestion = AiCategoryPrediction(
+                  categoryName: matchedCat?.name ?? prediction.categoryName,
+                  subcategoryName: prediction.subcategoryName,
+                  isNewCategory: needsNewCat,
+                  isNewSubcategory: needsNewSub,
+                  iconEmoji: prediction.iconEmoji,
+                  reason: prediction.reason,
+                );
+              }
+            });
+
+            if (matchedCat != null && !needsNewSub) {
+              final label = matchedSub != null
+                  ? '${matchedCat.name} › ${matchedSub.name}'
+                  : matchedCat.name;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome,
+                        color: Colors.amber,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text('IA clasificó en: $label')),
+                    ],
+                  ),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              );
+            }
+          }
         }
-      } catch (e) {
-        // Ignorar errores de predicción por timeout (es non-blocking)
+      } catch (_) {
+        // Non-blocking
       } finally {
         if (mounted) {
           setState(() {
@@ -271,6 +366,222 @@ class _CreateTransactionScreenState
         }
       }
     });
+  }
+
+  Future<void> _acceptAiCategorySuggestion() async {
+    final sug = _pendingAiSuggestion;
+    if (sug == null || _isCreatingSuggestedCat) return;
+    setState(() => _isCreatingSuggestedCat = true);
+
+    try {
+      final db = ref.read(databaseProvider);
+      final uuid = const Uuid();
+      String? catId = _selectedCategoryId;
+
+      if (sug.categoryName != null && sug.categoryName!.trim().isNotEmpty) {
+        final existingCat = await db.categoriesDao.findCategoryByName(
+          sug.categoryName!.trim(),
+        );
+        if (existingCat != null) {
+          catId = existingCat.id;
+        } else if (sug.isNewCategory) {
+          catId = uuid.v4();
+          await db.categoriesDao.createCategory(
+            CategoriesCompanion.insert(
+              id: catId,
+              name: sug.categoryName!.trim(),
+              type: _transactionType == 'income' ? 'income' : 'expense',
+              icon: drift.Value(sug.iconEmoji ?? '🏷️'),
+              color: const drift.Value('#6366F1'),
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+      }
+
+      String? subId = _selectedSubcategoryId;
+      if (catId != null &&
+          sug.isNewSubcategory &&
+          sug.subcategoryName != null &&
+          sug.subcategoryName!.trim().isNotEmpty) {
+        final existingSubs = await db.subcategoriesDao
+            .getSubcategoriesByCategoryId(catId);
+        final match = _findSubcategoryByName(
+          sug.subcategoryName,
+          catId,
+          existingSubs,
+        );
+        if (match != null) {
+          subId = match.id;
+        } else {
+          subId = uuid.v4();
+          await db.subcategoriesDao.createSubcategory(
+            SubcategoriesCompanion.insert(
+              id: subId,
+              categoryId: catId,
+              name: sug.subcategoryName!.trim(),
+              icon: drift.Value(sug.iconEmoji ?? '✨'),
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          if (catId != null) _selectedCategoryId = catId;
+          if (subId != null) _selectedSubcategoryId = subId;
+          _pendingAiSuggestion = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              sug.isNewCategory
+                  ? '✅ Categoría "${sug.categoryName}" creada y aplicada'
+                  : '✅ Subcategoría "${sug.subcategoryName}" creada y aplicada',
+            ),
+            backgroundColor: const Color(0xFF00C896),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('No se pudo crear la categoría/subcategoría: $e'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCreatingSuggestedCat = false);
+    }
+  }
+
+  Future<void> _pasteBankOrWalletText() async {
+    if (_isParsingClipboard) return;
+    final clipData = await Clipboard.getData(Clipboard.kTextPlain);
+    String? rawText = clipData?.text?.trim();
+
+    if (!mounted) return;
+    final controller = TextEditingController(text: rawText ?? '');
+    final confirmed = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.content_paste_go_rounded, size: 20),
+            SizedBox(width: 8),
+            Expanded(child: Text('Pegar Yape / Plin / SMS')),
+          ],
+        ),
+        content: TextField(
+          controller: controller,
+          maxLines: 5,
+          minLines: 3,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText:
+                'Pega aquí tu notificación de Yape, Plin, BCP, Interbank o BBVA...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            icon: const Icon(Icons.auto_awesome, size: 16),
+            label: const Text('Extraer con IA'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    if (confirmed == null || confirmed.isEmpty || !mounted) return;
+    setState(() => _isParsingClipboard = true);
+    try {
+      final db = ref.read(databaseProvider);
+      final categories = await db.categoriesDao.getAllCategories();
+      final subcats = await db.subcategoriesDao.getAllSubcategories();
+      final accounts = await db.accountsDao.getAllAccounts();
+      final parsed = await ref.read(groqServiceProvider).parseBankOrWalletText(
+        confirmed,
+        categories,
+        subcats,
+        accounts,
+      );
+
+      if (parsed == null || !mounted) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo extraer datos del texto pegado.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final catName = parsed['categoria_sugerida']?.toString();
+      final subName = parsed['subcategoria_sugerida']?.toString();
+      final matchedCat = (catName != null && catName.isNotEmpty)
+          ? await db.categoriesDao.findCategoryByName(catName)
+          : null;
+      final matchedSub = matchedCat != null
+          ? _findSubcategoryByName(subName, matchedCat.id, subcats)
+          : null;
+      final accName = parsed['cuenta_sugerida']?.toString().toLowerCase();
+      final matchedAcc = (accName != null && accName.isNotEmpty)
+          ? accounts
+                .where(
+                  (a) =>
+                      a.isActive &&
+                      (a.name.toLowerCase().contains(accName) ||
+                          accName.contains(a.name.toLowerCase())),
+                )
+                .firstOrNull
+          : null;
+      final parsedDate = parsed['fecha'] != null
+          ? DateTime.tryParse(parsed['fecha'].toString())
+          : null;
+
+      final bool needsNewCat =
+          parsed['es_nueva_categoria'] == true ||
+          (matchedCat == null &&
+              catName != null &&
+              catName.trim().isNotEmpty &&
+              catName.trim().toUpperCase() != 'OTRO');
+      final bool needsNewSub =
+          parsed['es_nueva_subcategoria'] == true ||
+          (matchedSub == null &&
+              subName != null &&
+              subName.trim().isNotEmpty);
+
+      _applyVoiceData({
+        'type': parsed['tipo']?.toString() ?? 'expense',
+        'amount': (parsed['monto'] as num?)?.toDouble(),
+        'currency': parsed['moneda']?.toString() ?? 'PEN',
+        'description': parsed['descripcion']?.toString(),
+        'productName': parsed['producto']?.toString(),
+        'categoryId': matchedCat?.id,
+        'subcategoryId': matchedSub?.id,
+        'accountId': matchedAcc?.id,
+        if (parsedDate != null) 'date': parsedDate.millisecondsSinceEpoch,
+        if (needsNewCat || needsNewSub)
+          'aiSuggestion': AiCategoryPrediction(
+            categoryName: matchedCat?.name ?? catName,
+            subcategoryName: subName,
+            isNewCategory: needsNewCat,
+            isNewSubcategory: needsNewSub,
+          ),
+      });
+    } finally {
+      if (mounted) setState(() => _isParsingClipboard = false);
+    }
   }
 
   void _onAmountChanged() {
@@ -752,6 +1063,13 @@ class _CreateTransactionScreenState
                 _selectedCategoryId!,
               ),
             );
+            unawaited(
+              SubcategoryLearningService.saveRule(
+                productName: _productNameController.text.trim(),
+                subcategoryId: _selectedSubcategoryId,
+                accountId: _selectedAccountId,
+              ),
+            );
           }
         }
       }
@@ -872,6 +1190,10 @@ class _CreateTransactionScreenState
         _isInstallment = true;
         _installmentsCount = installments;
       }
+      final aiSug = data['aiSuggestion'];
+      if (aiSug is AiCategoryPrediction && aiSug.hasNewSuggestion) {
+        _pendingAiSuggestion = aiSug;
+      }
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -906,6 +1228,17 @@ class _CreateTransactionScreenState
             )
           else ...[
             VoiceInputButton(onVoiceExtracted: _applyVoiceData),
+            IconButton(
+              icon: _isParsingClipboard
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.content_paste_go_rounded),
+              tooltip: 'Pegar Yape / Plin / SMS',
+              onPressed: _isParsingClipboard ? null : _pasteBankOrWalletText,
+            ),
             IconButton(
               icon: const Icon(Icons.camera_alt),
               tooltip: 'Escanear Boleta',
@@ -1002,6 +1335,12 @@ class _CreateTransactionScreenState
               // Selector de subcategoría (si hay categoría seleccionada)
               if (_selectedCategoryId != null)
                 _buildSubcategorySelector(_selectedCategoryId!),
+
+              if (_pendingAiSuggestion != null &&
+                  _pendingAiSuggestion!.hasNewSuggestion) ...[
+                const SizedBox(height: 12),
+                _buildAiCategorySuggestionBanner(),
+              ],
             ],
 
             if (_transactionType != 'transfer') const SizedBox(height: 16),
@@ -1084,6 +1423,98 @@ class _CreateTransactionScreenState
             _buildSaveButton(),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAiCategorySuggestionBanner() {
+    final sug = _pendingAiSuggestion!;
+    final cs = Theme.of(context).colorScheme;
+    final title = sug.isNewCategory
+        ? 'IA sugiere crear categoría "${sug.categoryName}"'
+              '${sug.isNewSubcategory && sug.subcategoryName != null ? ' › "${sug.subcategoryName}"' : ''}'
+        : 'IA sugiere crear subcategoría "${sug.subcategoryName}"'
+              '${sug.categoryName != null ? ' en ${sug.categoryName}' : ''}';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF00C896).withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFF00C896).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.auto_awesome,
+                size: 18,
+                color: Color(0xFF00C896),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    color: cs.onSurface,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, size: 16),
+                visualDensity: VisualDensity.compact,
+                onPressed: () => setState(() => _pendingAiSuggestion = null),
+              ),
+            ],
+          ),
+          if (sug.reason != null && sug.reason!.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              sug.reason!,
+              style: TextStyle(fontSize: 11.5, color: cs.onSurfaceVariant),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _isCreatingSuggestedCat
+                  ? null
+                  : _acceptAiCategorySuggestion,
+              icon: _isCreatingSuggestedCat
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Icon(Icons.add_circle_outline, size: 16),
+              label: const Text(
+                'Crear y usar',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              ),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF00C896),
+                foregroundColor: Colors.black,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

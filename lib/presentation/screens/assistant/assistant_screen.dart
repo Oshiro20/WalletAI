@@ -187,12 +187,12 @@ class _AssistantScreenState extends ConsumerState<AssistantScreen> {
 
   // Sugerencias iniciales orientadas a datos reales del usuario
   static const _suggestions = [
-    '¿Cuánto gasté este mes?',
-    '¿Cuál es mi saldo y mis deudas?',
-    '¿En qué categoría gasto más?',
-    '¿Cómo van mis presupuestos y metas?',
-    '¿Qué pagos recurrentes o cuotas tengo?',
-    'Compara mis gastos con el mes pasado',
+    '💸 ¿Cuánto puedo gastar hoy?',
+    '🔎 ¿Dónde se me está yendo más plata?',
+    '📊 ¿Cuánto gasté este mes?',
+    '📋 ¿Cómo van mis presupuestos y metas?',
+    '💳 ¿Qué pagos recurrentes o cuotas tengo?',
+    '📈 Compara mis gastos con el mes pasado',
   ];
 
   @override

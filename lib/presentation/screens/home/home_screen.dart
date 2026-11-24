@@ -26,6 +26,7 @@ import 'widgets/upcoming_recurring_widget.dart';
 import 'widgets/month_projection_widget.dart';
 import 'widgets/monthly_comparison_widget.dart';
 import 'widgets/budget_rule_widget.dart';
+import 'widgets/safe_daily_spend_card.dart';
 import '../../../core/services/update_service.dart';
 import '../../widgets/dialogs/update_dialog.dart';
 
@@ -249,6 +250,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 expensesAsync: monthExpensesAsync,
                 balanceAsync: monthBalanceAsync,
               ),
+            ),
+            const SizedBox(height: 10),
+            SafeDailySpendCard(
+              monthIncomeAsync: monthIncomeAsync,
+              monthExpensesAsync: monthExpensesAsync,
             ),
           ],
         );
