@@ -832,7 +832,7 @@ REGLAS ESTRICTAS:
 1. Prioriza SIEMPRE una categoría y subcategoría EXISTENTES del árbol.
 2. Si se indica una "Categoría ya elegida por el usuario", devuelve EXACTAMENTE esa categoría y enfócate en escoger la mejor subcategoría dentro de ella.
 3. Distinción clave en Alimentación (Perú/Latam):
-   - USA Restaurante / Comida fuera / Delivery SOLO para platos ya preparados o comidas servidas fuera (ej. "Almuerzo", "Menú", "Cena", "Desayuno", "Ensalada de frutas", "Ensalada César", "Pollo a la brasa", "Ceviche", "Chifa", "Pizza", "Hamburguesa", "KFC").
+   - USA Restaurante / Comida fuera / Delivery SOLO para platos ya preparados o comidas servidas fuera (ej. "Almuerzo", "Menú", "Cena", "Desayuno", "Ensalada de frutas", "Ensalada César", "Salchichaufa", "Salchipapa", "Mostrito", "Aeropuerto", "Pollo a la brasa", "Ceviche", "Chifa", "Anticucho", "Makis", "Pizza", "Hamburguesa", "KFC").
    - USA Supermercado / Mercado / Víveres / Abarrotes / Verduras para ingredientes, verduras, carnes o compras de mercado (ej. "Ensalada" a secas con cantidad/mercado, "Lechuga", "Tomate", "Pollo", "Pechuga", "Huevos", "Leche", "Arroz", "Aceite").
    - USA Snacks / Golosinas / Cafetería (si existe) para galletas, chocolates, helados, piqueos; si no existe, Supermercado/Bodega o sugiere "Snacks y Dulces".
 4. Si la categoría existe pero NINGUNA subcategoría actual encaja bien (ej. "Creatina" en "Deporte/Fitness" sin "Suplementos", o "ChatGPT Plus" en "Servicios Digitales" sin "Suscripciones IA"), pon "es_nueva_subcategoria": true con un nombre limpio y útil en español.
