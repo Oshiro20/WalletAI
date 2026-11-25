@@ -10,6 +10,12 @@ class SubcategoryLearningService {
   static String _normalize(String raw) => raw
       .trim()
       .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ü', 'u')
       .replaceAll(RegExp(r'\s+'), ' ');
 
   static Future<Map<String, dynamic>> _loadAll() async {

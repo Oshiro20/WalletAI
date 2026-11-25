@@ -131,6 +131,8 @@ class EcosystemSyncService {
 
     final categories = await db.categoriesDao.getAllCategories();
     final categoryMap = {for (final c in categories) c.id: c};
+    final subcategories = await db.subcategoriesDao.getAllSubcategories();
+    final subcategoryMap = {for (final s in subcategories) s.id: s};
 
     // Gastos por categoría del mes
     final catTotals = await db.transactionsDao.getExpensesByCategory(
@@ -185,6 +187,9 @@ class EcosystemSyncService {
           final cat = tx.categoryId != null
               ? categoryMap[tx.categoryId]
               : null;
+          final sub = tx.subcategoryId != null
+              ? subcategoryMap[tx.subcategoryId]
+              : null;
           final product = tx.productName?.trim();
           final hasProduct = product != null && product.isNotEmpty;
           return {
@@ -206,6 +211,7 @@ class EcosystemSyncService {
                 },
               ],
             'category': cat?.name ?? 'General',
+            if (sub != null) 'subcategory': sub.name,
             'amount': tx.type == 'expense' ? -tx.amount : tx.amount,
             'type': tx.type,
             'currency': tx.currency,

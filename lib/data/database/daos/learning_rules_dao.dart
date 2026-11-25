@@ -9,11 +9,33 @@ class LearningRulesDao extends DatabaseAccessor<AppDatabase>
     with _$LearningRulesDaoMixin {
   LearningRulesDao(super.db);
 
-  /// Obtener la regla de clasificación histórica de un producto por su nombre
-  Future<LearningRule?> getRuleForProduct(String productName) {
-    return (select(
+  static String _normalize(String raw) => raw
+      .trim()
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ü', 'u')
+      .replaceAll(RegExp(r'\s+'), ' ');
+
+  /// Obtener la regla de clasificación histórica de un producto (insensible a mayúsculas/tildes)
+  Future<LearningRule?> getRuleForProduct(String productName) async {
+    final exact = await (select(
       learningRules,
     )..where((t) => t.productName.equals(productName))).getSingleOrNull();
+    if (exact != null) return exact;
+
+    final target = _normalize(productName);
+    if (target.isEmpty) return null;
+    final all = await getAllRules();
+    for (final rule in all) {
+      if (_normalize(rule.productName) == target) {
+        return rule;
+      }
+    }
+    return null;
   }
 
   /// Registrar o actualizar una regla de aprendizaje

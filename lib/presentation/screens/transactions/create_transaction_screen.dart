@@ -245,26 +245,79 @@ class _CreateTransactionScreenState
     _predictionTimer = Timer(const Duration(milliseconds: 800), () async {
       final name = value.trim();
 
-      // 1. Primero intentar autocompletar con reglas locales (categoría + subcategoría)
+      // 1. Primero intentar autocompletar con reglas locales + historial real (categoría + subcategoría)
       final db = ref.read(databaseProvider);
       final rule = await db.learningRulesDao.getRuleForProduct(name);
       final subRule = await SubcategoryLearningService.getRule(name);
+      final categoriesList = await db.categoriesDao.getCategoriesByType(
+        'expense',
+      );
+      final subcatsList = await db.subcategoriesDao.getAllSubcategories();
 
+      String? lockedCategoryName;
       if (rule != null && mounted) {
+        String? resolvedSubId = subRule.subcategoryId;
+        String? resolvedAccId = subRule.accountId;
+
+        // Verificar que la subcategoría recordada siga existiendo y pertenezca a la categoría
+        if (resolvedSubId != null) {
+          final validSub = subcatsList.any(
+            (s) => s.id == resolvedSubId && s.categoryId == rule.categoryId,
+          );
+          if (!validSub) resolvedSubId = null;
+        }
+
+        // Si la regla vieja solo tenía categoría, buscar la subcategoría más reciente en tu historial
+        if (resolvedSubId == null) {
+          final historical = await db.transactionsDao
+              .getLatestClassificationForProduct(name);
+          if (historical?.subcategoryId != null) {
+            final belongs = subcatsList.any(
+              (s) =>
+                  s.id == historical!.subcategoryId &&
+                  s.categoryId == rule.categoryId,
+            );
+            if (belongs) {
+              resolvedSubId = historical!.subcategoryId;
+              resolvedAccId ??= historical.accountId;
+              // Persistir en caché de subcategorías para próximas veces
+              unawaited(
+                SubcategoryLearningService.saveRule(
+                  productName: name,
+                  subcategoryId: resolvedSubId,
+                  accountId: resolvedAccId,
+                ),
+              );
+            }
+          }
+        }
+
+        final categoryHasSubs = subcatsList.any(
+          (s) => s.categoryId == rule.categoryId,
+        );
+
         setState(() {
           _selectedCategoryId = rule.categoryId;
-          if (subRule.subcategoryId != null) {
-            _selectedSubcategoryId = subRule.subcategoryId;
-          }
-          if (_selectedAccountId == null && subRule.accountId != null) {
-            _selectedAccountId = subRule.accountId;
+          _selectedSubcategoryId = resolvedSubId;
+          if (_selectedAccountId == null && resolvedAccId != null) {
+            _selectedAccountId = resolvedAccId;
           }
           _pendingAiSuggestion = null;
         });
-        return;
+
+        // Si ya tenemos categoría + subcategoría (o esa categoría no usa subcategorías), terminamos al instante
+        if (resolvedSubId != null || !categoryHasSubs) {
+          return;
+        }
+
+        // Si falta subcategoría, pedir a la IA solo la subcategoría dentro de la categoría memorizada
+        lockedCategoryName = categoriesList
+            .where((c) => c.id == rule.categoryId)
+            .firstOrNull
+            ?.name;
       }
 
-      // 2. Si no hay regla local, usar IA Predictiva con árbol de categorías + subcategorías
+      // 2. Si no hay regla completa, usar IA Predictiva con árbol de categorías + subcategorías
       if (mounted) {
         setState(() {
           _isPredictingCategory = true;
@@ -274,15 +327,19 @@ class _CreateTransactionScreenState
 
       try {
         final aiService = ref.read(groqServiceProvider);
-        final categoriesList = await db.categoriesDao.getCategoriesByType(
-          'expense',
-        );
-        final subcatsList = await db.subcategoriesDao.getAllSubcategories();
         final prediction = await aiService.predictCategoryAndSubcategory(
           name,
           categoriesList,
           subcatsList,
           description: _descriptionController.text,
+          amount: double.tryParse(_amountController.text.replaceAll(',', '.')),
+          quantity: double.tryParse(
+            _quantityController.text.replaceAll(',', '.'),
+          ),
+          unit: _unitController.text.trim().isNotEmpty
+              ? _unitController.text.trim()
+              : null,
+          lockedCategoryName: lockedCategoryName,
         );
 
         if (prediction != null && mounted) {

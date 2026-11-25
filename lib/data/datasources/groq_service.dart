@@ -790,14 +790,25 @@ Devuelve ÚNICAMENTE este objeto JSON con las mismas claves:
     List<dynamic> categories,
     List<dynamic> subcategories, {
     String? description,
+    double? amount,
+    double? quantity,
+    String? unit,
+    String? lockedCategoryName,
   }) async {
     if (product.trim().isEmpty) return null;
 
     final tree = _buildCategoryTree(categories, subcategories);
-    final userInput =
-        (description != null && description.trim().isNotEmpty)
-            ? 'Producto: ${product.trim()} | Comercio/Nota: ${description.trim()}'
-            : 'Producto/Gasto: ${product.trim()}';
+    final contextParts = <String>[
+      'Producto/Gasto: ${product.trim()}',
+      if (description != null && description.trim().isNotEmpty)
+        'Comercio/Nota: ${description.trim()}',
+      if (quantity != null && quantity > 0)
+        'Cantidad: $quantity${unit != null && unit.isNotEmpty ? ' $unit' : ''}',
+      if (amount != null && amount > 0) 'Monto: S/ ${amount.toStringAsFixed(2)}',
+      if (lockedCategoryName != null && lockedCategoryName.trim().isNotEmpty)
+        'Categoría ya elegida por el usuario (RESPETARLA y solo elegir la mejor subcategoría dentro de ella): ${lockedCategoryName.trim()}',
+    ];
+    final userInput = contextParts.join(' | ');
 
     final prompt =
         '''
@@ -819,9 +830,14 @@ DEVUELVE ÚNICAMENTE ESTE OBJETO JSON (sin markdown ni texto extra):
 
 REGLAS ESTRICTAS:
 1. Prioriza SIEMPRE una categoría y subcategoría EXISTENTES del árbol.
-2. Si la categoría existe pero NINGUNA subcategoría actual encaja bien (ej. "Creatina" en "Deporte/Fitness" sin subcategoría "Suplementos", o "ChatGPT Plus" en "Servicios Digitales" sin "Suscripciones IA"), pon "es_nueva_subcategoria": true con un nombre limpio y útil en español.
-3. Solo pon "es_nueva_categoria": true si el gasto realmente no encaja en ninguna categoría existente (en vez de mandarlo a "Otro").
-4. Nunca devuelvas explicaciones fuera del JSON.
+2. Si se indica una "Categoría ya elegida por el usuario", devuelve EXACTAMENTE esa categoría y enfócate en escoger la mejor subcategoría dentro de ella.
+3. Distinción clave en Alimentación (Perú/Latam):
+   - USA Restaurante / Comida fuera / Delivery SOLO para platos ya preparados o comidas servidas fuera (ej. "Almuerzo", "Menú", "Cena", "Desayuno", "Ensalada de frutas", "Ensalada César", "Pollo a la brasa", "Ceviche", "Chifa", "Pizza", "Hamburguesa", "KFC").
+   - USA Supermercado / Mercado / Víveres / Abarrotes / Verduras para ingredientes, verduras, carnes o compras de mercado (ej. "Ensalada" a secas con cantidad/mercado, "Lechuga", "Tomate", "Pollo", "Pechuga", "Huevos", "Leche", "Arroz", "Aceite").
+   - USA Snacks / Golosinas / Cafetería (si existe) para galletas, chocolates, helados, piqueos; si no existe, Supermercado/Bodega o sugiere "Snacks y Dulces".
+4. Si la categoría existe pero NINGUNA subcategoría actual encaja bien (ej. "Creatina" en "Deporte/Fitness" sin "Suplementos", o "ChatGPT Plus" en "Servicios Digitales" sin "Suscripciones IA"), pon "es_nueva_subcategoria": true con un nombre limpio y útil en español.
+5. Solo pon "es_nueva_categoria": true si el gasto realmente no encaja en ninguna categoría existente (en vez de mandarlo a "Otro").
+6. Nunca devuelvas explicaciones fuera del JSON.
 ''';
 
     try {

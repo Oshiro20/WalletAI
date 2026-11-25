@@ -382,4 +382,63 @@ class TransactionsDao extends DatabaseAccessor<AppDatabase>
       return expensesBySubcategory;
     });
   }
+
+  static String _normalizeProductKey(String raw) => raw
+      .trim()
+      .toLowerCase()
+      .replaceAll('á', 'a')
+      .replaceAll('é', 'e')
+      .replaceAll('í', 'i')
+      .replaceAll('ó', 'o')
+      .replaceAll('ú', 'u')
+      .replaceAll('ü', 'u')
+      .replaceAll(RegExp(r'\s+'), ' ');
+
+  /// Recupera la clasificación más reciente (categoría, subcategoría y cuenta)
+  /// usada en el historial de gastos para un mismo producto.
+  Future<({String? categoryId, String? subcategoryId, String? accountId})?>
+      getLatestClassificationForProduct(String productName) async {
+    final target = _normalizeProductKey(productName);
+    if (target.isEmpty) return null;
+
+    final recent = await (select(transactions)
+          ..where((t) => t.type.equals('expense'))
+          ..orderBy([
+            (t) => OrderingTerm(expression: t.date, mode: OrderingMode.desc),
+            (t) =>
+                OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc),
+          ])
+          ..limit(400))
+        .get();
+
+    // Primera pasada: coincidencia exacta normalizada con subcategoría guardada
+    for (final tx in recent) {
+      final pName = tx.productName;
+      if (pName != null &&
+          _normalizeProductKey(pName) == target &&
+          tx.subcategoryId != null) {
+        return (
+          categoryId: tx.categoryId,
+          subcategoryId: tx.subcategoryId,
+          accountId: tx.accountId,
+        );
+      }
+    }
+
+    // Segunda pasada: coincidencia por descripción con subcategoría guardada
+    for (final tx in recent) {
+      final desc = tx.description;
+      if (desc != null &&
+          _normalizeProductKey(desc) == target &&
+          tx.subcategoryId != null) {
+        return (
+          categoryId: tx.categoryId,
+          subcategoryId: tx.subcategoryId,
+          accountId: tx.accountId,
+        );
+      }
+    }
+
+    return null;
+  }
 }
