@@ -21,6 +21,7 @@ class _NotificationsSettingsScreenState
   int _cardAlertsDaysBefore = 3;
   bool _notificationsGranted = true;
   bool _exactAlarmsGranted = true;
+  bool _batteryUnrestricted = false;
   bool _loading = true;
 
   @override
@@ -46,10 +47,13 @@ class _NotificationsSettingsScreenState
   Future<void> _refreshPermissionStatus() async {
     final notifEnabled = await NotificationService().areNotificationsEnabled();
     final exactEnabled = await NotificationService().canScheduleExactAlarms();
+    final batteryOk = await NotificationService()
+        .isIgnoringBatteryOptimizations();
     if (!mounted) return;
     setState(() {
       _notificationsGranted = notifEnabled;
       _exactAlarmsGranted = exactEnabled;
+      _batteryUnrestricted = batteryOk;
     });
   }
 
@@ -59,6 +63,8 @@ class _NotificationsSettingsScreenState
     final cardDays = await NotificationService().getCardAlertsDaysBefore();
     final notifEnabled = await NotificationService().areNotificationsEnabled();
     final exactEnabled = await NotificationService().canScheduleExactAlarms();
+    final batteryOk = await NotificationService()
+        .isIgnoringBatteryOptimizations();
     if (!mounted) return;
     setState(() {
       _enabled = prefs.getBool('daily_reminder_enabled') ?? false;
@@ -69,6 +75,7 @@ class _NotificationsSettingsScreenState
       _cardAlertsDaysBefore = cardDays;
       _notificationsGranted = notifEnabled;
       _exactAlarmsGranted = exactEnabled;
+      _batteryUnrestricted = batteryOk;
       _loading = false;
     });
   }
@@ -268,24 +275,70 @@ class _NotificationsSettingsScreenState
                                 ),
                             ],
                           ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                _batteryUnrestricted
+                                    ? Icons.battery_charging_full
+                                    : Icons.battery_alert,
+                                color: _batteryUnrestricted
+                                    ? Colors.green
+                                    : Colors.orange,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _batteryUnrestricted
+                                      ? 'Segundo plano sin restricciones activo'
+                                      : 'Segundo plano restringido por batería',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
+                              if (!_batteryUnrestricted)
+                                TextButton(
+                                  onPressed: () async {
+                                    await NotificationService()
+                                        .requestIgnoreBatteryOptimizations();
+                                    await _refreshPermissionStatus();
+                                  },
+                                  child: const Text('Activar'),
+                                ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           Text(
-                            'Tip: en Xiaomi, Samsung u Honor, deja WalletAI en Batería → Sin restricciones para evitar bloqueos.',
+                            'Si usas Xiaomi/Honor/Oppo, toca "Ajustes Android" y activa Inicio automático para que el sistema no mate las alarmas al cerrar recientes.',
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: cs.onSurface.withAlpha(150),
                               fontSize: 11.5,
                             ),
                           ),
                           const SizedBox(height: 10),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _scheduleTestIn10s,
-                              icon: const Icon(Icons.timer_outlined, size: 18),
-                              label: const Text(
-                                'Probar notificación en 10s (cierra la app)',
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _scheduleTestIn10s,
+                                  icon: const Icon(
+                                    Icons.timer_outlined,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Probar en 10s'),
+                                ),
                               ),
-                            ),
+                              const SizedBox(width: 8),
+                              OutlinedButton.icon(
+                                onPressed: () =>
+                                    NotificationService().openAppSettings(),
+                                icon: const Icon(
+                                  Icons.settings_outlined,
+                                  size: 18,
+                                ),
+                                label: const Text('Ajustes'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
