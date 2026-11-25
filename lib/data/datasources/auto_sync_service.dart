@@ -1,11 +1,13 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import '../database/drift_database.dart';
 import 'backup_service.dart';
 import 'cloud_account_service.dart';
+import 'notification_service.dart';
 
 const String syncTaskKey = 'com.walletai.autosync.backup';
+const String alertsTaskKey = 'com.walletai.background.alerts';
 const String kAutoSyncEnabledKey = 'auto_sync_enabled';
 const String kAutoSyncFrequencyKey = 'auto_sync_frequency';
 const String kAutoSyncDestinationKey = 'auto_sync_destination';
@@ -21,6 +23,36 @@ const String kAutoSyncLastTimeKey = 'auto_sync_last_time';
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
+    WidgetsFlutterBinding.ensureInitialized();
+
+    if (task == alertsTaskKey) {
+      AppDatabase? bgDb;
+      try {
+        bgDb = AppDatabase();
+        final notificationService = NotificationService();
+        await notificationService.initialize();
+        await notificationService.rescheduleIfEnabled();
+
+        final accounts = await bgDb.accountsDao.getAllAccounts();
+        await notificationService.checkCreditCardDueDates(
+          accounts,
+          transactionsDao: bgDb.transactionsDao,
+        );
+
+        final recurring = await bgDb.recurringPaymentsDao
+            .getAllRecurringPayments();
+        await notificationService.scheduleRecurringPaymentReminders(recurring);
+
+        debugPrint('[BackgroundAlerts] Alertas financieras sincronizadas OK');
+        return Future.value(true);
+      } catch (e) {
+        debugPrint('[BackgroundAlerts] Error: $e');
+        return Future.value(false);
+      } finally {
+        await bgDb?.close();
+      }
+    }
+
     if (task != syncTaskKey) return Future.value(true);
 
     AppDatabase? bgDb;
@@ -87,6 +119,18 @@ class AutoSyncService {
 
   Future<void> initialize() async {
     await Workmanager().initialize(callbackDispatcher);
+  }
+
+  /// Registra una tarea periódica ligera cada 12h para revisar tarjetas por vencer
+  /// y pagos recurrentes incluso cuando el usuario no abre WalletAI.
+  Future<void> registerBackgroundAlertsTask() async {
+    await Workmanager().registerPeriodicTask(
+      'wallet_ai_background_alerts_id',
+      alertsTaskKey,
+      frequency: const Duration(hours: 12),
+      constraints: Constraints(networkType: NetworkType.notRequired),
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+    );
   }
 
   Future<void> registerPeriodicTask({

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
@@ -25,7 +26,9 @@ class NotificationService {
 
   static const prefCardAlertsEnabled = 'credit_card_alerts_enabled';
   static const prefCardAlertsDaysBefore = 'credit_card_alerts_days_before';
+  static const _prefRecurringIds = 'scheduled_recurring_notif_ids';
   static const int _recurringBatchId = 9004;
+  static const int _testScheduledId = 9099;
 
   Future<bool> isCardAlertsEnabled() async {
     final prefs = await SharedPreferences.getInstance();
@@ -62,18 +65,150 @@ class NotificationService {
   Future<void> _initTz() async {
     if (_tz) return;
     tzdata.initializeTimeZones();
-    final tzInfo = await FlutterTimezone.getLocalTimezone();
-    tz.setLocalLocation(tz.getLocation(tzInfo.identifier));
+    try {
+      final tzInfo = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(tzInfo.identifier));
+    } catch (e) {
+      debugPrint('[NotificationService] Fallback timezone: $e');
+      final offsetHours = DateTime.now().timeZoneOffset.inHours;
+      if (offsetHours == -5) {
+        tz.setLocalLocation(tz.getLocation('America/Lima'));
+      } else {
+        tz.setLocalLocation(tz.UTC);
+      }
+    }
     _tz = true;
   }
 
+  AndroidFlutterLocalNotificationsPlugin? get _androidPlugin => _plugin
+      .resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin
+      >();
+
   /// Solicitar permisos de notificación (Android 13+)
-  Future<void> requestPermissions() async {
-    final android = _plugin
-        .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin
-        >();
-    await android?.requestNotificationsPermission();
+  Future<bool> requestPermissions() async {
+    await initialize();
+    try {
+      final granted = await _androidPlugin?.requestNotificationsPermission();
+      return granted ?? true;
+    } catch (e) {
+      debugPrint('[NotificationService] requestPermissions error: $e');
+      return false;
+    }
+  }
+
+  /// Verifica si el permiso de notificaciones está activo en el sistema.
+  Future<bool> areNotificationsEnabled() async {
+    await initialize();
+    try {
+      return await _androidPlugin?.areNotificationsEnabled() ?? true;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  /// Verifica si Android permite programar alarmas exactas (Android 12+).
+  Future<bool> canScheduleExactAlarms() async {
+    await initialize();
+    try {
+      return await _androidPlugin?.canScheduleExactNotifications() ?? true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Abre la solicitud de permiso de alarmas exactas en Android 12+.
+  Future<bool> requestExactAlarmPermission() async {
+    await initialize();
+    try {
+      final granted = await _androidPlugin?.requestExactAlarmsPermission();
+      return granted ?? await canScheduleExactAlarms();
+    } catch (e) {
+      debugPrint('[NotificationService] requestExactAlarmPermission error: $e');
+      return false;
+    }
+  }
+
+  /// Programa con alarma exacta si está permitido; si no, hace fallback seguro a inexactAllowWhileIdle.
+  Future<void> _zonedScheduleSafe({
+    required int id,
+    required String title,
+    required String body,
+    required tz.TZDateTime scheduledDate,
+    required NotificationDetails details,
+    DateTimeComponents? matchDateTimeComponents,
+    String? payload,
+  }) async {
+    final canExact = await canScheduleExactAlarms();
+    final primaryMode = canExact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+    try {
+      await _plugin.zonedSchedule(
+        id,
+        title,
+        body,
+        scheduledDate,
+        details,
+        androidScheduleMode: primaryMode,
+        matchDateTimeComponents: matchDateTimeComponents,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: payload,
+      );
+    } catch (e) {
+      if (primaryMode == AndroidScheduleMode.exactAllowWhileIdle) {
+        debugPrint(
+          '[NotificationService] exactAllowWhileIdle falló ($e), reintentando con inexactAllowWhileIdle',
+        );
+        await _plugin.zonedSchedule(
+          id,
+          title,
+          body,
+          scheduledDate,
+          details,
+          androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+          matchDateTimeComponents: matchDateTimeComponents,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation.absoluteTime,
+          payload: payload,
+        );
+      } else {
+        debugPrint('[NotificationService] zonedSchedule error: $e');
+      }
+    }
+  }
+
+  /// Programa una notificación de prueba para dentro de [delay] (por defecto 10s)
+  /// para verificar que llega incluso con la app completamente cerrada.
+  Future<bool> scheduleTestNotificationIn({
+    Duration delay = const Duration(seconds: 10),
+  }) async {
+    await initialize();
+    await _initTz();
+    final granted = await requestPermissions();
+    if (!granted) return false;
+
+    final fireAt = tz.TZDateTime.now(tz.local).add(delay);
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'daily_reminder',
+        'Recordatorio Diario',
+        importance: Importance.max,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ),
+    );
+    await _plugin.cancel(_testScheduledId);
+    await _zonedScheduleSafe(
+      id: _testScheduledId,
+      title: '✅ WalletAI funcionando en segundo plano',
+      body:
+          'Si estás leyendo esto con la app cerrada, tus alertas programadas ya están activas.',
+      scheduledDate: fireAt,
+      details: details,
+    );
+    return true;
   }
 
   /// Llama esto al iniciar la app — reactiva el recordatorio si fue configurado
@@ -118,16 +253,13 @@ class NotificationService {
       ),
     );
 
-    await _plugin.zonedSchedule(
-      _dailyReminderId,
-      '📝 ¿Registraste tus gastos de hoy?',
-      'Mantén tu control financiero al día.',
-      scheduled,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+    await _zonedScheduleSafe(
+      id: _dailyReminderId,
+      title: '📝 ¿Registraste tus gastos de hoy?',
+      body: 'Mantén tu control financiero al día.',
+      scheduledDate: scheduled,
+      details: details,
       matchDateTimeComponents: DateTimeComponents.time, // repite diariamente
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
     );
 
     // Persiste preferencias
@@ -342,15 +474,12 @@ class NotificationService {
       ),
     );
 
-    await _plugin.zonedSchedule(
-      id,
-      title,
-      body,
-      scheduled,
-      details,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
+    await _zonedScheduleSafe(
+      id: id,
+      title: title,
+      body: body,
+      scheduledDate: scheduled,
+      details: details,
     );
   }
 
@@ -501,5 +630,98 @@ class NotificationService {
       channel: 'recurring_alerts',
       channelName: 'Pagos Recurrentes',
     );
+  }
+
+  /// Programa alertas locales futuras para todos los pagos recurrentes activos
+  /// (tanto con días de anticipación como la mañana del vencimiento) para que
+  /// lleguen incluso si el usuario no abre la app.
+  Future<void> scheduleRecurringPaymentReminders(
+    List<RecurringPayment> payments,
+  ) async {
+    await initialize();
+    await _initTz();
+    final prefs = await SharedPreferences.getInstance();
+
+    // Cancelar recordatorios previos para evitar alertas obsoletas
+    final previousIds = prefs.getStringList(_prefRecurringIds) ?? const [];
+    for (final rawId in previousIds) {
+      final parsed = int.tryParse(rawId);
+      if (parsed != null) {
+        await _plugin.cancel(parsed);
+      }
+    }
+
+    final scheduledIds = <String>[];
+    final now = tz.TZDateTime.now(tz.local);
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'recurring_alerts',
+        'Pagos Recurrentes',
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ),
+    );
+
+    for (final payment in payments) {
+      if (!payment.isActive) continue;
+
+      final baseId = 300000 + ((payment.id.hashCode & 0x3FFFF) * 4);
+      final dueDay = DateTime(
+        payment.nextDueDate.year,
+        payment.nextDueDate.month,
+        payment.nextDueDate.day,
+      );
+      final amountLabel = 'S/ ${payment.amount.toStringAsFixed(2)}';
+
+      // 1. Recordatorio anticipado (reminderDays antes, a las 9:00 AM)
+      final reminderDays = payment.reminderDays.clamp(0, 14);
+      if (reminderDays > 0) {
+        final advanceDay = dueDay.subtract(Duration(days: reminderDays));
+        final advanceAt = tz.TZDateTime(
+          tz.local,
+          advanceDay.year,
+          advanceDay.month,
+          advanceDay.day,
+          9,
+          0,
+        );
+        if (advanceAt.isAfter(now)) {
+          final id = baseId + 1;
+          await _zonedScheduleSafe(
+            id: id,
+            title: '📅 Pago recurrente próximo',
+            body:
+                '${payment.name} ($amountLabel) vence en $reminderDays ${reminderDays == 1 ? 'día' : 'días'}.',
+            scheduledDate: advanceAt,
+            details: details,
+          );
+          scheduledIds.add(id.toString());
+        }
+      }
+
+      // 2. Recordatorio el mismo día del vencimiento (9:00 AM)
+      final dueAt = tz.TZDateTime(
+        tz.local,
+        dueDay.year,
+        dueDay.month,
+        dueDay.day,
+        9,
+        0,
+      );
+      if (dueAt.isAfter(now)) {
+        final id = baseId + 2;
+        await _zonedScheduleSafe(
+          id: id,
+          title: '🔁 Pago recurrente HOY',
+          body: 'Hoy toca ${payment.name} ($amountLabel).',
+          scheduledDate: dueAt,
+          details: details,
+        );
+        scheduledIds.add(id.toString());
+      }
+    }
+
+    await prefs.setStringList(_prefRecurringIds, scheduledIds);
   }
 }

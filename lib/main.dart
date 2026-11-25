@@ -38,8 +38,9 @@ Future<void> main() async {
   await notificationService
       .rescheduleIfEnabled(); // reactivar recordatorio al reiniciar app
 
-  // Inicializar servicio de sincronización automática (Workmanager)
+  // Inicializar servicio de sincronización automática y alertas en segundo plano (Workmanager)
   await AutoSyncService().initialize();
+  await AutoSyncService().registerBackgroundAlertsTask();
 
   // Configurar manejo de errores global para UI
   ErrorWidget.builder = (FlutterErrorDetails details) {

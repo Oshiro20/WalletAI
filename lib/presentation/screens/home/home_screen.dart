@@ -77,20 +77,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _checkCreditCardAlerts() async {
-    final prefs = await SharedPreferences.getInstance();
-    final lastCheck = prefs.getString('last_cc_alert_check');
-    final now = DateTime.now();
-    final today =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    if (lastCheck != today && mounted) {
+    if (!mounted) return;
+    try {
       final accounts = await ref.read(accountsStreamProvider.future);
       final transactionsDao = ref.read(transactionsDaoProvider);
       await NotificationService().checkCreditCardDueDates(
         accounts,
         transactionsDao: transactionsDao,
       );
-      await prefs.setString('last_cc_alert_check', today);
+
+      final recurring =
+          await ref.read(recurringPaymentsDaoProvider).getAllRecurringPayments();
+      await NotificationService().scheduleRecurringPaymentReminders(recurring);
+    } catch (e) {
+      debugPrint('[Home] Error programando alertas locales: $e');
     }
   }
 

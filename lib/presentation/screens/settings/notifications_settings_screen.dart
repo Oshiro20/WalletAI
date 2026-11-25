@@ -13,23 +13,52 @@ class NotificationsSettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _NotificationsSettingsScreenState
-    extends ConsumerState<NotificationsSettingsScreen> {
+    extends ConsumerState<NotificationsSettingsScreen>
+    with WidgetsBindingObserver {
   bool _enabled = false;
   TimeOfDay _time = const TimeOfDay(hour: 20, minute: 0);
   bool _cardAlertsEnabled = true;
   int _cardAlertsDaysBefore = 3;
+  bool _notificationsGranted = true;
+  bool _exactAlarmsGranted = true;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _refreshPermissionStatus();
+    }
+  }
+
+  Future<void> _refreshPermissionStatus() async {
+    final notifEnabled = await NotificationService().areNotificationsEnabled();
+    final exactEnabled = await NotificationService().canScheduleExactAlarms();
+    if (!mounted) return;
+    setState(() {
+      _notificationsGranted = notifEnabled;
+      _exactAlarmsGranted = exactEnabled;
+    });
   }
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final cardEnabled = await NotificationService().isCardAlertsEnabled();
     final cardDays = await NotificationService().getCardAlertsDaysBefore();
+    final notifEnabled = await NotificationService().areNotificationsEnabled();
+    final exactEnabled = await NotificationService().canScheduleExactAlarms();
     if (!mounted) return;
     setState(() {
       _enabled = prefs.getBool('daily_reminder_enabled') ?? false;
@@ -38,8 +67,40 @@ class _NotificationsSettingsScreenState
       _time = TimeOfDay(hour: h, minute: m);
       _cardAlertsEnabled = cardEnabled;
       _cardAlertsDaysBefore = cardDays;
+      _notificationsGranted = notifEnabled;
+      _exactAlarmsGranted = exactEnabled;
       _loading = false;
     });
+  }
+
+  Future<void> _requestExactAlarms() async {
+    await NotificationService().requestExactAlarmPermission();
+    await _refreshPermissionStatus();
+    if (_exactAlarmsGranted && _enabled) {
+      await NotificationService().scheduleDailyReminder(
+        hour: _time.hour,
+        minute: _time.minute,
+      );
+    }
+  }
+
+  Future<void> _scheduleTestIn10s() async {
+    final ok = await NotificationService().scheduleTestNotificationIn(
+      delay: const Duration(seconds: 10),
+    );
+    await _refreshPermissionStatus();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          ok
+              ? '⏱️ Prueba programada en 10 segundos. Cierra WalletAI ahora para comprobar que llega en segundo plano.'
+              : '⚠️ Activa el permiso de notificaciones en Android para recibir alertas.',
+        ),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 5),
+      ),
+    );
   }
 
   Future<void> _toggleCardAlerts(bool value) async {
@@ -131,6 +192,107 @@ class _NotificationsSettingsScreenState
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               children: [
+                // ─── Estado en segundo plano ─────────────────────────────
+                _SectionHeader(title: 'Entrega en segundo plano'),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                  child: Card(
+                    elevation: 0,
+                    color: cs.surfaceContainerHighest.withAlpha(110),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                _notificationsGranted
+                                    ? Icons.check_circle
+                                    : Icons.error_outline,
+                                color: _notificationsGranted
+                                    ? Colors.green
+                                    : Colors.orange,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _notificationsGranted
+                                      ? 'Permiso de notificaciones activo'
+                                      : 'Falta permiso de notificaciones',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              if (!_notificationsGranted)
+                                TextButton(
+                                  onPressed: () async {
+                                    await NotificationService()
+                                        .requestPermissions();
+                                    await _refreshPermissionStatus();
+                                  },
+                                  child: const Text('Activar'),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                _exactAlarmsGranted
+                                    ? Icons.alarm_on
+                                    : Icons.alarm_off,
+                                color: _exactAlarmsGranted
+                                    ? Colors.green
+                                    : Colors.amber.shade700,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _exactAlarmsGranted
+                                      ? 'Alarmas exactas activas (puntuales con app cerrada)'
+                                      : 'Alarmas exactas desactivadas (pueden retrasarse)',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                              ),
+                              if (!_exactAlarmsGranted)
+                                TextButton(
+                                  onPressed: _requestExactAlarms,
+                                  child: const Text('Permitir'),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tip: en Xiaomi, Samsung u Honor, deja WalletAI en Batería → Sin restricciones para evitar bloqueos.',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurface.withAlpha(150),
+                              fontSize: 11.5,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: _scheduleTestIn10s,
+                              icon: const Icon(Icons.timer_outlined, size: 18),
+                              label: const Text(
+                                'Probar notificación en 10s (cierra la app)',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+
                 // ─── Recordatorio diario ────────────────────────────────
                 _SectionHeader(title: 'Recordatorio diario'),
                 SwitchListTile(
@@ -239,6 +401,13 @@ class _NotificationsSettingsScreenState
                   title: 'Gasto inusualmente alto',
                   subtitle:
                       'Se activa cuando un gasto supera 3× tu promedio diario',
+                ),
+                _InfoTile(
+                  icon: Icons.repeat,
+                  iconColor: Colors.blue,
+                  title: 'Pagos recurrentes programados',
+                  subtitle:
+                      'Te avisa con anticipación y el día de cobro incluso con la app cerrada',
                 ),
                 _InfoTile(
                   icon: Icons.flag_outlined,
