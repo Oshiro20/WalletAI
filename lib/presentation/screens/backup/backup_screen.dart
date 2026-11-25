@@ -26,8 +26,11 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
   List<drive.File> _driveBackups = [];
   bool _loadingDrive = false;
 
-  // Cuenta Nube WalletAI (Opción A)
+  // Cuenta Nube del Ecosistema (WalletAI + MyLifeOS)
   String? _cloudUsername;
+  String? _cloudDisplayName;
+  String? _cloudEmail;
+  bool _cloudHasRecoveryKey = false;
   String? _cloudLastSyncedAt;
   CloudBackupMetadata? _cloudBackupMeta;
   bool _loadingCloudStatus = false;
@@ -81,11 +84,27 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     if (!mounted) return;
     setState(() {
       _cloudUsername = session.username;
+      _cloudDisplayName = session.displayName;
+      _cloudEmail = session.email;
+      _cloudHasRecoveryKey = session.hasRecoveryKey;
       _cloudLastSyncedAt = session.lastSyncedAt;
     });
     if (session.token != null && session.token!.isNotEmpty) {
-      await _refreshCloudStatus();
+      await Future.wait([_refreshCloudStatus(), _syncCloudProfile()]);
     }
+  }
+
+  Future<void> _syncCloudProfile() async {
+    final res = await CloudAccountService.fetchProfile();
+    if (!res.success || !mounted) return;
+    final refreshed = await CloudAccountService.getSessionInfo();
+    if (!mounted) return;
+    setState(() {
+      _cloudUsername = refreshed.username;
+      _cloudDisplayName = refreshed.displayName;
+      _cloudEmail = refreshed.email;
+      _cloudHasRecoveryKey = refreshed.hasRecoveryKey;
+    });
   }
 
   Future<void> _refreshCloudStatus() async {
@@ -213,11 +232,659 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     );
   }
 
-  // ─── CUENTA NUBE WALLETAI (OPCIÓN A) ─────────────────────────────────────
+  // ─── CUENTA NUBE DEL ECOSISTEMA (WALLETAI + MYLIFEOS) ───────────────────
+
+  Future<void> _showRecoveryKeyDialog(String recoveryKey) async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.vpn_key, color: Colors.amber),
+            SizedBox(width: 8),
+            Flexible(child: Text('Guarda tu Clave de Recuperación')),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Esta clave se muestra una sola vez. Guárdala en un lugar seguro: te permitirá recuperar tu contraseña o usuario en WalletAI y MyLifeOS.',
+              style: TextStyle(fontSize: 12.5),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.shade700),
+              ),
+              child: SelectableText(
+                recoveryKey,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.4,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          OutlinedButton.icon(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: recoveryKey));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Clave copiada al portapapeles'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('Copiar clave'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Ya la guardé'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openRecoverPasswordDialog() async {
+    final idCtrl = TextEditingController();
+    final keyCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    bool obscure = true;
+    bool submitting = false;
+    String? errorMsg;
+
+    final recoveredUser = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.lock_reset, color: Colors.orange),
+              SizedBox(width: 8),
+              Flexible(child: Text('Recuperar contraseña')),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Ingresa tu usuario (o correo vinculado), tu clave de recuperación (MLO-...) y tu nueva contraseña.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: idCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Usuario o correo',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: keyCtrl,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                    labelText: 'Clave de recuperación',
+                    hintText: 'MLO-XXXX-XXXX-XXXX',
+                    prefixIcon: Icon(Icons.vpn_key_outlined),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: passCtrl,
+                  obscureText: obscure,
+                  decoration: InputDecoration(
+                    labelText: 'Nueva contraseña',
+                    hintText: 'Mínimo 6 caracteres',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        obscure ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed: () => setDialogState(() => obscure = !obscure),
+                    ),
+                  ),
+                ),
+                if (errorMsg != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorMsg!,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: submitting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      if (idCtrl.text.trim().isEmpty ||
+                          keyCtrl.text.trim().length < 8 ||
+                          passCtrl.text.length < 6) {
+                        setDialogState(() {
+                          errorMsg =
+                              'Completa todos los campos (contraseña mín. 6).';
+                        });
+                        return;
+                      }
+                      setDialogState(() {
+                        submitting = true;
+                        errorMsg = null;
+                      });
+                      final res = await CloudAccountService.recoverPassword(
+                        identifier: idCtrl.text.trim(),
+                        recoveryKey: keyCtrl.text.trim(),
+                        newPassword: passCtrl.text,
+                      );
+                      if (!ctx.mounted) return;
+                      if (res.success) {
+                        Navigator.pop(ctx, res.username ?? idCtrl.text.trim());
+                      } else {
+                        setDialogState(() {
+                          submitting = false;
+                          errorMsg = res.message;
+                        });
+                      }
+                    },
+              child: submitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Restablecer'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (recoveredUser != null && mounted) {
+      _showResult(
+        BackupResult(
+          success: true,
+          message:
+              '✅ Contraseña actualizada para @$recoveredUser. Ya puedes iniciar sesión.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _openRecoverUsernameDialog() async {
+    final emailCtrl = TextEditingController();
+    final secretCtrl = TextEditingController();
+    bool useKey = false;
+    bool submitting = false;
+    String? errorMsg;
+
+    final found = await showDialog<({String username, String? displayName})>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.person_search, color: Colors.teal),
+              SizedBox(width: 8),
+              Flexible(child: Text('Recuperar usuario')),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Ingresa el correo vinculado a tu cuenta y verifica con tu contraseña o clave de recuperación.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Correo vinculado',
+                    prefixIcon: Icon(Icons.email_outlined),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  title: const Text(
+                    'Usar clave de recuperación',
+                    style: TextStyle(fontSize: 12.5),
+                  ),
+                  value: useKey,
+                  onChanged: (v) => setDialogState(() {
+                    useKey = v;
+                    secretCtrl.clear();
+                    errorMsg = null;
+                  }),
+                ),
+                TextField(
+                  controller: secretCtrl,
+                  obscureText: !useKey,
+                  textCapitalization: useKey
+                      ? TextCapitalization.characters
+                      : TextCapitalization.none,
+                  decoration: InputDecoration(
+                    labelText: useKey
+                        ? 'Clave de recuperación (MLO-...)'
+                        : 'Contraseña',
+                    prefixIcon: Icon(
+                      useKey ? Icons.vpn_key_outlined : Icons.lock_outline,
+                    ),
+                  ),
+                ),
+                if (errorMsg != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    errorMsg!,
+                    style: const TextStyle(color: Colors.red, fontSize: 12),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: submitting ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              onPressed: submitting
+                  ? null
+                  : () async {
+                      if (!emailCtrl.text.contains('@') ||
+                          secretCtrl.text.trim().isEmpty) {
+                        setDialogState(() {
+                          errorMsg = 'Ingresa un correo válido y tu verificación.';
+                        });
+                        return;
+                      }
+                      setDialogState(() {
+                        submitting = true;
+                        errorMsg = null;
+                      });
+                      final res = await CloudAccountService.recoverUsername(
+                        email: emailCtrl.text.trim(),
+                        password: useKey ? null : secretCtrl.text,
+                        recoveryKey: useKey ? secretCtrl.text.trim() : null,
+                      );
+                      if (!ctx.mounted) return;
+                      if (res.success && res.username != null) {
+                        Navigator.pop(ctx, (
+                          username: res.username!,
+                          displayName: res.displayName,
+                        ));
+                      } else {
+                        setDialogState(() {
+                          submitting = false;
+                          errorMsg = res.message;
+                        });
+                      }
+                    },
+              child: submitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Consultar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (found != null && mounted) {
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Usuario encontrado'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (found.displayName != null && found.displayName!.isNotEmpty)
+                Text('Nombre: ${found.displayName}'),
+              const SizedBox(height: 6),
+              SelectableText(
+                'Usuario: @${found.username}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: found.username));
+                Navigator.pop(ctx);
+                _showResult(
+                  BackupResult(
+                    success: true,
+                    message: 'Usuario "${found.username}" copiado.',
+                  ),
+                );
+              },
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copiar usuario'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Listo'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _openManageAccountDialog() async {
+    final displayCtrl = TextEditingController(text: _cloudDisplayName ?? '');
+    final emailCtrl = TextEditingController(text: _cloudEmail ?? '');
+    final userCtrl = TextEditingController(text: _cloudUsername ?? '');
+    final currentPassForUserCtrl = TextEditingController();
+    final curPassCtrl = TextEditingController();
+    final newPassCtrl = TextEditingController();
+    bool saving = false;
+    String? errorMsg;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final usernameChanged =
+              userCtrl.text.trim().toLowerCase() !=
+              (_cloudUsername ?? '').toLowerCase();
+          return AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.manage_accounts),
+                SizedBox(width: 8),
+                Flexible(child: Text('Perfil y Seguridad')),
+              ],
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Datos visibles en WalletAI y MyLifeOS',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: displayCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre visible',
+                      hintText: 'Ej: Joel Orbezo',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Correo de recuperación (opcional)',
+                      hintText: 'Para recuperar usuario o iniciar sesión',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: userCtrl,
+                    onChanged: (_) => setDialogState(() {}),
+                    decoration: const InputDecoration(
+                      labelText: 'Nombre de usuario (@)',
+                      prefixIcon: Icon(Icons.alternate_email),
+                    ),
+                  ),
+                  if (usernameChanged) ...[
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: currentPassForUserCtrl,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Contraseña actual (para cambiar usuario)',
+                        prefixIcon: Icon(Icons.lock_outline),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              if (usernameChanged &&
+                                  currentPassForUserCtrl.text.isEmpty) {
+                                setDialogState(() {
+                                  errorMsg =
+                                      'Ingresa tu contraseña actual para cambiar tu usuario.';
+                                });
+                                return;
+                              }
+                              setDialogState(() {
+                                saving = true;
+                                errorMsg = null;
+                              });
+                              final res =
+                                  await CloudAccountService.updateProfile(
+                                    displayName: displayCtrl.text.trim(),
+                                    email: emailCtrl.text.trim(),
+                                    username: usernameChanged
+                                        ? userCtrl.text.trim()
+                                        : null,
+                                    currentPassword: usernameChanged
+                                        ? currentPassForUserCtrl.text
+                                        : null,
+                                  );
+                              if (!ctx.mounted) return;
+                              setDialogState(() => saving = false);
+                              if (res.success) {
+                                await _loadCloudSession();
+                                if (!ctx.mounted) return;
+                                Navigator.pop(ctx);
+                                _showResult(
+                                  BackupResult(
+                                    success: true,
+                                    message: '✅ ${res.message}',
+                                  ),
+                                );
+                              } else {
+                                setDialogState(() => errorMsg = res.message);
+                              }
+                            },
+                      icon: const Icon(Icons.save_outlined, size: 18),
+                      label: const Text('Guardar perfil'),
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  const Text(
+                    'Cambiar contraseña',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: curPassCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Contraseña actual',
+                      prefixIcon: Icon(Icons.lock_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: newPassCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Nueva contraseña (mín. 6)',
+                      prefixIcon: Icon(Icons.lock_reset),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              if (curPassCtrl.text.isEmpty ||
+                                  newPassCtrl.text.length < 6) {
+                                setDialogState(() {
+                                  errorMsg =
+                                      'Ingresa contraseña actual y nueva (mín. 6).';
+                                });
+                                return;
+                              }
+                              setDialogState(() {
+                                saving = true;
+                                errorMsg = null;
+                              });
+                              final res =
+                                  await CloudAccountService.changePassword(
+                                    currentPassword: curPassCtrl.text,
+                                    newPassword: newPassCtrl.text,
+                                  );
+                              if (!ctx.mounted) return;
+                              setDialogState(() => saving = false);
+                              if (res.success) {
+                                Navigator.pop(ctx);
+                                _showResult(
+                                  BackupResult(
+                                    success: true,
+                                    message: '✅ ${res.message}',
+                                  ),
+                                );
+                              } else {
+                                setDialogState(() => errorMsg = res.message);
+                              }
+                            },
+                      child: const Text('Actualizar contraseña'),
+                    ),
+                  ),
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      Icon(
+                        _cloudHasRecoveryKey
+                            ? Icons.verified_user
+                            : Icons.warning_amber,
+                        size: 18,
+                        color: _cloudHasRecoveryKey
+                            ? Colors.green
+                            : Colors.orange,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _cloudHasRecoveryKey
+                              ? 'Clave de recuperación activa'
+                              : 'Aún no has generado tu clave de recuperación',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  SizedBox(
+                    width: double.infinity,
+                    child: TextButton.icon(
+                      onPressed: saving
+                          ? null
+                          : () async {
+                              final pwd = await _showPasswordDialog(
+                                title: 'Confirma tu contraseña actual',
+                                hint:
+                                    'Requerida para generar una nueva clave de recuperación',
+                                confirmMode: false,
+                              );
+                              if (pwd == null || !ctx.mounted) return;
+                              setDialogState(() {
+                                saving = true;
+                                errorMsg = null;
+                              });
+                              final res = await CloudAccountService
+                                  .regenerateRecoveryKey(currentPassword: pwd);
+                              if (!ctx.mounted) return;
+                              setDialogState(() => saving = false);
+                              if (res.success && res.recoveryKey != null) {
+                                await _loadCloudSession();
+                                if (!ctx.mounted) return;
+                                Navigator.pop(ctx);
+                                await _showRecoveryKeyDialog(res.recoveryKey!);
+                              } else {
+                                setDialogState(() => errorMsg = res.message);
+                              }
+                            },
+                      icon: const Icon(Icons.vpn_key_outlined, size: 18),
+                      label: Text(
+                        _cloudHasRecoveryKey
+                            ? 'Regenerar clave de recuperación'
+                            : 'Generar clave de recuperación ahora',
+                      ),
+                    ),
+                  ),
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      errorMsg!,
+                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: saving ? null : () => Navigator.pop(ctx),
+                child: const Text('Cerrar'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Future<void> _openCloudAuthDialog({required bool isRegister}) async {
     final userCtrl = TextEditingController();
     final passCtrl = TextEditingController();
+    final displayCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
     bool obscure = true;
     String? errorMsg;
     bool submitting = false;
@@ -229,6 +896,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
             String message,
             CloudBackupMetadata? latestBackup,
             String username,
+            String? recoveryKey,
           })
         >(
           context: context,
@@ -242,55 +910,117 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                   Flexible(
                     child: Text(
                       isRegister
-                          ? 'Crear cuenta WalletAI'
-                          : 'Iniciar sesión WalletAI',
+                          ? 'Crear cuenta del Ecosistema'
+                          : 'Iniciar sesión (WalletAI / MyLifeOS)',
                     ),
                   ),
                 ],
               ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    isRegister
-                        ? 'Crea un usuario y contraseña para respaldar tus finanzas y recuperarlas en otro celular.'
-                        : 'Ingresa tus credenciales para sincronizar o restaurar tu copia de seguridad.',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: userCtrl,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(
-                      labelText: 'Usuario o correo',
-                      prefixIcon: Icon(Icons.person_outline),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      isRegister
+                          ? 'Una sola cuenta para respaldar y sincronizar WalletAI y MyLifeOS en todos tus equipos.'
+                          : 'Ingresa tu usuario o correo vinculado y tu contraseña.',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: passCtrl,
-                    obscureText: obscure,
-                    decoration: InputDecoration(
-                      labelText: 'Contraseña',
-                      hintText: 'Mínimo 6 caracteres',
-                      prefixIcon: const Icon(Icons.lock_outline),
-                      suffixIcon: IconButton(
-                        icon: Icon(
-                          obscure ? Icons.visibility : Icons.visibility_off,
+                    const SizedBox(height: 12),
+                    if (isRegister) ...[
+                      TextField(
+                        controller: displayCtrl,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Nombre visible (opcional)',
+                          hintText: 'Ej: Joel Orbezo',
+                          prefixIcon: Icon(Icons.badge_outlined),
                         ),
-                        onPressed: () =>
-                            setDialogState(() => obscure = !obscure),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    TextField(
+                      controller: userCtrl,
+                      textInputAction: TextInputAction.next,
+                      decoration: InputDecoration(
+                        labelText: isRegister
+                            ? 'Nombre de usuario (@)'
+                            : 'Usuario o correo',
+                        prefixIcon: const Icon(Icons.person_outline),
                       ),
                     ),
-                  ),
-                  if (errorMsg != null) ...[
+                    if (isRegister) ...[
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: emailCtrl,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(
+                          labelText: 'Correo de recuperación (opcional)',
+                          hintText: 'Te ayuda si olvidas tu usuario',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
-                    Text(
-                      errorMsg!,
-                      style: const TextStyle(color: Colors.red, fontSize: 12),
+                    TextField(
+                      controller: passCtrl,
+                      obscureText: obscure,
+                      decoration: InputDecoration(
+                        labelText: 'Contraseña',
+                        hintText: 'Mínimo 6 caracteres',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            obscure ? Icons.visibility : Icons.visibility_off,
+                          ),
+                          onPressed: () =>
+                              setDialogState(() => obscure = !obscure),
+                        ),
+                      ),
                     ),
+                    if (!isRegister) ...[
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 4,
+                        alignment: WrapAlignment.center,
+                        children: [
+                          TextButton(
+                            onPressed: submitting
+                                ? null
+                                : () {
+                                    Navigator.pop(ctx);
+                                    _openRecoverPasswordDialog();
+                                  },
+                            child: const Text(
+                              '¿Olvidaste contraseña?',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: submitting
+                                ? null
+                                : () {
+                                    Navigator.pop(ctx);
+                                    _openRecoverUsernameDialog();
+                                  },
+                            child: const Text(
+                              '¿Olvidaste usuario?',
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (errorMsg != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        errorMsg!,
+                        style: const TextStyle(color: Colors.red, fontSize: 12),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
               actions: [
                 TextButton(
@@ -319,6 +1049,12 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                                 isRegister: isRegister,
                                 username: u,
                                 password: p,
+                                displayName: displayCtrl.text.trim().isEmpty
+                                    ? null
+                                    : displayCtrl.text.trim(),
+                                email: emailCtrl.text.trim().isEmpty
+                                    ? null
+                                    : emailCtrl.text.trim(),
                               );
                           if (!ctx.mounted) return;
                           if (authRes.success) {
@@ -326,7 +1062,8 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                               success: true,
                               message: authRes.message,
                               latestBackup: authRes.latestBackup,
-                              username: u.toLowerCase(),
+                              username: authRes.username ?? u.toLowerCase(),
+                              recoveryKey: authRes.recoveryKey,
                             ));
                           } else {
                             setDialogState(() {
@@ -352,6 +1089,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
     await _loadCloudSession();
     _showResult(BackupResult(success: true, message: result.message));
+
+    if (result.recoveryKey != null && result.recoveryKey!.isNotEmpty) {
+      await _showRecoveryKeyDialog(result.recoveryKey!);
+    }
 
     // Detectar si existe copia previa en la nube (útil al iniciar sesión en nuevo celular)
     final backup = result.latestBackup;
@@ -470,6 +1211,9 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
     if (!mounted) return;
     setState(() {
       _cloudUsername = null;
+      _cloudDisplayName = null;
+      _cloudEmail = null;
+      _cloudHasRecoveryKey = false;
       _cloudLastSyncedAt = null;
       _cloudBackupMeta = null;
     });
@@ -916,10 +1660,10 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
 
           const SizedBox(height: 24),
 
-          // ─── CUENTA WALLETAI EN LA NUBE (OPCIÓN A) ───────────────────────
+          // ─── CUENTA DEL ECOSISTEMA EN LA NUBE ────────────────────────────
           _SectionHeader(
             icon: Icons.cloud_sync,
-            title: 'Cuenta WalletAI (Nube Multi-dispositivo)',
+            title: 'Cuenta del Ecosistema (WalletAI + MyLifeOS)',
           ),
           const SizedBox(height: 12),
           Card(
@@ -932,7 +1676,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                       _ActionTile(
                         icon: Icons.login,
                         iconColor: cs.primary,
-                        title: 'Iniciar sesión con usuario y contraseña',
+                        title: 'Iniciar sesión con usuario o correo',
                         subtitle:
                             'Detecta y restaura tu copia al cambiar de celular',
                         onTap: _isLoading
@@ -945,10 +1689,21 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                         iconColor: Colors.teal,
                         title: 'Crear cuenta nueva en la nube',
                         subtitle:
-                            'Guarda una copia unificada protegida para tus equipos',
+                            'Incluye clave de recuperación y respaldo unificado',
                         onTap: _isLoading
                             ? null
                             : () => _openCloudAuthDialog(isRegister: true),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      _ActionTile(
+                        icon: Icons.lock_reset,
+                        iconColor: Colors.orange,
+                        title: 'Recuperar contraseña o usuario',
+                        subtitle:
+                            'Usa tu clave de recuperación o tu correo vinculado',
+                        onTap: _isLoading
+                            ? null
+                            : () => _openRecoverPasswordDialog(),
                       ),
                     ],
                   )
@@ -960,18 +1715,17 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                           child: Icon(Icons.person, color: cs.primary),
                         ),
                         title: Text(
-                          _cloudUsername!,
+                          (_cloudDisplayName != null &&
+                                  _cloudDisplayName!.isNotEmpty)
+                              ? _cloudDisplayName!
+                              : '@${_cloudUsername!}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         subtitle: Text(
-                          _loadingCloudStatus
-                              ? 'Consultando respaldo en la nube...'
-                              : (_cloudBackupMeta?.exists == true
-                                    ? 'Última copia: ${_formatIsoDate(_cloudBackupMeta!.updatedAt)} (${_cloudBackupMeta!.deviceName ?? "Equipo"})\n'
-                                          '${_cloudBackupMeta!.accountsCount} cuentas • ${_cloudBackupMeta!.transactionsCount} movs'
-                                    : (_cloudLastSyncedAt != null
-                                          ? 'Última sincronización local: ${_formatIsoDate(_cloudLastSyncedAt)}'
-                                          : 'Sin respaldo subido aún en la nube')),
+                          '${(_cloudDisplayName != null && _cloudDisplayName!.isNotEmpty) ? '@$_cloudUsername' : ''}'
+                          '${(_cloudEmail != null && _cloudEmail!.isNotEmpty) ? '${(_cloudDisplayName != null && _cloudDisplayName!.isNotEmpty) ? ' • ' : ''}$_cloudEmail' : ''}'
+                          '${((_cloudDisplayName != null && _cloudDisplayName!.isNotEmpty) || (_cloudEmail != null && _cloudEmail!.isNotEmpty)) ? '\n' : ''}'
+                          '${_loadingCloudStatus ? 'Consultando respaldo en la nube...' : (_cloudBackupMeta?.exists == true ? 'Última copia: ${_formatIsoDate(_cloudBackupMeta!.updatedAt)} (${_cloudBackupMeta!.deviceName ?? "Equipo"})\n${_cloudBackupMeta!.accountsCount} cuentas • ${_cloudBackupMeta!.transactionsCount} movs' : (_cloudLastSyncedAt != null ? 'Última sincronización local: ${_formatIsoDate(_cloudLastSyncedAt)}' : 'Sin respaldo subido aún en la nube'))}',
                           style: const TextStyle(fontSize: 12),
                         ),
                         trailing: IconButton(
@@ -979,6 +1733,16 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
                           tooltip: 'Cerrar sesión',
                           onPressed: _signOutCloud,
                         ),
+                      ),
+                      const Divider(height: 1, indent: 56),
+                      _ActionTile(
+                        icon: Icons.manage_accounts,
+                        iconColor: Colors.deepPurple,
+                        title: 'Editar perfil, contraseña y recuperación',
+                        subtitle: _cloudHasRecoveryKey
+                            ? 'Cambiar nombre, @usuario, correo o regenerar clave'
+                            : '⚠️ Recomendado: genera tu clave de recuperación',
+                        onTap: _isLoading ? null : _openManageAccountDialog,
                       ),
                       const Divider(height: 1, indent: 56),
                       _ActionTile(

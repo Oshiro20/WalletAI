@@ -74,15 +74,47 @@ class CloudOperationResult {
 class CloudAccountService {
   static const _tokenKey = 'cloud_auth_token';
   static const _usernameKey = 'cloud_auth_username';
+  static const _displayNameKey = 'cloud_auth_display_name';
+  static const _emailKey = 'cloud_auth_email';
+  static const _hasRecoveryKeyPref = 'cloud_auth_has_recovery_key';
   static const _serverUpdatedAtKey = 'cloud_auth_server_updated_at';
   static const _lastSyncedIsoKey = 'cloud_auth_last_synced_iso';
 
   static String get _baseUrl => AppConfig.apiBaseUrl;
 
+  static Future<void> _saveUserProfile(
+    SharedPreferences prefs,
+    Map<String, dynamic>? user,
+  ) async {
+    if (user == null) return;
+    final username = user['username'] as String?;
+    if (username != null && username.isNotEmpty) {
+      await prefs.setString(_usernameKey, username);
+    }
+    final displayName = user['displayName'] as String?;
+    if (displayName != null && displayName.trim().isNotEmpty) {
+      await prefs.setString(_displayNameKey, displayName.trim());
+    } else {
+      await prefs.remove(_displayNameKey);
+    }
+    final email = user['email'] as String?;
+    if (email != null && email.trim().isNotEmpty) {
+      await prefs.setString(_emailKey, email.trim());
+    } else {
+      await prefs.remove(_emailKey);
+    }
+    if (user.containsKey('hasRecoveryKey')) {
+      await prefs.setBool(_hasRecoveryKeyPref, user['hasRecoveryKey'] == true);
+    }
+  }
+
   static Future<
     ({
       String? token,
       String? username,
+      String? displayName,
+      String? email,
+      bool hasRecoveryKey,
       String? serverUpdatedAt,
       String? lastSyncedAt,
     })
@@ -92,6 +124,9 @@ class CloudAccountService {
     return (
       token: prefs.getString(_tokenKey),
       username: prefs.getString(_usernameKey),
+      displayName: prefs.getString(_displayNameKey),
+      email: prefs.getString(_emailKey),
+      hasRecoveryKey: prefs.getBool(_hasRecoveryKeyPref) ?? false,
       serverUpdatedAt: prefs.getString(_serverUpdatedAtKey),
       lastSyncedAt: prefs.getString(_lastSyncedIsoKey),
     );
@@ -101,6 +136,9 @@ class CloudAccountService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
     await prefs.remove(_usernameKey);
+    await prefs.remove(_displayNameKey);
+    await prefs.remove(_emailKey);
+    await prefs.remove(_hasRecoveryKeyPref);
     await prefs.remove(_serverUpdatedAtKey);
     await prefs.remove(_lastSyncedIsoKey);
   }
@@ -111,12 +149,16 @@ class CloudAccountService {
       String message,
       CloudBackupMetadata? latestBackup,
       bool dbNotConfigured,
+      String? recoveryKey,
+      String? username,
     })
   >
   authenticate({
     required bool isRegister,
     required String username,
     required String password,
+    String? displayName,
+    String? email,
   }) async {
     try {
       final identity = await BackupPackageService.getOrCreateDeviceIdentity();
@@ -128,6 +170,12 @@ class CloudAccountService {
             body: jsonEncode({
               'username': username.trim(),
               'password': password,
+              if (isRegister &&
+                  displayName != null &&
+                  displayName.trim().isNotEmpty)
+                'displayName': displayName.trim(),
+              if (isRegister && email != null && email.trim().isNotEmpty)
+                'email': email.trim(),
               'deviceId': identity.deviceId,
               'deviceName': identity.deviceName,
             }),
@@ -145,26 +193,28 @@ class CloudAccountService {
               'La nube aún requiere configurar PostgreSQL (DATABASE_URL) en Render.',
           latestBackup: null,
           dbNotConfigured: true,
+          recoveryKey: null,
+          username: null,
         );
       }
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_tokenKey, body['token'] as String);
-        await prefs.setString(
-          _usernameKey,
-          (body['user'] as Map<String, dynamic>)['username'] as String,
-        );
+        final userMap = body['user'] as Map<String, dynamic>?;
+        await _saveUserProfile(prefs, userMap);
         final latest = CloudBackupMetadata.fromJson(
           body['latestBackup'] as Map<String, dynamic>?,
         );
         return (
           success: true,
           message: isRegister
-              ? '✅ Cuenta creada en la nube'
+              ? '✅ Cuenta del ecosistema creada'
               : '✅ Sesión iniciada en la nube',
           latestBackup: latest,
           dbNotConfigured: false,
+          recoveryKey: body['recoveryKey'] as String?,
+          username: (userMap?['username'] as String?) ?? username.trim(),
         );
       }
 
@@ -174,6 +224,8 @@ class CloudAccountService {
             .toString(),
         latestBackup: null,
         dbNotConfigured: false,
+        recoveryKey: null,
+        username: null,
       );
     } catch (e) {
       return (
@@ -181,6 +233,275 @@ class CloudAccountService {
         message: 'Error de conexión con la nube: $e',
         latestBackup: null,
         dbNotConfigured: false,
+        recoveryKey: null,
+        username: null,
+      );
+    }
+  }
+
+  static Future<({bool success, String message})> fetchProfile() async {
+    final session = await getSessionInfo();
+    if (session.token == null || session.token!.isEmpty) {
+      return (success: false, message: 'No hay sesión activa.');
+    }
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$_baseUrl/auth/me'),
+            headers: {'Authorization': 'Bearer ${session.token}'},
+          )
+          .timeout(const Duration(seconds: 25));
+      final body = jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+      if (response.statusCode == 401) {
+        await signOut();
+        return (success: false, message: 'Sesión expirada.');
+      }
+      if (response.statusCode == 200) {
+        final prefs = await SharedPreferences.getInstance();
+        await _saveUserProfile(prefs, body['user'] as Map<String, dynamic>?);
+        return (success: true, message: 'OK');
+      }
+      return (
+        success: false,
+        message: (body['error'] ?? 'HTTP ${response.statusCode}').toString(),
+      );
+    } catch (e) {
+      return (success: false, message: 'Error consultando perfil: $e');
+    }
+  }
+
+  static Future<({bool success, String message})> updateProfile({
+    String? displayName,
+    String? email,
+    String? username,
+    String? currentPassword,
+  }) async {
+    final session = await getSessionInfo();
+    if (session.token == null || session.token!.isEmpty) {
+      return (success: false, message: 'Inicia sesión primero.');
+    }
+    try {
+      final payload = <String, dynamic>{};
+      if (displayName != null) payload['displayName'] = displayName.trim();
+      if (email != null) payload['email'] = email.trim();
+      if (username != null) payload['username'] = username.trim();
+      if (currentPassword != null && currentPassword.isNotEmpty) {
+        payload['currentPassword'] = currentPassword;
+      }
+
+      final response = await http
+          .patch(
+            Uri.parse('$_baseUrl/auth/profile'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${session.token}',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final body = jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+      if (response.statusCode == 401) {
+        await signOut();
+        return (
+          success: false,
+          message: 'Tu sesión expiró. Vuelve a iniciar sesión.',
+        );
+      }
+      if (response.statusCode == 200) {
+        final prefs = await SharedPreferences.getInstance();
+        final newToken = body['token'] as String?;
+        if (newToken != null && newToken.isNotEmpty) {
+          await prefs.setString(_tokenKey, newToken);
+        }
+        await _saveUserProfile(prefs, body['user'] as Map<String, dynamic>?);
+        return (
+          success: true,
+          message: (body['message'] ?? 'Perfil actualizado correctamente.')
+              .toString(),
+        );
+      }
+      return (
+        success: false,
+        message: (body['error'] ?? 'HTTP ${response.statusCode}').toString(),
+      );
+    } catch (e) {
+      return (success: false, message: 'Error actualizando perfil: $e');
+    }
+  }
+
+  static Future<({bool success, String message})> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final session = await getSessionInfo();
+    if (session.token == null || session.token!.isEmpty) {
+      return (success: false, message: 'Inicia sesión primero.');
+    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/change-password'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${session.token}',
+            },
+            body: jsonEncode({
+              'currentPassword': currentPassword,
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      final body = jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return (
+          success: true,
+          message: (body['message'] ?? 'Contraseña actualizada.').toString(),
+        );
+      }
+      return (
+        success: false,
+        message: (body['error'] ?? 'HTTP ${response.statusCode}').toString(),
+      );
+    } catch (e) {
+      return (success: false, message: 'Error cambiando contraseña: $e');
+    }
+  }
+
+  static Future<({bool success, String message, String? recoveryKey})>
+  regenerateRecoveryKey({required String currentPassword}) async {
+    final session = await getSessionInfo();
+    if (session.token == null || session.token!.isEmpty) {
+      return (
+        success: false,
+        message: 'Inicia sesión primero.',
+        recoveryKey: null,
+      );
+    }
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/recovery-key/regenerate'),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ${session.token}',
+            },
+            body: jsonEncode({'currentPassword': currentPassword}),
+          )
+          .timeout(const Duration(seconds: 30));
+      final body = jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(_hasRecoveryKeyPref, true);
+        return (
+          success: true,
+          message: (body['message'] ?? 'Clave de recuperación generada.')
+              .toString(),
+          recoveryKey: body['recoveryKey'] as String?,
+        );
+      }
+      return (
+        success: false,
+        message: (body['error'] ?? 'HTTP ${response.statusCode}').toString(),
+        recoveryKey: null,
+      );
+    } catch (e) {
+      return (
+        success: false,
+        message: 'Error generando clave de recuperación: $e',
+        recoveryKey: null,
+      );
+    }
+  }
+
+  static Future<({bool success, String message, String? username})>
+  recoverPassword({
+    required String identifier,
+    required String recoveryKey,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/recover-password'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'identifier': identifier.trim(),
+              'recoveryKey': recoveryKey.trim(),
+              'newPassword': newPassword,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      final body = jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return (
+          success: true,
+          message: (body['message'] ?? 'Contraseña restablecida.').toString(),
+          username: body['username'] as String?,
+        );
+      }
+      return (
+        success: false,
+        message: (body['error'] ?? 'HTTP ${response.statusCode}').toString(),
+        username: null,
+      );
+    } catch (e) {
+      return (
+        success: false,
+        message: 'Error recuperando contraseña: $e',
+        username: null,
+      );
+    }
+  }
+
+  static Future<
+    ({bool success, String message, String? username, String? displayName})
+  >
+  recoverUsername({
+    required String email,
+    String? password,
+    String? recoveryKey,
+  }) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/auth/recover-username'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'email': email.trim(),
+              if (password != null && password.isNotEmpty) 'password': password,
+              if (recoveryKey != null && recoveryKey.trim().isNotEmpty)
+                'recoveryKey': recoveryKey.trim(),
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      final body = jsonDecode(utf8.decode(response.bodyBytes))
+          as Map<String, dynamic>;
+      if (response.statusCode == 200) {
+        return (
+          success: true,
+          message: 'Tu usuario es: ${body['username']}',
+          username: body['username'] as String?,
+          displayName: body['displayName'] as String?,
+        );
+      }
+      return (
+        success: false,
+        message: (body['error'] ?? 'HTTP ${response.statusCode}').toString(),
+        username: null,
+        displayName: null,
+      );
+    } catch (e) {
+      return (
+        success: false,
+        message: 'Error recuperando usuario: $e',
+        username: null,
+        displayName: null,
       );
     }
   }
